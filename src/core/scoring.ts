@@ -1,0 +1,200 @@
+import type { BroadAbility, Item, Response, Subtest } from "./types.ts";
+import { estimateAbility } from "./irt.ts";
+
+/**
+ * SCALE CAVEAT (read before interpreting any number this module returns):
+ *
+ * theta -> standard-score conversion assumes theta is N(0,1) in the general
+ * population. That assumption holds only if item parameters were calibrated
+ * on a representative sample. They were NOT -- they are authored estimates.
+ * So these standard scores are internally consistent and correctly ordered,
+ * but their absolute level is unvalidated. Report them as provisional.
+ */
+
+export const SCALE_MEAN = 100;
+export const SCALE_SD = 15;
+
+export function thetaToStandard(theta: number): number {
+  return SCALE_MEAN + SCALE_SD * theta;
+}
+
+/** SE on the theta scale -> SE on the standard-score scale. */
+export function seToStandard(se: number): number {
+  return SCALE_SD * se;
+}
+
+export interface ScoreBand {
+  score: number;
+  se: number;
+  /** 95% confidence interval, rounded to whole score points. */
+  ci95: [number, number];
+  /** Percentile rank under the normal model, 0.1-99.9 clamped. */
+  percentile: number;
+}
+
+export function band(theta: number, se: number): ScoreBand {
+  const score = thetaToStandard(theta);
+  const seStd = seToStandard(se);
+  const lo = score - 1.96 * seStd;
+  const hi = score + 1.96 * seStd;
+  return {
+    score: Math.round(score),
+    se: Number(seStd.toFixed(2)),
+    ci95: [Math.round(lo), Math.round(hi)],
+    percentile: Number(clampPct(normalCdf(theta) * 100).toFixed(1)),
+  };
+}
+
+function clampPct(p: number): number {
+  return Math.min(Math.max(p, 0.1), 99.9);
+}
+
+/** Abramowitz & Stegun 7.1.26 error function approximation. */
+export function erf(x: number): number {
+  const sign = x < 0 ? -1 : 1;
+  const ax = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * ax);
+  const y =
+    1 -
+    ((((1.061405429 * t - 1.453152027) * t + 1.421413741) * t - 0.284496736) * t +
+      0.254829592) *
+      t *
+      Math.exp(-ax * ax);
+  return sign * y;
+}
+
+export function normalCdf(z: number): number {
+  return 0.5 * (1 + erf(z / Math.SQRT2));
+}
+
+export interface SubtestScore {
+  subtestId: string;
+  name: string;
+  broad: BroadAbility;
+  itemsAdministered: number;
+  raw: number;
+  theta: number;
+  se: number;
+  band: ScoreBand;
+}
+
+export function scoreSubtest(subtest: Subtest, responses: Response[]): SubtestScore {
+  const ids = new Set(subtest.items.map((i) => i.id));
+  const mine = responses.filter((r) => ids.has(r.itemId));
+  const est = estimateAbility(subtest.items, mine);
+  return {
+    subtestId: subtest.id,
+    name: subtest.name,
+    broad: subtest.broad,
+    itemsAdministered: mine.length,
+    raw: mine.filter((r) => r.correct).length,
+    theta: est.theta,
+    se: est.se,
+    band: band(est.theta, est.se),
+  };
+}
+
+export interface BroadScore {
+  broad: BroadAbility;
+  subtests: string[];
+  theta: number;
+  se: number;
+  band: ScoreBand;
+}
+
+/**
+ * Combine subtest thetas within a broad factor by inverse-variance weighting.
+ * A subtest measured with SE 0.30 carries ~4x the weight of one at SE 0.60,
+ * which is what you want when adaptive stopping leaves subtests at unequal
+ * precision. Simple averaging would let the noisiest subtest drag the factor.
+ */
+export function combineInverseVariance(
+  parts: { theta: number; se: number }[],
+): { theta: number; se: number } {
+  const usable = parts.filter((p) => Number.isFinite(p.se) && p.se > 1e-6);
+  if (usable.length === 0) return { theta: 0, se: 1 };
+  let sumW = 0;
+  let sumWTheta = 0;
+  for (const p of usable) {
+    const w = 1 / (p.se * p.se);
+    sumW += w;
+    sumWTheta += w * p.theta;
+  }
+  return { theta: sumWTheta / sumW, se: Math.sqrt(1 / sumW) };
+}
+
+export function scoreBroad(subtestScores: SubtestScore[]): BroadScore[] {
+  const groups = new Map<BroadAbility, SubtestScore[]>();
+  for (const s of subtestScores) {
+    const list = groups.get(s.broad) ?? [];
+    list.push(s);
+    groups.set(s.broad, list);
+  }
+  const out: BroadScore[] = [];
+  for (const [broad, list] of groups) {
+    const combined = combineInverseVariance(list);
+    out.push({
+      broad,
+      subtests: list.map((l) => l.subtestId),
+      theta: combined.theta,
+      se: combined.se,
+      band: band(combined.theta, combined.se),
+    });
+  }
+  return out;
+}
+
+export interface CompositeScore {
+  g: ScoreBand;
+  theta: number;
+  se: number;
+  broad: BroadScore[];
+  subtests: SubtestScore[];
+}
+
+/**
+ * g-loading weights per broad factor.
+ *
+ * These follow the general pattern in the CHC factor-analytic literature --
+ * Gf and Gc loading highest on g, Gv and Gwm moderate, Glr lowest. They are
+ * approximate literature-informed weights, not values estimated from this
+ * battery's own data.
+ */
+export const G_WEIGHTS: Record<BroadAbility, number> = {
+  Gf: 1.0,
+  Gc: 0.95,
+  Gq: 0.9,
+  Gwm: 0.75,
+  Gv: 0.7,
+  Glr: 0.6,
+};
+
+export function scoreComposite(
+  subtests: Subtest[],
+  responses: Response[],
+): CompositeScore {
+  const subtestScores = subtests
+    .map((s) => scoreSubtest(s, responses))
+    .filter((s) => s.itemsAdministered > 0);
+  const broad = scoreBroad(subtestScores);
+
+  let sumW = 0;
+  let sumWTheta = 0;
+  let sumW2Var = 0;
+  for (const b of broad) {
+    const w = G_WEIGHTS[b.broad];
+    sumW += w;
+    sumWTheta += w * b.theta;
+    sumW2Var += w * w * b.se * b.se;
+  }
+  const theta = sumW > 0 ? sumWTheta / sumW : 0;
+  const se = sumW > 0 ? Math.sqrt(sumW2Var) / sumW : 1;
+
+  return { g: band(theta, se), theta, se, broad, subtests: subtestScores };
+}
+
+/** Convenience for tests and debugging. */
+export function scoreItemsFlat(items: Item[], responses: Response[]) {
+  const est = estimateAbility(items, responses);
+  return { ...est, band: band(est.theta, est.se) };
+}

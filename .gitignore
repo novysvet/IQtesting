@@ -1,0 +1,6 @@
+node_modules
+dist
+*.local
+*.tsbuildinfo
+src/**/*.js
+test/*.js

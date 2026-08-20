@@ -1,0 +1,93 @@
+/*
+ * CHC Battery - design tokens
+ *
+ * Direction: cold measuring instrument. The interface is a calibrated surface
+ * the item sits on; it must never compete with the item. Signal blue is spent
+ * ONLY on the ability estimate and the staircase trace - the two things that
+ * are actual measurement. Amber appears only when time is nearly out.
+ */
+
+:root {
+  /* ---- palette ---- */
+  --paper:      #F7F8F9;  /* plate stock, faintly cool */
+  --paper-sunk: #EDEFF2;  /* recessed wells, response fields */
+  --ink:        #16181C;  /* graphite, primary text */
+  --ink-mid:    #5A6068;  /* secondary text, labels */
+  --ink-faint:  #9CA3AB;  /* captions, disabled, grid lines */
+  --rule:       #DCE0E5;  /* hairlines */
+  --signal:     #1B4DE4;  /* measurement blue - RESERVED */
+  --signal-dim: #C7D4F8;  /* signal at low emphasis */
+  --amber:      #B4700A;  /* time pressure only */
+  --figure:     #22252A;  /* SVG stroke for test figures */
+
+  /* ---- type ---- */
+  --display: "Archivo Narrow", "Roboto Condensed", "Oswald", ui-sans-serif, sans-serif;
+  --body:    "Inter", "Source Sans 3", ui-sans-serif, system-ui, sans-serif;
+  --mono:    "JetBrains Mono", "IBM Plex Mono", ui-monospace, "SF Mono", monospace;
+
+  --t-plate:   clamp(2.6rem, 6vw, 4.4rem);
+  --t-h1:      clamp(1.8rem, 3.4vw, 2.6rem);
+  --t-h2:      1.15rem;
+  --t-body:    1.0625rem;
+  --t-item:    clamp(1.15rem, 2.2vw, 1.5rem);
+  --t-small:   0.8125rem;
+  --t-micro:   0.6875rem;
+
+  /* ---- space / geometry ---- */
+  --gap-xs: 0.375rem;
+  --gap-s:  0.75rem;
+  --gap-m:  1.25rem;
+  --gap-l:  2rem;
+  --gap-xl: 3.25rem;
+  --measure: 34rem;
+  --radius: 3px;         /* instruments are not rounded */
+  --hair: 1px;
+
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: var(--t-body);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  font-feature-settings: "cv05" 1, "ss01" 1;
+}
+
+/* Every number in this interface is data: set it in mono, tabular. */
+.num {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Small caps utility label - the instrument's annotation voice. */
+.label {
+  font-family: var(--display);
+  font-size: var(--t-micro);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  font-weight: 600;
+}
+
+:focus-visible {
+  outline: 2px solid var(--signal);
+  outline-offset: 2px;
+}
+
+button { font: inherit; color: inherit; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
