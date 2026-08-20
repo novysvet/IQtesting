@@ -1,6 +1,7 @@
 import type { Item, Response, Subtest } from "./types.ts";
 import { initRouting, nextItem, applyResponse, finishRouting } from "./routing.ts";
 import type { RoutingState, StopReason } from "./routing.ts";
+import { estimateAbility } from "./irt.ts";
 import { bankVersion, newSessionId } from "./telemetry.ts";
 
 /**
@@ -21,6 +22,7 @@ export type Phase =
   | { kind: "intro" }
   | { kind: "instructions"; subtestIndex: number }
   | { kind: "item"; subtestIndex: number; item: Item; startedAt: number }
+  | { kind: "matching"; subtestIndex: number; startedAt: number }
   | { kind: "break"; subtestIndex: number }
   | { kind: "results" };
 
@@ -41,7 +43,12 @@ export interface SessionState {
   bankVersion: string;
 }
 
-export const BATTERY_BUDGET_MIN = 180;
+/**
+ * Wall-clock budget for the whole battery. Authored per-subtest budgets sum
+ * to exactly this (asserted in test/budget-simulation.test.ts); adaptive
+ * stopping means typical administrations finish well inside it.
+ */
+export const BATTERY_BUDGET_MIN = 226;
 
 export function initSession(
   subtests: Subtest[],
@@ -80,10 +87,78 @@ export function beginBattery(state: SessionState, now: number): SessionState {
 export function startSubtest(state: SessionState, index: number, now: number): SessionState {
   const subtest = state.subtests[index];
   if (!subtest) return { ...state, phase: { kind: "results" } };
+  // Whole-page matching subtests never enter the adaptive item loop.
+  if (subtest.matching) {
+    return {
+      ...state,
+      sectionStartedAt: now,
+      phase: { kind: "matching", subtestIndex: index, startedAt: now },
+    };
+  }
   const routing = state.routing[index]!;
   const { item, stopReason } = nextItem(subtest.items, routing, subtest.routing);
   if (!item) return closeSubtest(state, index, stopReason ?? "exhausted", now);
   return { ...state, sectionStartedAt: state.sectionStartedAt ?? now, phase: { kind: "item", subtestIndex: index, item, startedAt: now } };
+}
+
+/**
+ * Submit a whole-page matching subtest (1926-SAT definitions format).
+ *
+ * `assignments` is parallel to subtest.matching.bank: for each displayed
+ * word, the definition number typed next to it (0 = left blank). Item i is
+ * correct when the number typed next to ITS key word equals i + 1. Every
+ * item is recorded — blanks included, flagged timedOut when the page
+ * expired — because the format is speeded: unattempted items are scored
+ * incorrect but stay distinguishable in the export via rawAnswer null.
+ */
+export function answerMatching(
+  state: SessionState,
+  assignments: readonly number[],
+  now: number,
+  timedOut = false,
+): SessionState {
+  if (state.phase.kind !== "matching") return state;
+  const { subtestIndex, startedAt } = state.phase;
+  const subtest = state.subtests[subtestIndex]!;
+  const bank = subtest.matching?.bank ?? [];
+  if (state.startedAt !== null && now - state.startedAt >= state.budgetMs) {
+    return { ...state, phase: { kind: "results" } };
+  }
+  const latencyMs = Math.max(0, now - startedAt);
+  const responses: Response[] = subtest.items.map((item, i) => {
+    const wordIndex = bank.indexOf(item.answer as string);
+    const typed = wordIndex >= 0 ? (assignments[wordIndex] ?? 0) : 0;
+    return {
+      itemId: item.id,
+      correct: typed === i + 1,
+      latencyMs,
+      timedOut: typed === 0 ? true : timedOut,
+      subtestId: subtest.id,
+      positionInSubtest: i + 1,
+      positionInBattery: state.responses.length + i + 1,
+      rawAnswer: typed === 0 ? null : typed,
+      answerIndex: null,
+    };
+  });
+  const est = estimateAbility(subtest.items, responses);
+  let misses = 0;
+  for (const r of responses) misses = r.correct ? 0 : misses + 1;
+  const routing = [...state.routing];
+  routing[subtestIndex] = {
+    administered: [...subtest.items],
+    responses,
+    theta: est.theta,
+    se: est.se,
+    consecutiveMisses: misses,
+    done: true,
+    stopReason: null,
+  };
+  const advanced: SessionState = {
+    ...state,
+    routing,
+    responses: [...state.responses, ...responses],
+  };
+  return closeSubtest(advanced, subtestIndex, timedOut ? "time-limit" : "max-items", now);
 }
 
 /**
@@ -146,6 +221,10 @@ export function answerItem(
 export function isCorrect(item: Item, raw: number | string): boolean {
   if (typeof item.answer === "number") return raw === item.answer;
   if (typeof raw !== "string") return false;
+  // Sign integrity: normalise strips "-" (span answers like "4 9 1-7" must
+  // normalise to "4917"), so a negated typed answer is rejected here rather
+  // than silently matching an unsigned key.
+  if (raw.includes("-") && !item.answer.includes("-")) return false;
   return normalise(raw) === normalise(item.answer);
 }
 
@@ -177,12 +256,17 @@ function closeSubtest(
 
 /** Close the active section when its authored wall-clock limit expires. */
 export function expireSubtest(state: SessionState, now: number): SessionState {
+  if (state.phase.kind === "matching") {
+    // The page component auto-submits its current inputs on expiry; this is
+    // the fallback when no inputs were captured (scores all-blank honestly).
+    return answerMatching(state, [], now, true);
+  }
   if (state.phase.kind !== "item") return state;
   return closeSubtest(state, state.phase.subtestIndex, "time-limit", now);
 }
 
 export function sectionRemainingMs(state: SessionState, now: number): number | null {
-  if (state.phase.kind !== "item" || state.sectionStartedAt === null) return null;
+  if ((state.phase.kind !== "item" && state.phase.kind !== "matching") || state.sectionStartedAt === null) return null;
   const budget = state.subtests[state.phase.subtestIndex]?.budgetMin ?? 0;
   return Math.max(0, budget * 60_000 - (now - state.sectionStartedAt));
 }

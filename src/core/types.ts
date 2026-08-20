@@ -15,6 +15,7 @@ export type BroadAbility =
   | "Gv" // Visual processing
   | "Gwm" // Short-term working memory
   | "Gq" // Quantitative knowledge/reasoning
+  | "Gs" // Processing speed
   | "Glr"; // Long-term storage and retrieval
 
 /** Narrow abilities, using standard CHC codes. */
@@ -36,6 +37,8 @@ export type NarrowAbility =
   // Gq
   | "KM" // Mathematical knowledge
   | "A3" // Mathematical achievement
+  // Gs
+  | "P" // Perceptual speed (scanning; symbol/digit pairing under time pressure)
   // Glr
   | "MA" // Associative memory
   | "M6"; // Free recall memory
@@ -61,6 +64,12 @@ export interface Item {
   prompt: string;
   /** Present for multiple-choice items; absent for constructed-response. */
   options?: string[];
+  /**
+   * Multi-select choice count. When set (e.g. 3 for visual puzzles), exactly
+   * this many options must be chosen; `answer` is the chosen option indices
+   * joined ascending with commas ("0,3,4") and c is 1/C(options, multi).
+   */
+  multi?: number;
   /** Index into options, or the exact expected string for recall items. */
   answer: number | string;
   /** Optional per-item time cap in seconds (used by speeded subtests). */
@@ -99,7 +108,33 @@ export type ItemRender =
   | { kind: "fold"; steps: string[]; result: string }
   | { kind: "rotation"; target: string; candidates: string[] }
   | { kind: "span"; sequence: string[]; recall: "forward" | "backward" | "sorted" }
-  | { kind: "pairs"; pairs: [string, string][] };
+  | { kind: "pairs"; pairs: [string, string][] }
+  /**
+   * Symbol Search (Gs): decide whether either target glyph occurs in the
+   * search row. Glyphs reuse the Figure spec "shape:count:fill:rot" with
+   * count 1. Options are ["No","Yes"]; the key follows from set membership.
+   */
+  | { kind: "symsearch"; targets: string[]; search: string[] }
+  /**
+   * Character Pairing / coding (Gs): a persistent glyph->digit key shown on
+   * every item, and a glyph row to transcribe. Recall answer = the digit
+   * string in row order.
+   */
+  | { kind: "coding"; key: [string, string][]; sequence: string[] }
+  /**
+   * Block Counting (Gv): an isometric pile of unit cubes given as a
+   * row-major height map over a cols x rows footprint (grounded, so every
+   * cube is supported). Key = sum of heights; hidden cubes come from
+   * interior stacking.
+   */
+  | { kind: "blocks"; cols: number; rows: number; heights: number[] }
+  /**
+   * Visual Puzzles (Gv): a target silhouette on a cols x rows grid, plus
+   * six candidate pieces as cell-index sets in TARGET orientation (pieces
+   * translate but never rotate or mirror). Exactly three pieces tile the
+   * target; `answer` is their option indices ascending, comma-joined.
+   */
+  | { kind: "vpuzzle"; cols: number; rows: number; target: number[]; pieces: number[][] };
 
 export interface Subtest {
   id: string;
@@ -114,6 +149,16 @@ export interface Subtest {
   items: Item[];
   /** Practice items shown before scoring begins; never scored. */
   practice?: Item[];
+  /**
+   * When present, the subtest is administered as ONE whole page instead of
+   * an adaptive item run: every item is presented simultaneously (1926-SAT
+   * definitions-matching format). The examinee types a definition number
+   * next to each bank word; `bank` lists all words (keys + distractors) in
+   * display order. Each item's `answer` is its key word; a response is
+   * correct when the number typed next to that word equals the item's
+   * 1-based position in `items`. Routing config is unused for stopping.
+   */
+  matching?: { bank: string[] };
 }
 
 export interface RoutingConfig {

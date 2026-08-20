@@ -173,6 +173,7 @@ export const G_WEIGHTS: Record<BroadAbility, number> = {
   Gq: 0.9,
   Gwm: 0.75,
   Gv: 0.7,
+  Gs: 0.7,
   Glr: 0.6,
 };
 

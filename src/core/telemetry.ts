@@ -29,10 +29,10 @@ export function bankVersion(subtests: Subtest[]): string {
   const canonical = subtests
     .map((s) => {
       const items = s.items
-        .map((i) => [i.id, i.a, i.b, i.c, (i.options ?? []).join("\u0001"), i.answer].join("\u0002"))
+        .map((i) => [i.id, i.a, i.b, i.c, (i.options ?? []).join("\u0001"), i.answer, i.multi ?? ""].join("\u0002"))
         .join("\u0003");
       const routing = [s.routing.maxItems, s.routing.minItems, s.routing.ceilingMisses, s.routing.targetSe, s.routing.entryTheta].join(",");
-      return [s.id, routing, items].join("\u0004");
+      return [s.id, routing, items, (s.matching?.bank ?? []).join("\u0001")].join("\u0004");
     })
     .join("\u0005");
   return fnv1a(canonical);

@@ -234,3 +234,75 @@ All changes verified by new/extended machine-checked tests; full suite, typechec
 - Lexicon ceiling stays corpus-capped (max b 2.28); the 5-option format with c=0.2 structurally caps useful vocabulary difficulty near b ≈ 2.8 regardless.
 - Answer-position permutation remains deterministic (hash of item id); positions are now recorded per response (answerIndex) so bias is auditable from collected data; a seeded per-session permutation remains a possible future change.
 - gin-028 (Mansa Musa) and gin-024 (event horizon) are flagged for drift monitoring at the first calibration refresh; gin Euro-Anglo-centric items remain a norming-sample consideration.
+
+---
+
+## §8 2026-08-20 battery expansion (Gs + WAIS-classic coverage)
+
+### 8.1 Motivation (user feedback)
+
+Users flagged two gaps. First, the battery had **no processing-speed measurement at all**: every subtest was an un-timed power test, so the CHC broad factor Gs (narrow ability P, perceptual speed — scanning, symbol/digit pairing under time pressure) went unsampled. Second, several classic formats were missing: symbol search, coding/character pairing, arithmetic, visual puzzles, and block counting. The expansion adds all of these plus two 1926-SAT formats, artificial language and definitions — the latter **replacing precisionLexicon** (same corpus-calibrated Gc/VL construct, new whole-page matching administration) to break format monotony: twelve subtests of one-at-a-time adaptive pages was producing page-format fatigue that modality alternation could not offset. Battery grows 12 → 18 subtests and 180 → 226 budgeted minutes; Gs enters the composite at g-weight 0.7 (`G_WEIGHTS`, `src/core/scoring.ts` — level with Gv). New-format authoring contracts: docs/ITEM_SCHEMA.md.
+
+### 8.2 Honest spans for the new banks
+
+Same contract as every other bank (§1.1): a bank claims only the ceiling its FORMAT can deliver. Each span below becomes the bank's `HONEST_SPANS` entry in `test/bank-validation.test.ts` when the bank lands.
+
+| subtest | authored span | primary difficulty driver |
+|---|---|---|
+| arithmetic | −2.5..+2.6 | story-problem steps, fraction/percent/rate layering, multi-step compound items |
+| symbolSearch | −2.0..+1.2 | search-row length, near-miss confusability — scanning speed caps low by format |
+| charPairing | −1.5..+1.0 | row length, key-confusable glyph pairs; typed output, c = 0 |
+| blockCounting | −1.8..+1.9 | hidden-cube count, footprint size |
+| visualPuzzles | −1.5..+2.2 | silhouette size, confusable non-tiling piece triples |
+| artificialLanguage | −2.0..+2.4 | lexicon size, grammar-rule depth |
+| definitions | −1.44..+2.28 | corpus-derived (b = 4 − zipf of the key word), not authored ranks |
+
+### 8.3 Standing caveat
+
+Every parameter in the new banks is an **authored estimate pending response data** — the identical epistemic status the header caveat and §7.4 attach to the pre-existing banks. No §8.2 span is calibrated. Collect response data via the JSON exports (`exportSession`, `bankVersion` stamped on every record) before promoting any of these numbers to calibrated status. The Gs banks carry extra risk: authored b cannot anticipate how per-item timing interacts with difficulty once real administration timings exist.
+
+### 8.4 Machine verification, per bank
+
+The answer-key rule (a key that cannot be re-derived by machine does not ship) applies to every new bank; each ships a test re-deriving every key:
+
+- **arithmetic**: keys computed from the stated quantities by exact arithmetic, twice independently.
+- **symbolSearch**: keys re-derived from targets/search set membership.
+- **charPairing**: digit strings re-derived from the persistent key + sequence.
+- **blockCounting**: totals re-computed from the height maps; the hidden-cube visibility model (hidden iff not top of column AND +x neighbour taller AND +y neighbour taller) asserted per cube.
+- **visualPuzzles**: tiling verified by set algebra — the key triple's union equals the target exactly, and every other 3-subset of the six pieces fails to tile it.
+- **artificialLanguage**: independent translators — two implementations of the glossary + grammar — agree on every key.
+- **definitions**: every b re-derived from the stored lexicon zipfs.
+
+### 8.5 Design decision: visual puzzles are translation-only
+
+Pieces appear in TARGET orientation and are translated, never rotated or mirrored — stated explicitly in the instructions. This is a deliberate scope choice, not an oversight: rotation-free assembly lets pieces render unambiguously in target orientation, keeps the uniqueness proof pure set algebra (no orbit enumeration over rotations), and keeps the format distinct from mental rotation. The cost is some Gv ceiling; rotated variants are the identified extension lever if the bank under-delivers at the top.
+
+### 8.6 Post-authoring adversarial verification (2026-08-20, same day)
+
+An independent verifier re-derived every key of the seven new banks from item
+data alone (hand-re-solved arithmetic; re-parsed the artlang grammars from
+prompt text; exhaustively enumerated puzzle tilings and block visibility;
+ray-sampled the isometric renderer's occlusion). Findings and dispositions:
+
+- **BLOCKER, fixed**: vpz-001/vpz-002 each admitted three translation-valid
+  tilings (the bank test had verified the 20 triples only at authored
+  positions — translation-blind). Both items re-authored so the keyed triple
+  is the unique tiling under ALL in-grid translations (enforced by a new
+  exhaustive enumeration test in test/vpuzzle.test.ts); §8.4's "set algebra"
+  claim is thereby upgraded to translation-aware uniqueness.
+- **MAJOR, fixed**: symbolSearch keys alternated Yes/No with item parity and
+  blockCounting keys cycled option positions 3,1,4,0,2 with bank order —
+  both guessable from difficulty position. Fixed by a fixed presentation
+  permutation (ssr) and fixed per-item option rotations (blc), each pinned by
+  new anti-pattern regressions in the banks' tests.
+- **MINOR, fixed**: isCorrect now rejects negated typed answers for
+  unsigned keys (normalise strips "-" by design for span responses); docs
+  corrected (blockCounting is MC c=1/5; definitions span −1.44..+2.28).
+- **Noted, no action**: artlang Language A relies on structural SOV
+  disambiguation (no overt case) — verified all 18 keys remain the unique
+  defensible options; four definitions distractors are defensible-inferior
+  near-mits (serious/kind/cynical/new) — intentional format difficulty.
+
+Full-battery browser walk (18 sections, wrong-answer run): all new renderers
+mount, the matching page records per-definition responses, multi-select
+puzzle submission works, results composite includes Gs.

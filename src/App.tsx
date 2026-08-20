@@ -1,16 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BATTERY } from "./battery.ts";
-import { answerItem, beginBattery, expireSubtest, initSession, remainingMs, sectionRemainingMs, startSubtest, elapsedMs } from "./core/session.ts";
+import { answerItem, answerMatching, beginBattery, expireSubtest, initSession, remainingMs, sectionRemainingMs, startSubtest, elapsedMs, BATTERY_BUDGET_MIN } from "./core/session.ts";
 import type { Item, ItemRender, Subtest } from "./core/types.ts";
 import { scoreComposite } from "./core/scoring.ts";
 import { bankVersion, downloadJson, exportSession } from "./core/telemetry.ts";
 import { clearSession, defaultStorage, loadSession, saveSession } from "./core/persistence.ts";
 import { Figure, FoldDiagram, HoleGrid, MatrixFigure, RotationFigure, SeriesFigure, StructuredCell } from "./components/Figures.tsx";
+import { SymSearchFigure, CodingFigure } from "./components/SpeedFigures.tsx";
+import { BlocksFigure, PuzzleTargetFigure, PuzzlePieceFigure } from "./components/SpatialFigures.tsx";
+import { MatchingScreen } from "./components/Matching.tsx";
 import { spanDurationMs, spanFrame } from "./core/memoryTiming.ts";
 
 const ABILITY_NAMES: Record<string, string> = {
   Gf: "Fluid reasoning", Gc: "Comprehension–knowledge", Gv: "Visual processing",
-  Gwm: "Working memory", Gq: "Quantitative reasoning", Glr: "Long-term retrieval",
+  Gwm: "Working memory", Gq: "Quantitative reasoning", Gs: "Processing speed", Glr: "Long-term retrieval",
 };
 
 function clock(ms: number) {
@@ -99,6 +102,10 @@ function ItemVisual({ item, onMemoryReady, onMemoryInvalid }: { item: Item; onMe
   if (r.kind === "series") return <SeriesFigure figures={r.figures} />;
   if (r.kind === "fold") return <FoldDiagram steps={r.steps} punches={JSON.parse(r.result) as [number, number][]} />;
   if (r.kind === "rotation") return <div className="rotation-target"><span className="label">Target</span><RotationFigure spec={r.target} size={112} /></div>;
+  if (r.kind === "symsearch") return <SymSearchFigure targets={r.targets} search={r.search} />;
+  if (r.kind === "coding") return <CodingFigure keyPairs={r.key} sequence={r.sequence} />;
+  if (r.kind === "blocks") return <BlocksFigure cols={r.cols} rows={r.rows} heights={r.heights} />;
+  if (r.kind === "vpuzzle") return <div className="puzzle-wrap"><span className="label">Target</span><PuzzleTargetFigure cols={r.cols} rows={r.rows} cells={r.target} /></div>;
   if (r.kind === "span" || r.kind === "pairs") return <MemoryPresentation render={r} onReady={onMemoryReady} onInvalid={onMemoryInvalid} />;
   return null;
 }
@@ -113,47 +120,73 @@ function OptionContent({ item, option, index }: { item: Item; option: string; in
   if (r?.kind === "series") return <Figure spec={option} size={70} />;
   if (r?.kind === "fold") return <HoleGrid indices={JSON.parse(option) as number[]} size={72} />;
   if (r?.kind === "rotation") return <RotationFigure spec={r.candidates[index] ?? option} size={72} />;
+  if (r?.kind === "vpuzzle") return <PuzzlePieceFigure cells={r.pieces[index] ?? []} cols={r.cols} />;
   return <span>{option}</span>;
 }
 
 function ItemScreen({ item, sectionName, itemNumber, onAnswer }: { item: Item; sectionName: string; itemNumber: number; onAnswer: (value: number | string, timedOut?: boolean) => void }) {
   const [selected, setSelected] = useState<number | null>(null);
+  const [picked, setPicked] = useState<Set<number>>(() => new Set());
   const [text, setText] = useState("");
   const isMemory = item.render?.kind === "span" || item.render?.kind === "pairs";
   const [memoryReady, setMemoryReady] = useState(!isMemory);
   const promptRef = useRef<HTMLHeadingElement>(null);
   useEffect(() => { if (memoryReady) promptRef.current?.focus(); }, [item.id, memoryReady]);
+  // Speeded items cap per-item time: an unanswered item expires as an
+  // incorrect, flagged response rather than blocking the section clock.
+  useEffect(() => {
+    if (!item.timeLimitSec || !memoryReady) return;
+    const id = window.setTimeout(() => onAnswer(item.multi ? "" : -1, true), item.timeLimitSec * 1000);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item.id, memoryReady]);
   const constructed = !item.options;
+  const multi = item.multi ?? 0;
+  const toggle = (i: number) => {
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else if (next.size < multi) next.add(i);
+      return next;
+    });
+  };
   const submit = () => {
     if (constructed && text.trim()) onAnswer(text);
+    if (multi > 0) { if (picked.size === multi) onAnswer([...picked].sort((a, b) => a - b).join(",")); return; }
     if (!constructed && selected !== null) onAnswer(selected);
   };
+  const optionGridClass = "options" + (multi > 0 ? " options--six" : item.options?.length === 2 ? " options--pair" : item.options?.length === 6 ? " options--six" : "");
   return <section className="item-screen" key={item.id}>
     <div className="item-meta"><span className="label">{sectionName}</span><span className="num">Item {String(itemNumber).padStart(2, "0")}</span></div>
     <div className="item-work">
       <ItemVisual item={item} onMemoryReady={setMemoryReady} onMemoryInvalid={() => onAnswer("", true)} />
       {memoryReady && <h1 className="item-prompt" ref={promptRef} tabIndex={-1}>{item.prompt}</h1>}
-      {memoryReady && (item.options ? <div className="options" role="group" aria-label="Answer choices">
-        {item.options.map((option, i) => <button key={i} type="button" aria-pressed={selected === i}
-          className={"option " + (selected === i ? "is-selected" : "")} onClick={() => setSelected(i)}>
+      {memoryReady && (item.options ? <div className={optionGridClass} role="group" aria-label="Answer choices">
+        {item.options.map((option, i) => <button key={i} type="button"
+          aria-pressed={multi > 0 ? picked.has(i) : selected === i}
+          className={"option " + (multi > 0 ? picked.has(i) ? "is-selected" : "" : selected === i ? "is-selected" : "")}
+          onClick={() => (multi > 0 ? toggle(i) : setSelected(i))}>
           <span className="option-key num">{String.fromCharCode(65 + i)}</span><OptionContent item={item} option={option} index={i} />
         </button>)}
       </div> : <label className="recall-field"><span className="label">Your response</span><input autoFocus value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoComplete="off" spellCheck={false} /></label>)}
     </div>
-    <div className="item-actions"><span>Answer once. You cannot return to this item.</span><button className="primary" onClick={submit} disabled={!memoryReady || (constructed ? !text.trim() : selected === null)}>Record answer <span aria-hidden="true">→</span></button></div>
+    <div className="item-actions"><span>{multi > 0 ? "Select exactly " + multi + " pieces. " : ""}Answer once. You cannot return to this item.</span><button className="primary" onClick={submit} disabled={!memoryReady || (constructed ? !text.trim() : multi > 0 ? picked.size !== multi : selected === null)}>Record answer <span aria-hidden="true">→</span></button></div>
   </section>;
 }
 
 function Intro({ onBegin }: { onBegin: () => void }) {
+  const broadCount = new Set(BATTERY.map((s) => s.broad)).size;
+  const factors = [...new Set(BATTERY.map((s) => s.broad))].join(" · ").replace(/ · (G[^ ·]+)$/, "\n$1");
+  const maxClock = clock(BATTERY_BUDGET_MIN * 60_000);
   return <section className="intro">
     <div className="intro-index label">FORM CHC–A · BANK {bankVersion(BATTERY).slice(0, 8).toUpperCase()} · ADAPTIVE ADMINISTRATION</div>
     <div className="intro-grid">
-      <div><h1><span>Measure</span><br />the structure<br />of reasoning.</h1><p className="lede">A broad cognitive battery built around the Cattell–Horn–Carroll model. Twelve adaptive sections measure six broad abilities without mistaking speed for intelligence.</p><button className="primary primary-large" onClick={onBegin}>Begin administration <span aria-hidden="true">→</span></button></div>
+      <div><h1><span>Measure</span><br />the structure<br />of reasoning.</h1><p className="lede">A broad cognitive battery built around the Cattell–Horn–Carroll model. {BATTERY.length} sections measure {broadCount} broad abilities without mistaking speed for intelligence — while measuring speed on its own terms.</p><button className="primary primary-large" onClick={onBegin}>Begin administration <span aria-hidden="true">→</span></button></div>
       <dl className="specimen">
-        <div><dt>Maximum time</dt><dd className="num">180:00</dd></div>
-        <div><dt>Sections</dt><dd className="num">12</dd></div>
+        <div><dt>Maximum time</dt><dd className="num">{maxClock}</dd></div>
+        <div><dt>Sections</dt><dd className="num">{BATTERY.length}</dd></div>
         <div><dt>Item pool</dt><dd className="num">{POOL_SIZE}</dd></div>
-        <div><dt>Factors</dt><dd>Gf · Gc · Gv<br />Gwm · Gq · Glr</dd></div>
+        <div><dt>Factors</dt><dd>{factors}</dd></div>
       </dl>
     </div>
     <div className="intro-note"><span className="label">Before you begin</span><p>Use a quiet room and a full-size screen. Do not use a calculator, dictionary, search engine, or outside help. The route adapts after every answer; seeing fewer questions is expected. Several spatial sections are inherently visual and this form does not provide a psychometrically equivalent nonvisual version.</p></div>
@@ -164,7 +197,9 @@ function Instructions({ subtest, index, onStart }: { subtest: Subtest; index: nu
   return <section className="interstitial">
     <div className="section-code num">{String(index + 1).padStart(2, "0")}</div>
     <div className="interstitial-copy"><span className="label">{subtest.broad} · {ABILITY_NAMES[subtest.broad]}</span><h1>{subtest.name}</h1><p>{subtest.instructions}</p>
-      <div className="instruction-rule"><span className="num">≤ {subtest.routing.maxItems}</span><span>Adaptive item maximum</span><span className="num">{subtest.budgetMin}:00</span><span>Enforced section limit</span></div>
+      <div className="instruction-rule">{subtest.matching
+        ? <><span className="num">{subtest.items.length}</span><span>Definitions, one page</span><span className="num">{subtest.budgetMin}:00</span><span>Enforced section limit</span></>
+        : <><span className="num">≤ {subtest.routing.maxItems}</span><span>Adaptive item maximum</span><span className="num">{subtest.budgetMin}:00</span><span>Enforced section limit</span></>}</div>
       <button className="primary" onClick={onStart}>Start section <span aria-hidden="true">→</span></button>
     </div>
   </section>;
@@ -185,7 +220,7 @@ function Results({ session, onReset }: { session: ReturnType<typeof initSession>
   return <section className="results">
     <div className="result-hero"><div><span className="label">{incomplete ? "Incomplete provisional composite" : "Provisional composite"}</span><div className="score num">{score.g.score}</div><p className="num">95% CI {score.g.ci95[0]}–{score.g.ci95[1]} · percentile {score.g.percentile}</p></div><div className="result-copy"><h1>Cognitive profile</h1><p>{session.responses.length} items administered across {score.subtests.length} attempted sections.{incomplete ? " The battery ended before all sections were completed." : ""}</p></div></div>
     <div className="factor-grid">{score.broad.map((b) => <article key={b.broad}><div><span className="factor-code">{b.broad}</span><span>{ABILITY_NAMES[b.broad]}</span></div><strong className="num">{b.band.score}</strong><div className="factor-track"><i style={{ width: Math.max(2, Math.min(100, ((b.band.score - 55) / 90) * 100)) + "%" }} /></div><small className="num">CI {b.band.ci95[0]}–{b.band.ci95[1]} · P{b.band.percentile}</small></article>)}</div>
-    {incomplete && <div className="incomplete-warning"><span className="label">Incomplete administration</span><p>The 180-minute limit was reached before the battery finished. The composite omits unadministered sections and must not be compared with a complete administration.</p></div>}
+    {incomplete && <div className="incomplete-warning"><span className="label">Incomplete administration</span><p>The {Math.round(session.budgetMs / 60_000)}-minute limit was reached before the battery finished. The composite omits unadministered sections and must not be compared with a complete administration.</p></div>}
     {timeLimited > 0 && <div className="incomplete-warning"><span className="label">Section time limits reached</span><p>{timeLimited} section{timeLimited === 1 ? "" : "s"} ended at the authored limit. Unanswered items were omitted rather than scored as incorrect.</p></div>}
     <div className="calibration"><span className="label">Calibration status · read before interpreting</span><p>Item parameters are authored estimates, not values fitted to a representative norming sample. Scores are internally ordered but absolute IQ-equivalent numbers and percentiles are provisional. Precision thins at the extremes of the scale: estimates beyond roughly the 99th percentile rest on few items and shrink toward the population mean. Do not use this result for diagnosis, placement, or high-stakes decisions.</p></div>
     <div className="data-export"><span className="label">Response data</span><p>A machine-readable record of this administration (every item, your raw answer, timings, and the routing decisions) can be downloaded for calibration research.</p><button className="secondary" onClick={exportData}>Download response data (JSON)</button></div>
@@ -244,6 +279,7 @@ export function App() {
       {phase.kind === "intro" && <Intro onBegin={() => setSession((s) => beginBattery(s, Date.now()))} />}
       {phase.kind === "instructions" && <Instructions subtest={session.subtests[phase.subtestIndex]!} index={phase.subtestIndex} onStart={() => setSession((s) => startSubtest(s, phase.subtestIndex, Date.now()))} />}
       {phase.kind === "item" && <ItemScreen key={phase.item.id} item={phase.item} sectionName={session.subtests[phase.subtestIndex]!.name} itemNumber={session.routing[phase.subtestIndex]!.administered.length + 1} onAnswer={(value, timedOut) => setSession((s) => answerItem(s, value, Date.now(), timedOut))} />}
+      {phase.kind === "matching" && <MatchingScreen subtest={session.subtests[phase.subtestIndex]!} remainingMs={sectionRemainingMs(session, now) ?? 0} onAnswer={(assignments, timedOut) => setSession((s) => answerMatching(s, assignments, Date.now(), timedOut))} />}
       {phase.kind === "break" && <BreakScreen completed={phase.subtestIndex + 1} onContinue={() => setSession((s) => ({ ...s, phase: { kind: "instructions", subtestIndex: phase.subtestIndex + 1 } }))} />}
       {phase.kind === "results" && <Results session={session} onReset={() => { const storage = defaultStorage(); if (storage) clearSession(storage); setSession(initSession(BATTERY)); }} />}
     </div>

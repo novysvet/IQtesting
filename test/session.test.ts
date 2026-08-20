@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   initSession, beginBattery, startSubtest, answerItem, expireSubtest, isCorrect,
-  normalise, isBreakPoint, remainingMs, sectionRemainingMs, totalBudgetMin,
+  normalise, isBreakPoint, remainingMs, sectionRemainingMs, totalBudgetMin, BATTERY_BUDGET_MIN,
 } from "../src/core/session.ts";
 import type { Item, Subtest } from "../src/core/types.ts";
 
@@ -107,14 +107,14 @@ test("timed-out responses are flagged and scored incorrect", () => {
 test("exhausting the battery budget forces results", () => {
   let s = beginBattery(initSession([subA, subB]), 0);
   s = startSubtest(s, 0, 0);
-  s = answerItem(s, 2, 181 * 60000);
+  s = answerItem(s, 2, (BATTERY_BUDGET_MIN + 1) * 60000);
   assert.equal(s.phase.kind, "results");
 });
 
 test("remainingMs never goes negative", () => {
   const s = beginBattery(initSession([subA]), 0);
   assert.equal(remainingMs(s, 999 * 60000), 0);
-  assert.equal(remainingMs(s, 0), 180 * 60000);
+  assert.equal(remainingMs(s, 0), BATTERY_BUDGET_MIN * 60000);
 });
 
 test("break points fall every third subtest but never last", () => {
