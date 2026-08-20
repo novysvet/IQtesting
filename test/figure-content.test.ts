@@ -52,21 +52,36 @@ test("revised figure series have demonstrated cycles and representable keys", ()
 
 test("visual-rule options do not use rotationally symmetric shapes to encode rotation", () => {
   const symmetricAt90 = new Set(["cir", "sq", "dia", "cross"]);
+  const entries: { shape: string; rot: number; owner: string }[] = [];
+  const fromSpec = (spec: string, owner: string) => {
+    const bits = spec.split(":");
+    entries.push({ shape: bits[0]!, rot: Number(bits[3]) || 0, owner });
+  };
   for (const item of [...matrixReasoning.items, ...figureSeries.items]) {
-    const renderSpecs = item.render?.kind === "matrix"
-      ? item.render.cells.filter((spec): spec is string => spec !== null)
-      : item.render?.kind === "series" ? item.render.figures : [];
-    const byShape = new Map<string, Set<number>>();
-    for (const spec of [...renderSpecs, ...(item.options ?? [])]) {
-      const bits = spec.split(":");
-      const shape = bits[0]!;
-      const rotations = byShape.get(shape) ?? new Set<number>();
-      rotations.add(Number(bits[3]));
-      byShape.set(shape, rotations);
+    const render = item.render;
+    if (render?.kind === "matrix") {
+      for (const spec of render.cells) if (spec !== null && typeof spec === "string") fromSpec(spec, item.id);
+      if (render.optionCells) {
+        // Structured items: options are structured cells; the option strings
+        // are never-rendered placeholders.
+        for (const option of render.optionCells) {
+          for (const mark of option.marks) entries.push({ shape: mark.shape, rot: mark.rot, owner: item.id });
+        }
+      } else {
+        for (const spec of item.options ?? []) fromSpec(spec, item.id);
+      }
+    } else if (render?.kind === "series") {
+      for (const spec of [...render.figures, ...(item.options ?? [])]) fromSpec(spec, item.id);
     }
-    for (const [shape, rotations] of byShape) {
-      assert.ok(!symmetricAt90.has(shape) || rotations.size <= 1, item.id + " uses rotation-invariant " + shape + " to encode rotation");
-    }
+  }
+  const byShape = new Map<string, Set<number>>();
+  for (const entry of entries) {
+    const rotations = byShape.get(entry.shape) ?? new Set<number>();
+    rotations.add(entry.rot);
+    byShape.set(entry.shape, rotations);
+  }
+  for (const [shape, rotations] of byShape) {
+    assert.ok(!symmetricAt90.has(shape) || rotations.size <= 1, "items use rotation-invariant " + shape + " to encode rotation");
   }
 });
 

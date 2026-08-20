@@ -1,5 +1,15 @@
-import { memo } from "react";
-import { FIGURE_CELL, FIGURE_INSET, MAX_FIGURE_COUNT, ROTATION_PATHS, figureLayout } from "./figureGeometry.ts";
+import { memo, useId } from "react";
+import type { CellSpecV2, FigureSpec, MatrixMark, MatrixPosition } from "../core/types.ts";
+import {
+  FIGURE_CELL,
+  FIGURE_INSET,
+  MAX_FIGURE_COUNT,
+  OVERLAY_OFFSETS,
+  POSITION_CENTER,
+  ROTATION_PATHS,
+  figureLayout,
+  validateCellSpec,
+} from "./figureGeometry.ts";
 
 /**
  * Figure rendering for non-verbal items.
@@ -88,15 +98,68 @@ export const Figure = memo(function Figure({ spec, size = 74 }: { spec: string; 
   );
 });
 
-/** 3x3 matrix with a marked empty cell. */
-export function MatrixFigure({ cells }: { cells: (string | null)[] }) {
+/**
+ * Structured (v2) matrix cell: up to 8 marks independently placed on a
+ * 3x3 interior grid. Mark shapes reuse the 24x24 unit geometry, drawn at
+ * 0.8 scale so neighbouring marks never collide.
+ */
+export function StructuredCell({ spec, size = 62 }: { spec: CellSpecV2; size?: number }) {
+  validateCellSpec(spec);
+  // Unique per instance: several structured cells share one page, and their
+  // pattern ids must not collide in the document.
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, "");
+  const groups = new Map<MatrixPosition, MatrixMark[]>();
+  for (const mark of spec.marks) {
+    const list = groups.get(mark.pos) ?? [];
+    list.push(mark);
+    groups.set(mark.pos, list);
+  }
+  const scale = 0.8;
+  return (
+    <svg viewBox="0 0 100 100" width={size} height={size} role="img" aria-label="matrix cell">
+      <defs>
+        {spec.marks.map((mark, i) => {
+          if (mark.fill !== "half" && mark.fill !== "hatch") return null;
+          return (
+            <pattern key={i} id={mark.fill + "-" + uid + i} width="4" height="4" patternUnits="userSpaceOnUse"
+              patternTransform={mark.fill === "hatch" ? "rotate(45)" : undefined}>
+              {mark.fill === "half"
+                ? <rect width="2" height="4" fill="var(--figure)" />
+                : <line x1="0" y1="0" x2="0" y2="3" stroke="var(--figure)" strokeWidth="1.1" />}
+            </pattern>
+          );
+        })}
+      </defs>
+      {[...groups.entries()].flatMap(([pos, marksAtPos]) => {
+        const [cx, cy] = POSITION_CENTER[pos];
+        // 4+ marks on one position reuse the 3-slot overlay layout.
+        const offsets = OVERLAY_OFFSETS[marksAtPos.length] ?? OVERLAY_OFFSETS[3]!;
+        return marksAtPos.map((mark, i) => {
+          const [dx, dy] = offsets[i % offsets.length]!;
+          const geom = shapePath(mark.shape);
+          const props = fillProps(mark.fill, uid + spec.marks.indexOf(mark));
+          const transform =
+            "translate(" + (cx + dx - 12 * scale) + " " + (cy + dy - 12 * scale) + ") scale(" + scale + ") rotate(" + mark.rot + " 12 12)";
+          return geom.el === "circle"
+            ? <circle key={pos + i} cx={12} cy={12} r={geom.r} strokeWidth={STROKE} {...props} transform={transform} />
+            : <polygon key={pos + i} points={geom.pts} strokeWidth={STROKE} strokeLinejoin="round" {...props} transform={transform} />;
+        });
+      })}
+    </svg>
+  );
+}
+
+/** 3x3 matrix with a marked empty cell. Cells are legacy specs or structured cells. */
+export function MatrixFigure({ cells }: { cells: (FigureSpec | null)[] }) {
   return (
     <div className="mx-grid" role="group" aria-label="visual matrix stimulus">
       {cells.map((cell, i) => (
         <div key={i} className={cell === null ? "mx-cell mx-cell--empty" : "mx-cell"}>
           {cell === null
             ? <span className="mx-qmark" aria-label="missing cell">?</span>
-            : <Figure spec={cell} size={62} />}
+            : typeof cell === "string"
+              ? <Figure spec={cell} size={62} />
+              : <StructuredCell spec={cell} size={62} />}
         </div>
       ))}
     </div>

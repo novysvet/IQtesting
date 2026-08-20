@@ -69,10 +69,32 @@ export interface Item {
   render?: ItemRender;
 }
 
+/** Nine named placements inside a structured matrix cell. */
+export type MatrixPosition = "NW" | "N" | "NE" | "W" | "C" | "E" | "SW" | "S" | "SE";
+export type MatrixShape = "tri" | "sq" | "cir" | "dia" | "hex" | "arw" | "cross" | "star";
+export type MatrixFill = "none" | "half" | "solid" | "hatch";
+
+export interface MatrixMark {
+  shape: MatrixShape;
+  fill: MatrixFill;
+  /** Clockwise degrees; any finite integer. */
+  rot: number;
+  pos: MatrixPosition;
+}
+
+/** A structured cell: several independently placed marks in one cell. */
+export interface CellSpecV2 {
+  v: 2;
+  marks: MatrixMark[];
+}
+
+/** Legacy homogeneous spec string or a structured cell. */
+export type FigureSpec = string | CellSpecV2;
+
 /** Structured payloads for visually-rendered items. */
 export type ItemRender =
   | { kind: "text" }
-  | { kind: "matrix"; cells: (string | null)[]; rows: number; cols: number }
+  | { kind: "matrix"; cells: (FigureSpec | null)[]; rows: number; cols: number; optionCells?: CellSpecV2[] }
   | { kind: "series"; figures: string[] }
   | { kind: "fold"; steps: string[]; result: string }
   | { kind: "rotation"; target: string; candidates: string[] }

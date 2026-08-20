@@ -47,3 +47,24 @@ Ambiguous items are worse than easy items. Cut anything you cannot defend.
 - No items whose answer depends on knowing a specific brand, sport, or country.
 - Vocabulary items: the target word carries the difficulty, and the options
   must all be real words of comparable length and register.
+
+## Corpus-calibrated difficulty (Precision Lexicon)
+
+`precisionLexicon` in `src/items/gc.ts` derives `b` from corpus data instead
+of authored ranks: `b_theta = 4 - zipf`, where zipf is the wordfreq ('en')
+frequency (log10 occurrences per billion words) of the keyed word — i.e.
+IQ-unit difficulty `bIQ = 160 - 15*zipf`. Remeasure words with
+`tools/lexicon_zipf.py` (candidates in `tools/lexicon_candidates.csv`).
+
+Two additional contracts, enforced by `test/lexicon.test.ts` from the zipf
+vectors stored in the bank:
+
+- Register bands: all five options of an item stay within a zipf width cap,
+  and the key may not be a rarity outlier (no "pick the rarest word" exploit).
+  The top band is allowed a wider band because the keyed word is
+  definitionally the rarest in its neighborhood there.
+- All option words must be attested (zipf > 0).
+
+Corpus-calibrated banks are exempt from the authored `-2..+2.5` span rule:
+the definable vocabulary pool sets the achievable span (about `-1.4..+2.3`),
+and the automated span test asserts the calibrated span instead.

@@ -3,7 +3,8 @@ import { BATTERY } from "./battery.ts";
 import { answerItem, beginBattery, expireSubtest, initSession, remainingMs, sectionRemainingMs, startSubtest } from "./core/session.ts";
 import type { Item, ItemRender, Subtest } from "./core/types.ts";
 import { scoreComposite } from "./core/scoring.ts";
-import { Figure, FoldDiagram, HoleGrid, MatrixFigure, RotationFigure, SeriesFigure } from "./components/Figures.tsx";
+import { Figure, FoldDiagram, HoleGrid, MatrixFigure, RotationFigure, SeriesFigure, StructuredCell } from "./components/Figures.tsx";
+import { spanDurationMs, spanFrame } from "./core/memoryTiming.ts";
 
 const ABILITY_NAMES: Record<string, string> = {
   Gf: "Fluid reasoning", Gc: "Comprehension–knowledge", Gv: "Visual processing",
@@ -54,34 +55,38 @@ function InstrumentHeader({ session, now }: { session: ReturnType<typeof initSes
 }
 
 function MemoryPresentation({ render, onReady, onInvalid }: { render: Extract<ItemRender, { kind: "span" | "pairs" }>; onReady: (ready: boolean) => void; onInvalid: () => void }) {
-  const [step, setStep] = useState(0);
+  const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const started = performance.now();
-    const duration = render.kind === "pairs" ? Math.max(4500, render.pairs.length * 1100) : render.sequence.length * 800;
+    const duration = render.kind === "pairs" ? Math.max(6000, render.pairs.length * 1400) : spanDurationMs(render.sequence.length);
     let finished = false;
-    setStep(0);
+    setElapsed(0);
     onReady(false);
     const update = () => {
       if (finished) return;
-      const elapsed = performance.now() - started;
-      setStep(render.kind === "pairs" ? (elapsed >= duration ? 1 : 0) : Math.min(render.sequence.length, Math.floor(elapsed / 800)));
-      if (elapsed >= duration) { finished = true; onReady(true); }
+      const nextElapsed = performance.now() - started;
+      setElapsed(nextElapsed);
+      if (nextElapsed >= duration) { finished = true; onReady(true); }
     };
     const visibility = () => {
       if (document.hidden && !finished) { finished = true; onInvalid(); }
     };
-    const id = window.setInterval(update, 50);
+    const id = window.setInterval(update, 40);
     document.addEventListener("visibilitychange", visibility);
     update();
     return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", visibility); };
   // The item render object is stable; timer-driven parent renders must not restart exposure.
   }, [render]);
   if (render.kind === "pairs") {
-    return step === 0
+    const duration = Math.max(6000, render.pairs.length * 1400);
+    return elapsed < duration
       ? <div className="pair-study">{render.pairs.map(([a, b]) => <div key={a}><strong>{a}</strong><span>{b}</span></div>)}</div>
       : <div className="memory-closed"><span>STUDY INTERVAL COMPLETE</span>Enter the requested associate.</div>;
   }
-  if (step < render.sequence.length) return <div className="span-stage num">{render.sequence[step]}</div>;
+  const frame = spanFrame(elapsed, render.sequence.length);
+  if (frame.kind === "ready") return <div className="span-stage span-ready"><span>READY</span><small>Watch the center. The first character will appear shortly.</small></div>;
+  if (frame.kind === "symbol") return <div className="span-stage num">{render.sequence[frame.index]}</div>;
+  if (frame.kind === "gap") return <div className="span-stage span-gap" aria-label="brief interval">•</div>;
   return <div className="memory-closed"><span>SEQUENCE COMPLETE</span>{render.recall === "backward" ? "Enter in reverse order." : render.recall === "sorted" ? "Enter numbers first, then letters." : "Enter in the same order."}</div>;
 }
 
@@ -98,13 +103,18 @@ function ItemVisual({ item, onMemoryReady, onMemoryInvalid }: { item: Item; onMe
 
 function OptionContent({ item, option, index }: { item: Item; option: string; index: number }) {
   const r = item.render;
-  if (r?.kind === "matrix" || r?.kind === "series") return <Figure spec={option} size={70} />;
+  if (r?.kind === "matrix") {
+    const structured = r.optionCells?.[index];
+    if (structured) return <StructuredCell spec={structured} size={70} />;
+    return <Figure spec={option} size={70} />;
+  }
+  if (r?.kind === "series") return <Figure spec={option} size={70} />;
   if (r?.kind === "fold") return <HoleGrid indices={JSON.parse(option) as number[]} size={72} />;
   if (r?.kind === "rotation") return <RotationFigure spec={r.candidates[index] ?? option} size={72} />;
   return <span>{option}</span>;
 }
 
-function ItemScreen({ item, onAnswer }: { item: Item; onAnswer: (value: number | string, timedOut?: boolean) => void }) {
+function ItemScreen({ item, sectionName, itemNumber, onAnswer }: { item: Item; sectionName: string; itemNumber: number; onAnswer: (value: number | string, timedOut?: boolean) => void }) {
   const [selected, setSelected] = useState<number | null>(null);
   const [text, setText] = useState("");
   const isMemory = item.render?.kind === "span" || item.render?.kind === "pairs";
@@ -117,7 +127,7 @@ function ItemScreen({ item, onAnswer }: { item: Item; onAnswer: (value: number |
     if (!constructed && selected !== null) onAnswer(selected);
   };
   return <section className="item-screen" key={item.id}>
-    <div className="item-meta"><span className="label">Scored item</span><span className="num">{item.id.toUpperCase()}</span></div>
+    <div className="item-meta"><span className="label">{sectionName}</span><span className="num">Item {String(itemNumber).padStart(2, "0")}</span></div>
     <div className="item-work">
       <ItemVisual item={item} onMemoryReady={setMemoryReady} onMemoryInvalid={() => onAnswer("", true)} />
       {memoryReady && <h1 className="item-prompt" ref={promptRef} tabIndex={-1}>{item.prompt}</h1>}
@@ -140,7 +150,7 @@ function Intro({ onBegin }: { onBegin: () => void }) {
       <dl className="specimen">
         <div><dt>Maximum time</dt><dd className="num">180:00</dd></div>
         <div><dt>Sections</dt><dd className="num">12</dd></div>
-        <div><dt>Item pool</dt><dd className="num">247</dd></div>
+        <div><dt>Item pool</dt><dd className="num">257</dd></div>
         <div><dt>Factors</dt><dd>Gf · Gc · Gv<br />Gwm · Gq · Glr</dd></div>
       </dl>
     </div>
@@ -197,10 +207,10 @@ export function App() {
     <div className="viewport" ref={viewportRef} tabIndex={-1}>
       {phase.kind === "intro" && <Intro onBegin={() => setSession((s) => beginBattery(s, Date.now()))} />}
       {phase.kind === "instructions" && <Instructions subtest={session.subtests[phase.subtestIndex]!} index={phase.subtestIndex} onStart={() => setSession((s) => startSubtest(s, phase.subtestIndex, Date.now()))} />}
-      {phase.kind === "item" && <ItemScreen key={phase.item.id} item={phase.item} onAnswer={(value, timedOut) => setSession((s) => answerItem(s, value, Date.now(), timedOut))} />}
+      {phase.kind === "item" && <ItemScreen key={phase.item.id} item={phase.item} sectionName={session.subtests[phase.subtestIndex]!.name} itemNumber={session.routing[phase.subtestIndex]!.administered.length + 1} onAnswer={(value, timedOut) => setSession((s) => answerItem(s, value, Date.now(), timedOut))} />}
       {phase.kind === "break" && <BreakScreen completed={phase.subtestIndex + 1} onContinue={() => setSession((s) => ({ ...s, phase: { kind: "instructions", subtestIndex: phase.subtestIndex + 1 } }))} />}
       {phase.kind === "results" && <Results session={session} onReset={() => setSession(initSession(BATTERY))} />}
     </div>
-    {active && <Staircase session={session} />}
+    {session.phase.kind === "results" && <Staircase session={session} />}
   </main>;
 }

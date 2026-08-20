@@ -2,9 +2,12 @@ import type { Item, NarrowAbility, Subtest } from "../core/types.ts";
 
 /**
  * Gc bank: lexical knowledge, verbal relations, and general information.
- * Parameters are authored estimates, not calibrated values. Answer positions,
- * difficulty spacing, c-values, and identifiers are derived here rather than
- * hand-copied into every item.
+ *
+ * Calibration status: verbalAnalogies and generalInformation carry authored
+ * estimate parameters. precisionLexicon difficulties are derived from corpus
+ * data (see the lexicon block below); they are better grounded but still not
+ * fitted to a respondent sample. Answer positions, c-values, and identifiers
+ * are derived here rather than hand-copied into every item.
  */
 type Datum = readonly [prompt: string, correct: string, distractors: readonly [string, string, string, string]];
 
@@ -13,7 +16,6 @@ type Datum = readonly [prompt: string, correct: string, distractors: readonly [s
  * stable item ids. These are routing heuristics, not empirical calibrations.
  */
 const DIFFICULTY_ORDER: Record<string, readonly number[]> = {
-  ant: [1, 2, 3, 5, 6, 7, 8, 10, 13, 15, 16, 17, 18, 19, 20, 21, 22, 23, 27, 32, 34, 36, 39, 4, 9, 11, 12, 14, 24, 25, 26, 28, 29, 30, 31, 33, 35, 37, 38, 40],
   van: [1, 2, 3, 4, 7, 8, 9, 10, 11, 12, 14, 15, 17, 20, 5, 6, 16, 18, 19, 21, 23, 24, 25, 26, 27, 29, 31, 32, 33, 34, 35, 36, 13, 22, 28, 30],
   gin: [1, 2, 3, 4, 5, 6, 7, 8, 9, 12, 16, 24, 11, 10, 13, 14, 15, 17, 18, 19, 20, 25, 26, 27, 28, 29, 30, 21, 22, 23],
 };
@@ -49,47 +51,108 @@ function buildItems(prefix: string, subtest: string, narrow: NarrowAbility, data
   });
 }
 
-const antonymData: readonly Datum[] = [
-  ["Choose the word most nearly opposite in meaning to ABUNDANT.", "scarce", ["ample", "plentiful", "copious", "sufficient"]],
-  ["Choose the word most nearly opposite in meaning to BENEVOLENT.", "malevolent", ["generous", "charitable", "benign", "tolerant"]],
-  ["Choose the word most nearly opposite in meaning to CANDID.", "evasive", ["frank", "honest", "open", "direct"]],
-  ["Choose the word most nearly opposite in meaning to AMPLIFY.", "attenuate", ["enlarge", "intensify", "augment", "magnify"]],
-  ["Choose the word most nearly opposite in meaning to DILIGENT.", "indolent", ["careful", "earnest", "assiduous", "methodical"]],
-  ["Choose the word most nearly opposite in meaning to EPHEMERAL.", "enduring", ["fleeting", "brief", "transient", "momentary"]],
-  ["Choose the word most nearly opposite in meaning to GREGARIOUS.", "reclusive", ["sociable", "affable", "convivial", "outgoing"]],
-  ["Choose the word most nearly opposite in meaning to IMMUTABLE.", "changeable", ["fixed", "permanent", "constant", "invariable"]],
-  ["Choose the word most nearly opposite in meaning to LACONIC.", "loquacious", ["terse", "reserved", "brief", "pithy"]],
-  ["Choose the word most nearly opposite in meaning to MAGNANIMOUS.", "petty", ["noble", "forgiving", "generous", "unselfish"]],
-  ["Choose the word most nearly opposite in meaning to OBDURATE.", "yielding", ["stubborn", "adamant", "hardened", "unyielding"]],
-  ["Choose the word most nearly opposite in meaning to PELLUCID.", "opaque", ["clear", "limpid", "lucid", "transparent"]],
-  ["Choose the word most nearly opposite in meaning to QUIESCENT.", "active", ["dormant", "still", "resting", "inactive"]],
-  ["Choose the word most nearly opposite in meaning to RECONDITE.", "familiar", ["abstruse", "obscure", "arcane", "esoteric"]],
-  ["Choose the word most nearly opposite in meaning to SAGACIOUS.", "foolish", ["wise", "prudent", "shrewd", "discerning"]],
-  ["Choose the word most nearly opposite in meaning to TACITURN.", "talkative", ["silent", "reticent", "reserved", "uncommunicative"]],
-  ["Choose the word most nearly opposite in meaning to UBIQUITOUS.", "localized", ["pervasive", "universal", "omnipresent", "widespread"]],
-  ["Choose the word most nearly opposite in meaning to VACILLATE.", "resolve", ["waver", "hesitate", "fluctuate", "dither"]],
-  ["Choose the word most nearly opposite in meaning to WINSOME.", "repellent", ["charming", "engaging", "appealing", "attractive"]],
-  ["Choose the word most nearly opposite in meaning to ZEALOUS.", "apathetic", ["fervent", "ardent", "eager", "devoted"]],
-  ["Choose the word most nearly opposite in meaning to ABSTEMIOUS.", "gluttonous", ["temperate", "moderate", "sparing", "restrained"]],
-  ["Choose the word most nearly opposite in meaning to ACERBIC.", "mild", ["caustic", "sharp", "biting", "tart"]],
-  ["Choose the word most nearly opposite in meaning to ANODYNE.", "provocative", ["soothing", "bland", "innocuous", "palliative"]],
-  ["Choose the word most nearly opposite in meaning to APODICTIC.", "doubtful", ["certain", "conclusive", "incontrovertible", "demonstrable"]],
-  ["Choose the word most nearly opposite in meaning to CALIGINOUS.", "luminous", ["murky", "dark", "misty", "tenebrous"]],
-  ["Choose the word most nearly opposite in meaning to CONTUMACIOUS.", "compliant", ["rebellious", "insubordinate", "defiant", "obstinate"]],
-  ["Choose the word most nearly opposite in meaning to DELETERIOUS.", "beneficial", ["harmful", "injurious", "noxious", "damaging"]],
-  ["Choose the word most nearly opposite in meaning to DESULTORY.", "systematic", ["disconnected", "aimless", "fitful", "rambling"]],
-  ["Choose the word most nearly opposite in meaning to DIAPHANOUS.", "dense", ["gauzy", "sheer", "translucent", "filmy"]],
-  ["Choose the word most nearly opposite in meaning to EREMITIC.", "sociable", ["solitary", "secluded", "anchoritic", "withdrawn"]],
-  ["Choose the word most nearly opposite in meaning to FULIGINOUS, meaning soot-blackened or dusky.", "bright", ["sooty", "smoky", "dusky", "grimy"]],
-  ["Choose the word most nearly opposite in meaning to INIMICAL.", "favorable", ["hostile", "adverse", "unfriendly", "harmful"]],
-  ["Choose the word most nearly opposite in meaning to JEJUNE, as used of an argument lacking intellectual substance.", "substantive", ["insipid", "superficial", "meager", "naive"]],
-  ["Choose the word most nearly opposite in meaning to MERETRICIOUS.", "genuine", ["gaudy", "specious", "tawdry", "flashy"]],
-  ["Choose the word most nearly opposite in meaning to NUGATORY.", "consequential", ["trifling", "futile", "worthless", "ineffectual"]],
-  ["Choose the word most nearly opposite in meaning to PROLIX.", "terse", ["lengthy", "diffuse", "wordy", "discursive"]],
-  ["Choose the word most nearly opposite in meaning to RHADAMANTHINE.", "lenient", ["inflexible", "severe", "rigorous", "unyielding"]],
-  ["Choose the word most nearly opposite in meaning to SESQUIPEDALIAN.", "monosyllabic", ["polysyllabic", "grandiloquent", "long-winded", "magniloquent"]],
-  ["Choose the word most nearly opposite in meaning to TRUCULENT.", "conciliatory", ["belligerent", "ferocious", "aggressive", "pugnacious"]],
-  ["Choose the word most nearly opposite in meaning to VITUPERATIVE.", "laudatory", ["abusive", "scathing", "reproachful", "invective"]],
+/**
+ * Precision Lexicon: definition-to-word items with corpus-calibrated b.
+ *
+ * Each item gives one precise definition; all five options are drawn from the
+ * same neighborhood of meaning, and exactly one word carries the stated
+ * meaning precisely. This format removes the "rarest option is the key"
+ * exploit of antonym/odd-one-out formats: every option is a plausible
+ * neighbor, and rarity is constrained per item (see test/lexicon.test.ts).
+ *
+ * CALIBRATION PROVENANCE. b is derived from wordfreq (rspeer/wordfreq, 'en')
+ * Zipf frequency of the keyed word: Zipf = log10(occurrences per billion
+ * words); b_theta = 4 - zipf, i.e. IQ-units difficulty bIQ = 160 - 15*zipf
+ * with 15 IQ points per zipf unit and bIQ = 100 at zipf = 4. This linear
+ * heuristic is anchored to the published observation that word rarity tracks
+ * the Rasch b parameter at r = -0.92 and to spot outputs of public
+ * word-rarity calculators (e.g. perfunctory: zipf 2.45 -> IQ 123). It is a
+ * principled prior, not a fitted regression: absolute placement stays
+ * provisional until response data exists. Distractor zipfs are stored so the
+ * register constraints are auditable offline; regenerate with
+ * tools/lexicon_zipf.py (see tools/lexicon_candidates.csv).
+ */
+type LexDatum = readonly [
+  definition: string,
+  correct: string,
+  distractors: readonly [string, string, string, string],
+  /** wordfreq 'en' Zipf: [correct, ...distractors]. */
+  zipfs: readonly [number, number, number, number, number],
+];
+
+function buildLexItems(data: readonly LexDatum[]): Item[] {
+  return data.map(([definition, correct, distractors, zipfs], index) => {
+    const id = "lex-" + String(index + 1).padStart(3, "0");
+    const answer = stablePosition(id);
+    const options = [...distractors];
+    options.splice(answer, 0, correct);
+    return {
+      id,
+      subtest: "precisionLexicon",
+      broad: "Gc",
+      narrow: "VL",
+      a: 1.35,
+      b: Number((4 - zipfs[0]).toFixed(2)),
+      c: 1 / options.length,
+      prompt: 'Which word most precisely fits this meaning: "' + definition + '"?',
+      options,
+      answer,
+      render: { kind: "text" } as const,
+    };
+  });
+}
+
+export const lexiconData: readonly LexDatum[] = [
+  ["happening or arriving before the usual or expected time", "early", ["first", "fast", "quick", "new"], [5.43, 6.11, 5.13, 4.98, 6.25]],
+  ["having great value, influence, or effect", "important", ["serious", "heavy", "strong", "official"], [5.44, 5.1, 4.96, 5.22, 5.14]],
+  ["not correct or true; containing a mistake", "wrong", ["bad", "strange", "lost", "weak"], [5.39, 5.53, 4.64, 5.39, 4.66]],
+  ["needing little effort or skill to do", "easy", ["soft", "slow", "kind", "safe"], [5.29, 4.68, 4.85, 5.45, 5.07]],
+  ["able to exert great physical force", "strong", ["big", "hard", "tall", "fast"], [5.22, 5.67, 5.53, 4.52, 5.13]],
+  ["kept for one person or a select group rather than shared publicly", "private", ["personal", "secret", "hidden", "alone"], [5.19, 5.2, 4.92, 4.53, 5.16]],
+  ["requiring much effort or skill to accomplish", "difficult", ["complex", "heavy", "serious", "strange"], [5.07, 4.86, 4.96, 5.1, 4.64]],
+  ["having little or no light, as at night", "dark", ["black", "sad", "grey", "cold"], [5.04, 5.46, 4.84, 4.48, 5.02]],
+  ["free from dirt or stains", "clean", ["fresh", "neat", "pure", "bright"], [4.97, 4.83, 3.99, 4.64, 4.61]],
+  ["possessing a great deal of money or valuable property", "rich", ["full", "strong", "golden", "fat"], [4.91, 5.54, 5.22, 4.67, 4.85]],
+  ["known about by very many people", "famous", ["popular", "great", "proud", "chief"], [4.84, 5.07, 5.88, 4.78, 5.11]],
+  ["likely to cause injury, damage, or loss", "dangerous", ["wild", "angry", "cruel", "bad"], [4.79, 4.8, 4.66, 4.12, 5.53]],
+  ["able to wait or endure delays without becoming annoyed", "patient", ["calm", "slow", "gentle", "mild"], [4.77, 4.54, 4.85, 4.17, 4.11]],
+  ["dating from the very distant past", "ancient", ["elderly", "historic", "aged", "past"], [4.68, 4.15, 4.49, 4.5, 5.36]],
+  ["low in price; costing little money", "cheap", ["poor", "simple", "weak", "plain"], [4.71, 5.09, 5.08, 4.66, 4.43]],
+  ["making little or no noise", "quiet", ["calm", "shy", "gentle", "timid"], [4.65, 4.54, 4.16, 4.17, 3.25]],
+  ["easily noticed or understood; impossible to miss", "obvious", ["clear", "simple", "direct", "common"], [4.63, 5.25, 5.08, 4.91, 5.2]],
+  ["containing nothing inside", "empty", ["blank", "bare", "vacant", "hollow"], [4.59, 4.14, 4.18, 3.8, 3.95]],
+  ["short in time or expression, with nothing wasted", "brief", ["compact", "crisp", "swift", "thin"], [4.52, 4.06, 3.7, 4.15, 4.47]],
+  ["feeling the body's need for food", "hungry", ["tired", "thirsty", "angry", "greedy"], [4.45, 4.71, 3.74, 4.66, 3.75]],
+  ["eager to know or learn about something", "curious", ["strange", "odd", "unusual", "clever"], [4.45, 4.64, 4.42, 4.45, 4.21]],
+  ["feeling sure of one's own abilities or of success", "confident", ["firm", "secure", "calm", "poised"], [4.43, 4.79, 4.64, 4.54, 3.43]],
+  ["showing no fear of danger, pain, or hardship", "brave", ["bold", "proud", "stern", "wild"], [4.33, 4.26, 4.78, 3.9, 4.8]],
+  ["happening often, or at short intervals", "frequent", ["common", "usual", "daily", "steady"], [4.27, 5.2, 4.62, 5.07, 4.31]],
+  ["of decisive importance to the final outcome", "crucial", ["vital", "urgent", "central", "final"], [4.28, 4.38, 4.15, 5.12, 5.28]],
+  ["willing to give more time, help, or money than is expected", "generous", ["greedy", "wealthy", "gentle", "careful"], [4.2, 3.75, 4.21, 4.17, 4.59]],
+  ["requiring immediate attention or action", "urgent", ["sudden", "serious", "quick", "grave"], [4.15, 4.4, 5.1, 4.98, 4.31]],
+  ["enough for what is needed; acceptable though not outstanding", "adequate", ["suitable", "useful", "proper", "fair"], [4.05, 4.38, 4.72, 4.72, 4.99]],
+  ["showing good manners and consideration for others", "polite", ["gentle", "formal", "civil", "decent"], [3.92, 4.17, 4.45, 4.93, 4.4]],
+  ["unwilling to do something, and hesitant about it", "reluctant", ["hesitant", "slow", "cautious", "doubtful"], [3.81, 3.41, 4.85, 3.79, 3.52]],
+  ["inclined to question a claim until proof is offered", "skeptical", ["suspicious", "critical", "wary", "cynical"], [3.68, 4.09, 4.83, 3.57, 3.59]],
+  ["judging by what actually works rather than by theory or fixed principle", "pragmatic", ["practical", "realistic", "sensible", "flexible"], [3.49, 4.48, 4.16, 3.98, 4.13]],
+  ["careful and far-sighted in avoiding unnecessary risk", "prudent", ["frugal", "guarded", "rational", "sober"], [3.41, 3.11, 3.63, 4.06, 3.94]],
+  ["seeming to be present everywhere at the same time", "ubiquitous", ["prevalent", "pervasive", "widespread", "universal"], [3.42, 3.78, 3.39, 4.19, 4.49]],
+  ["too gentle and submissive to stand up for one's own interests", "meek", ["mild", "gentle", "modest", "calm"], [3.32, 4.11, 4.17, 4.03, 4.54]],
+  ["giving exact, careful attention to every small detail", "meticulous", ["thorough", "precise", "tidy", "strict"], [3.24, 3.97, 4.13, 3.53, 4.23]],
+  ["applying steady, careful effort to the task at hand", "diligent", ["methodical", "tireless", "earnest", "unrelenting"], [3.23, 3.02, 3.04, 3.66, 2.92]],
+  ["understood by, or intended for, only a small inner circle", "esoteric", ["obscure", "arcane", "cryptic", "abstract"], [3.17, 3.85, 2.99, 3.23, 4.14]],
+  ["altogether lacking in skill or good judgment", "inept", ["clumsy", "awkward", "unfit", "foolish"], [3.13, 3.44, 4.29, 3.52, 3.89]],
+  ["gripping or holding firmly and refusing to let go", "tenacious", ["persistent", "resolute", "unyielding", "dogged"], [3.04, 3.9, 3.12, 2.67, 2.97]],
+  ["passing away almost as soon as it appears, like dew or a fashion", "ephemeral", ["fleeting", "momentary", "transient", "evanescent"], [2.99, 3.32, 3.08, 3.37, 2.15]],
+  ["changing one's course or mood suddenly and for no apparent reason", "capricious", ["moody", "impulsive", "erratic", "unstable"], [2.79, 3.7, 3.27, 3.34, 3.87]],
+  ["so clearly and forcefully reasoned that it compels agreement", "cogent", ["lucid", "coherent", "succinct", "plausible"], [2.71, 3.27, 3.63, 2.9, 3.64]],
+  ["to make an obscure matter clear by full explanation", "elucidate", ["illustrate", "refine", "annotate", "gloss"], [2.7, 3.71, 3.28, 2.29, 3.47]],
+  ["to speak of a person or thing as if of little worth", "disparage", ["criticize", "condemn", "mock", "scold"], [2.58, 3.63, 3.72, 3.85, 2.81]],
+  ["to make a bad situation or condition itself better", "ameliorate", ["mend", "soften", "relieve", "placate"], [2.56, 3.33, 3.36, 3.77, 2.77]],
+  ["only just begun; barely formed or taking shape", "inchoate", ["undeveloped", "rudimentary", "imperfect", "unpromising"], [2.06, 3.11, 3.17, 3.45, 2.12]],
+  ["regarding others as beneath one's notice, with a casually contemptuous air", "supercilious", ["haughty", "aloof", "disdainful", "arrogant"], [1.94, 2.68, 2.99, 2.35, 3.74]],
+  ["impossible to escape or avoid, however one strives", "ineluctable", ["fated", "inexorable", "fateful", "predestined"], [1.75, 3.19, 2.57, 3.06, 2.49]],
+  ["to use vague or shifting language to avoid committing to the truth", "equivocate", ["mislead", "quibble", "retract", "digress"], [1.72, 3.22, 2.69, 3.03, 2.76]],
 ];
 
 const analogyData: readonly Datum[] = [
@@ -164,12 +227,12 @@ const informationData: readonly Datum[] = [
   ["What is the astronomical term for the point where an orbiting body crosses a reference plane northward?", "ascending node", ["periapsis", "opposition", "inferior conjunction", "libration point"]],
 ];
 
-export const antonyms: Subtest = {
-  id: "antonyms", name: "Antonyms", broad: "Gc", narrow: ["VL"],
-  instructions: "Choose the option most nearly opposite in meaning to the word in capitals. Select the best answer even when more than one option seems loosely related.",
+export const precisionLexicon: Subtest = {
+  id: "precisionLexicon", name: "Precision Lexicon", broad: "Gc", narrow: ["VL"],
+  instructions: "Each item states one precise meaning. All five options come from the same neighborhood of meaning; exactly one word carries the stated meaning precisely. Choose that word.",
   budgetMin: 11,
   routing: { maxItems: 18, minItems: 8, ceilingMisses: 4, targetSe: 0.28, entryTheta: 0 },
-  items: buildItems("ant", "antonyms", "VL", antonymData),
+  items: buildLexItems(lexiconData),
 };
 
 export const verbalAnalogies: Subtest = {
