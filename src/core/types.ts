@@ -139,4 +139,18 @@ export interface Response {
   latencyMs: number;
   /** True when the response was auto-submitted by a timeout. */
   timedOut: boolean;
+  /**
+   * NORMING TELEMETRY — populated by the session layer for every real
+   * response (optional so synthetic test responses can omit them):
+   */
+  /** Subtest the item belongs to. */
+  subtestId?: string;
+  /** 1-based position within this subtest's administered run. */
+  positionInSubtest?: number;
+  /** 1-based position across the whole battery. */
+  positionInBattery?: number;
+  /** Raw submitted answer: option index for MC, typed string for recall. */
+  rawAnswer?: number | string | null;
+  /** Keyed option index for MC (null for recall) — enables position-bias audit. */
+  answerIndex?: number | null;
 }

@@ -81,4 +81,7 @@ export const ROTATION_PATHS: Record<string, string> = {
   T: "M5 5 H19 M12 5 V20 M12 14 H18",
   F: "M7 20 V4 H18 M7 11 H15",
   P: "M6 21 V4 H16 V11 H6 M6 14 H13",
+  // E is F plus a bottom arm: the maximally confusable different-figure
+  // distractor for F-target mental-rotation items.
+  E: "M7 20 V4 H18 M7 12 H15 M7 20 H16",
 };

@@ -11,7 +11,11 @@ import type { CellSpecV2, MatrixFill, MatrixMark, MatrixPosition, MatrixShape, S
  *
  * Every rule is restated as executable code in test/matrix-rules.test.ts,
  * which re-derives each answer key from the rule and rejects items whose
- * given rows fail to reproduce. Parameters remain AUTHORED ESTIMATES.
+ * given rows fail to reproduce. Parameters remain AUTHORED ESTIMATES,
+ * re-anchored 2026-08-20 from the pre-norming difficulty audit
+ * (docs/DIFFICULTY_AUDIT.md §2.1): b spans -2.6 to +3.0, with mx-017 the
+ * genuine ceiling (the former 3.3-3.7 authored ceiling items compress —
+ * their rules decompose or have verbatim example precedents).
  */
 
 function mark(shape: MatrixShape, fill: MatrixFill, pos: MatrixPosition): MatrixMark {
@@ -36,7 +40,7 @@ export const matrixReasoning: Subtest = {
   instructions:
     "Each matrix follows one or more rules. Work out the rules, then choose the figure that completes the bottom-right cell.",
   budgetMin: 21,
-  routing: { maxItems: 16, minItems: 7, ceilingMisses: 4, targetSe: 0.28, entryTheta: 0 },
+  routing: { maxItems: 16, minItems: 7, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
   items: [
   {
     id: "mx-001", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
@@ -49,7 +53,7 @@ export const matrixReasoning: Subtest = {
   },
   {
     id: "mx-002", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
-    a: 1.1, b: -2.1, c: 0.2,
+    a: 1.1, b: -2.2, c: 0.2,
     // rule: fill progresses none,half,solid across
     prompt: "Which figure completes the matrix?",
     options: ["sq:1:solid:0", "cir:1:solid:0", "tri:1:solid:0", "tri:1:none:0", "tri:1:half:0"],
@@ -76,7 +80,7 @@ export const matrixReasoning: Subtest = {
   },
   {
     id: "mx-005", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
-    a: 1.4, b: -0.7, c: 0.2,
+    a: 1.4, b: -0.9, c: 0.2,
     // rule: shape cycles tri/sq/cir down; count cycles 3/2/1 across
     prompt: "Which figure completes the matrix?",
     options: ["cir:1:solid:0", "cir:1:none:0", "cir:2:none:0", "cir:3:none:0", "sq:1:none:0"],
@@ -85,8 +89,10 @@ export const matrixReasoning: Subtest = {
   },
   {
     id: "mx-006", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
-    a: 1.4, b: -0.3, c: 0.2,
-    // rule: rotation +90 across, shape constant down, fill alternates by row
+    a: 1.4, b: -1.2, c: 0.2,
+    // rule: rotation +90 across, shape constant down, fill constant within row
+    // (audit 2026-08-20: target-row fill is a local copy, never an induction —
+    // residual demand is one coarse rotation rule; b re-anchored from -0.3)
     prompt: "Which figure completes the matrix?",
     options: ["arw:1:none:180", "arw:1:solid:270", "arw:1:solid:0", "arw:1:half:180", "arw:1:solid:180"],
     answer: 4,
@@ -140,8 +146,11 @@ export const matrixReasoning: Subtest = {
   },
   {
     id: "mx-009", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
-    a: 1.6, b: 0.7, c: 0.2,
-    // rule: cell 3's positions are cell 2's MINUS cell 1's (order matters)
+    a: 1.6, b: 0.5, c: 0.2,
+    // rule: cell 3's positions are cell 2's MINUS cell 1's (order matters).
+    // Audit 2026-08-20: exactly one option previously carried the key's mark
+    // count, so a count-only strategy sufficed; option E is now a same-count
+    // XOR-minus-one near-miss. b re-anchored from 0.7.
     prompt: "Which figure completes the matrix?",
     options: ["A", "B", "C", "D", "E"],
     answer: 1,
@@ -157,7 +166,7 @@ export const matrixReasoning: Subtest = {
         row("cross", "none", ["W", "SE"]),
         row("cross", "none", ["N", "E", "S", "W", "SE"]),
         row("cross", "none", ["E", "S", "W", "SE"]),
-        row("cross", "none", ["W"]),
+        row("cross", "none", ["N", "W"]),
       ],
     },
   },
@@ -187,7 +196,9 @@ export const matrixReasoning: Subtest = {
   },
   {
     id: "mx-011", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
-    a: 1.7, b: 1.2, c: 0.2,
+    a: 1.7, b: 0.85, c: 0.2,
+    // audit 2026-08-20: row 3 surface-mirrors row 1, so an analogy-to-row-1
+    // shortcut solves this without the parity construct; eased from 1.2
     // rule: PARITY BRANCH on the total mark count of cells 1+2. Odd total:
     //       union of positions, shape from cell 1, solid fill. Even total:
     //       cell 2's positions and shape, no fill.
@@ -237,7 +248,9 @@ export const matrixReasoning: Subtest = {
   },
   {
     id: "mx-013", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
-    a: 1.8, b: 1.9, c: 0.2,
+    a: 1.5, b: 1.9, c: 0.2,
+    // audit 2026-08-20: a lowered 1.8 -> 1.5 (a rule-consistent attractor
+    // distractor discriminates worse than the authored a assumed)
     // rule: cell 3 keeps the FIRST |cell 1| marks of cell 2 in reading order
     //       (NW,N,NE,W,C,E,SW,S,SE), preserving cell 2's shape and fill
     prompt: "Which figure completes the matrix?",
@@ -288,7 +301,9 @@ export const matrixReasoning: Subtest = {
   },
   {
     id: "mx-015", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
-    a: 1.8, b: 2.2, c: 0.2,
+    a: 1.8, b: 1.9, c: 0.2,
+    // audit 2026-08-20: row-only reasoning suffices (column constraint
+    // redundant for the key); eased from 2.2
     // rule: TRIPLE LATIN SQUARE. Shape over {tri,sq,cir}, fill over
     //       {none,half,solid}, and position over {NW,C,SE} each appear exactly
     //       once per row AND once per column
@@ -313,7 +328,10 @@ export const matrixReasoning: Subtest = {
   },
   {
     id: "mx-016", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
-    a: 1.9, b: 2.9, c: 0.2,
+    a: 1.9, b: 2.3, c: 0.2,
+    // audit 2026-08-20: every computation the key needs has a verbatim
+    // precedent in the example rows (analogical match beats induction);
+    // eased from 2.9
     // rule: FILL ARITHMETIC. Over the union of positions, fill value adds
     //       mod 4 (none=0, half=1, solid=2, hatch=3; a missing mark counts 0)
     //       and the shape comes from cell 1. Row 1 calibrates half+half=solid;
@@ -343,7 +361,9 @@ export const matrixReasoning: Subtest = {
   },
   {
     id: "mx-017", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
-    a: 2, b: 3.7, c: 0.2,
+    a: 2, b: 3, c: 0.2,
+    // audit 2026-08-20: tiny row-3 execution after the XOR plus mx-012
+    // priming; remains the bank's true ceiling. eased from 3.7
     // rule: XOR then CONDITIONAL ROTATION. Take positions in cell 1 XOR cell 2;
     //       rotate them a quarter-turn clockwise if cell 1 has MORE marks than
     //       cell 2, else a half-turn
@@ -368,7 +388,10 @@ export const matrixReasoning: Subtest = {
   },
   {
     id: "mx-018", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
-    a: 2, b: 3.3, c: 0.2,
+    a: 2, b: 2.3, c: 0.2,
+    // audit 2026-08-20: constraints decompose (fill arithmetic and shape
+    // Latin solvable independently, then intersected); interchangeable with
+    // mx-016 rather than a ceiling item. eased from 3.3
     // rule: TWO CONSTRAINTS. Shape is a Latin square (one tri, one sq, one cir
     //       per row and column). Fill values add mod 3 per row (none=0,
     //       half=1, solid=2): cell3 = cell1 + cell2

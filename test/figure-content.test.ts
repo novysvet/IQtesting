@@ -4,7 +4,6 @@ import { figureLayout, MAX_FIGURE_COUNT, ROTATION_PATHS } from "../src/component
 import { figureSeries } from "../src/items/gf-series.ts";
 import { matrixReasoning } from "../src/items/gf-matrix.ts";
 import { paperFolding } from "../src/items/gv-fold.ts";
-import { mentalRotation } from "../src/items/gv-rotation.ts";
 
 function keyedSpec(id: string): string {
   const item = figureSeries.items.find((candidate) => candidate.id === id);
@@ -24,22 +23,24 @@ test("repeated symbols use a compact, legible grid", () => {
 });
 
 test("rotation figures use non-retracing path branches", () => {
-  assert.equal(Object.keys(ROTATION_PATHS).length, 5);
+  assert.equal(Object.keys(ROTATION_PATHS).length, 6);
   for (const [id, path] of Object.entries(ROTATION_PATHS)) {
     assert.match(path, /^M/);
     assert.ok(!path.includes("NaN") && !path.includes("undefined"), id + " invalid path");
   }
   assert.equal(ROTATION_PATHS.F, "M7 20 V4 H18 M7 11 H15");
   assert.equal(ROTATION_PATHS.T, "M5 5 H19 M12 5 V20 M12 14 H18");
+  assert.equal(ROTATION_PATHS.E, "M7 20 V4 H18 M7 12 H15 M7 20 H16");
 });
 
 test("revised figure series have demonstrated cycles and representable keys", () => {
   assert.equal(keyedSpec("fs-003"), "sq:1:none:0");
   assert.equal(keyedSpec("fs-005"), "dia:8:none:0");
   assert.equal(keyedSpec("fs-006"), "sq:1:none:0");
-  assert.equal(keyedSpec("fs-009"), "tri:1:none:0");
+  assert.equal(keyedSpec("fs-009"), "sq:1:half:0");
   assert.equal(keyedSpec("fs-012"), "arw:5:none:0");
   assert.equal(keyedSpec("fs-013"), "star:2:none:180");
+  assert.equal(keyedSpec("fs-014"), "arw:1:none:90");
 
   for (const item of figureSeries.items) {
     const specs = [...(item.render?.kind === "series" ? item.render.figures : []), ...(item.options ?? [])];
@@ -86,18 +87,9 @@ test("visual-rule options do not use rotationally symmetric shapes to encode rot
 });
 
 test("paper-folding administration states the fold direction", () => {
-  assert.match(paperFolding.instructions, /left half to the right/i);
-  assert.match(paperFolding.instructions, /top half downward/i);
+  assert.match(paperFolding.instructions, /right half over to the left/i);
+  assert.match(paperFolding.instructions, /bottom half upward/i);
 });
 
-test("mental-rotation items have exactly one non-mirrored candidate and key it", () => {
-  for (const item of mentalRotation.items) {
-    assert.equal(item.render?.kind, "rotation");
-    if (item.render?.kind !== "rotation") continue;
-    const pure = item.render.candidates
-      .map((spec, index) => ({ index, mirrored: spec.split(":")[2] === "1" }))
-      .filter((candidate) => !candidate.mirrored);
-    assert.equal(pure.length, 1, item.id + " must have one pure rotation");
-    assert.equal(item.answer, pure[0]!.index, item.id + " does not key the pure rotation");
-  }
-});
+// The full mental-rotation structure contract (identity + chirality, exploit
+// resistance, render distinctness) lives in test/rotation-keys.test.ts.

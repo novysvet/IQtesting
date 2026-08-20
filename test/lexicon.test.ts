@@ -88,3 +88,37 @@ test("bank covers five difficulty bands and the full calibrated span", () => {
   assert.ok(Math.max(...bs) >= 2.2, "no ceiling coverage");
   assert.ok(Math.max(...bs) - Math.min(...bs) >= 3.4, "span too narrow");
 });
+
+test("no definition contains any of its own option words (stem-leak regression)", () => {
+  // A definition that embeds one of its options hands that option to anyone
+  // who reads the stem carefully (audit: lex-030 leaked "hesitant", lex-035
+  // leaked "gentle"). Word-boundary, case-insensitive.
+  const escape = (word: string) => word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  for (const [definition, correct, distractors] of lexiconData) {
+    for (const word of [correct, ...distractors]) {
+      const pattern = new RegExp("\\b" + escape(word) + "\\b", "i");
+      assert.ok(
+        !pattern.test(definition),
+        'definition of "' + correct + '" contains its own option word "' + word + '"',
+      );
+    }
+  }
+});
+
+test("outside the ceiling band the key is not the uniquely rarest option (rarest-key regression)", () => {
+  // In the common-word bands everyone knows every option, but if the key is
+  // still the strict rarity minimum, "pick the rarest option" beats knowing
+  // the definition (audit: lex-045/049/050 exploits). Band-5 items are exempt
+  // per the existing band rules above: at the ceiling the keyed word is
+  // definitionally the rarest word in its neighborhood (and stays within the
+  // -1.1 cap asserted above).
+  for (const [index, datum] of lexiconData.entries()) {
+    const item = precisionLexicon.items[index]!;
+    const [zKey, ...zOthers] = datum[3];
+    if (bandOf(zKey) === 5) continue;
+    assert.ok(
+      zKey >= Math.min(...zOthers),
+      item.id + " key is the uniquely rarest option (rarest-key exploit)",
+    );
+  }
+});

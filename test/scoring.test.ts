@@ -38,8 +38,10 @@ test("inverse-variance weighting favors the precise estimate", () => {
     { theta: 0.0, se: 0.8 },
   ]);
   assert.ok(c.theta > 1.7, `expected pull toward precise estimate, got ${c.theta}`);
-  // Combined SE must beat the best single SE.
-  assert.ok(c.se < 0.2);
+  // Correlated-error floor: pooling may not claim more precision than the
+  // best single component (subtest errors share variance through g).
+  assert.ok(c.se >= 0.2 - 1e-9, `pooled SE undercut the best component: ${c.se}`);
+  assert.ok(c.se <= 0.22, `floor should sit at the best component SE: ${c.se}`);
 });
 
 test("combining equal-precision estimates averages them", () => {

@@ -107,6 +107,11 @@ export interface BroadScore {
  * A subtest measured with SE 0.30 carries ~4x the weight of one at SE 0.60,
  * which is what you want when adaptive stopping leaves subtests at unequal
  * precision. Simple averaging would let the noisiest subtest drag the factor.
+ *
+ * The pooled SE is floored at the best single-component SE: subtest errors
+ * are positively correlated through the common factor, so pooling can never
+ * legitimately beat the most precise component. The un-floored formula would
+ * shrink toward a falsely narrow confidence interval as components are added.
  */
 export function combineInverseVariance(
   parts: { theta: number; se: number }[],
@@ -120,7 +125,9 @@ export function combineInverseVariance(
     sumW += w;
     sumWTheta += w * p.theta;
   }
-  return { theta: sumWTheta / sumW, se: Math.sqrt(1 / sumW) };
+  const independenceSe = Math.sqrt(1 / sumW);
+  const floorSe = Math.min(...usable.map((p) => p.se));
+  return { theta: sumWTheta / sumW, se: Math.max(independenceSe, floorSe) };
 }
 
 export function scoreBroad(subtestScores: SubtestScore[]): BroadScore[] {
@@ -188,7 +195,11 @@ export function scoreComposite(
     sumW2Var += w * w * b.se * b.se;
   }
   const theta = sumW > 0 ? sumWTheta / sumW : 0;
-  const se = sumW > 0 ? Math.sqrt(sumW2Var) / sumW : 1;
+  // Same correlated-error floor as the broad level: the composite cannot be
+  // more precise than its best-measured factor.
+  const independenceSe = sumW > 0 ? Math.sqrt(sumW2Var) / sumW : 1;
+  const floorSe = broad.length > 0 ? Math.min(...broad.map((b) => b.se)) : 1;
+  const se = Math.max(independenceSe, floorSe);
 
   return { g: band(theta, se), theta, se, broad, subtests: subtestScores };
 }

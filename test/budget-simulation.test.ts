@@ -43,3 +43,32 @@ test("conservative slow-response simulation still fits the hard limit", () => {
   const simulation = simulate(1.5, 0.35);
   assert.ok(simulation.minutes <= 180, "slow path took " + simulation.minutes.toFixed(1) + " minutes");
 });
+
+test("precision targets are honest: reachable and terminal SEs bounded", () => {
+  // 2026-08-20 audit regression: the original targetSe (0.28-0.32) was never
+  // reached in 144,000 simulated runs — a dead parameter. Targets are now
+  // 0.50; with a consistent mid-range responder at least some subtests must
+  // stop on precision, every subtest must end with SE <= 0.70, and no
+  // subtest may claim a target below 0.45.
+  for (const subtest of BATTERY) {
+    assert.ok(
+      subtest.routing.targetSe >= 0.45,
+      subtest.id + " targets an unreachable precision (" + subtest.routing.targetSe + ")",
+    );
+  }
+  let precisionStops = 0;
+  for (const subtest of BATTERY) {
+    let state = initRouting(subtest.routing);
+    while (true) {
+      const { item, stopReason } = nextItem(subtest.items, state, subtest.routing);
+      if (!item) {
+        if (stopReason === "precision") precisionStops += 1;
+        break;
+      }
+      const correct = pCorrect(item, 0) >= 0.5;
+      state = applyResponse(state, item, { itemId: item.id, correct, latencyMs: 0, timedOut: false });
+    }
+    assert.ok(state.se <= 0.70, subtest.id + " ended at SE " + state.se.toFixed(2) + " at theta 0");
+  }
+  assert.ok(precisionStops >= 3, "precision stop never fires; expected several subtests to reach 0.50 at theta 0");
+});

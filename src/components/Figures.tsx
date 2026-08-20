@@ -222,7 +222,7 @@ export function FoldDiagram({ steps, punches }: { steps: string[]; punches: [num
         const fh = f.h * unit;
         return (
           <div key={i} className="fold-frame">
-            <svg width={fw} height={fh} viewBox={"0 0 " + fw + " " + fh} aria-label={f.crease === "V" ? "fold left half to the right" : f.crease === "H" ? "fold top half downward" : last ? "folded sheet with punches" : "folded sheet"}>
+            <svg width={fw} height={fh} viewBox={"0 0 " + fw + " " + fh} aria-label={f.crease === "V" ? "fold right half over to the left" : f.crease === "H" ? "fold bottom half upward" : last ? "folded sheet with punches" : "folded sheet"}>
               <defs>
                 <marker id={"fold-arrowhead-" + i} markerWidth="5" markerHeight="5" refX="4" refY="2.5" orient="auto" markerUnits="strokeWidth">
                   <path d="M0,0 L5,2.5 L0,5 Z" fill="var(--signal)" />
@@ -234,7 +234,7 @@ export function FoldDiagram({ steps, punches }: { steps: string[]; punches: [num
                 <>
                   <line x1={fw / 2} y1={0} x2={fw / 2} y2={fh}
                     stroke="var(--signal)" strokeWidth="1.2" strokeDasharray="3 2" />
-                  <path d={"M " + (fw * 0.24) + " " + (fh * 0.30) + " Q " + (fw * 0.38) + " " + (fh * 0.14) + " " + (fw * 0.62) + " " + (fh * 0.30)}
+                  <path d={"M " + (fw * 0.76) + " " + (fh * 0.30) + " Q " + (fw * 0.62) + " " + (fh * 0.14) + " " + (fw * 0.38) + " " + (fh * 0.30)}
                     fill="none" stroke="var(--signal)" strokeWidth="1.4" markerEnd={"url(#fold-arrowhead-" + i + ")"} />
                 </>
               )}
@@ -242,7 +242,7 @@ export function FoldDiagram({ steps, punches }: { steps: string[]; punches: [num
                 <>
                   <line x1={0} y1={fh / 2} x2={fw} y2={fh / 2}
                     stroke="var(--signal)" strokeWidth="1.2" strokeDasharray="3 2" />
-                  <path d={"M " + (fw * 0.70) + " " + (fh * 0.24) + " Q " + (fw * 0.86) + " " + (fh * 0.38) + " " + (fw * 0.70) + " " + (fh * 0.62)}
+                  <path d={"M " + (fw * 0.70) + " " + (fh * 0.76) + " Q " + (fw * 0.86) + " " + (fh * 0.62) + " " + (fw * 0.70) + " " + (fh * 0.38)}
                     fill="none" stroke="var(--signal)" strokeWidth="1.4" markerEnd={"url(#fold-arrowhead-" + i + ")"} />
                 </>
               )}

@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BATTERY } from "./battery.ts";
-import { answerItem, beginBattery, expireSubtest, initSession, remainingMs, sectionRemainingMs, startSubtest } from "./core/session.ts";
+import { answerItem, beginBattery, expireSubtest, initSession, remainingMs, sectionRemainingMs, startSubtest, elapsedMs } from "./core/session.ts";
 import type { Item, ItemRender, Subtest } from "./core/types.ts";
 import { scoreComposite } from "./core/scoring.ts";
+import { bankVersion, downloadJson, exportSession } from "./core/telemetry.ts";
+import { clearSession, defaultStorage, loadSession, saveSession } from "./core/persistence.ts";
 import { Figure, FoldDiagram, HoleGrid, MatrixFigure, RotationFigure, SeriesFigure, StructuredCell } from "./components/Figures.tsx";
 import { spanDurationMs, spanFrame } from "./core/memoryTiming.ts";
 
@@ -144,13 +146,13 @@ function ItemScreen({ item, sectionName, itemNumber, onAnswer }: { item: Item; s
 
 function Intro({ onBegin }: { onBegin: () => void }) {
   return <section className="intro">
-    <div className="intro-index label">FORM CHC–A · ADAPTIVE ADMINISTRATION</div>
+    <div className="intro-index label">FORM CHC–A · BANK {bankVersion(BATTERY).slice(0, 8).toUpperCase()} · ADAPTIVE ADMINISTRATION</div>
     <div className="intro-grid">
       <div><h1><span>Measure</span><br />the structure<br />of reasoning.</h1><p className="lede">A broad cognitive battery built around the Cattell–Horn–Carroll model. Twelve adaptive sections measure six broad abilities without mistaking speed for intelligence.</p><button className="primary primary-large" onClick={onBegin}>Begin administration <span aria-hidden="true">→</span></button></div>
       <dl className="specimen">
         <div><dt>Maximum time</dt><dd className="num">180:00</dd></div>
         <div><dt>Sections</dt><dd className="num">12</dd></div>
-        <div><dt>Item pool</dt><dd className="num">257</dd></div>
+        <div><dt>Item pool</dt><dd className="num">{POOL_SIZE}</dd></div>
         <div><dt>Factors</dt><dd>Gf · Gc · Gv<br />Gwm · Gq · Glr</dd></div>
       </dl>
     </div>
@@ -176,18 +178,39 @@ function Results({ session, onReset }: { session: ReturnType<typeof initSession>
   const score = useMemo(() => scoreComposite(session.subtests, session.responses), [session]);
   const incomplete = session.stopReasons.some((reason) => reason === null);
   const timeLimited = session.stopReasons.filter((reason) => reason === "time-limit").length;
+  const exportData = () => {
+    const doc = exportSession(session);
+    downloadJson("iqtesting-" + session.sessionId.slice(0, 8) + ".json", doc);
+  };
   return <section className="results">
     <div className="result-hero"><div><span className="label">{incomplete ? "Incomplete provisional composite" : "Provisional composite"}</span><div className="score num">{score.g.score}</div><p className="num">95% CI {score.g.ci95[0]}–{score.g.ci95[1]} · percentile {score.g.percentile}</p></div><div className="result-copy"><h1>Cognitive profile</h1><p>{session.responses.length} items administered across {score.subtests.length} attempted sections.{incomplete ? " The battery ended before all sections were completed." : ""}</p></div></div>
     <div className="factor-grid">{score.broad.map((b) => <article key={b.broad}><div><span className="factor-code">{b.broad}</span><span>{ABILITY_NAMES[b.broad]}</span></div><strong className="num">{b.band.score}</strong><div className="factor-track"><i style={{ width: Math.max(2, Math.min(100, ((b.band.score - 55) / 90) * 100)) + "%" }} /></div><small className="num">CI {b.band.ci95[0]}–{b.band.ci95[1]} · P{b.band.percentile}</small></article>)}</div>
     {incomplete && <div className="incomplete-warning"><span className="label">Incomplete administration</span><p>The 180-minute limit was reached before the battery finished. The composite omits unadministered sections and must not be compared with a complete administration.</p></div>}
     {timeLimited > 0 && <div className="incomplete-warning"><span className="label">Section time limits reached</span><p>{timeLimited} section{timeLimited === 1 ? "" : "s"} ended at the authored limit. Unanswered items were omitted rather than scored as incorrect.</p></div>}
-    <div className="calibration"><span className="label">Calibration status · read before interpreting</span><p>Item parameters are authored estimates, not values fitted to a representative norming sample. Scores are internally ordered but absolute IQ-equivalent numbers and percentiles are provisional. Do not use this result for diagnosis, placement, or high-stakes decisions.</p></div>
+    <div className="calibration"><span className="label">Calibration status · read before interpreting</span><p>Item parameters are authored estimates, not values fitted to a representative norming sample. Scores are internally ordered but absolute IQ-equivalent numbers and percentiles are provisional. Precision thins at the extremes of the scale: estimates beyond roughly the 99th percentile rest on few items and shrink toward the population mean. Do not use this result for diagnosis, placement, or high-stakes decisions.</p></div>
+    <div className="data-export"><span className="label">Response data</span><p>A machine-readable record of this administration (every item, your raw answer, timings, and the routing decisions) can be downloaded for calibration research.</p><button className="secondary" onClick={exportData}>Download response data (JSON)</button></div>
     <button className="secondary" onClick={onReset}>Start a new administration</button>
   </section>;
 }
 
+const POOL_SIZE = BATTERY.reduce((n, s) => n + s.items.length, 0);
+
+/** Restore an autosaved session: only one already running and still inside
+ * its wall-clock budget (an expired save would insta-finish on reload). */
+function initialSession() {
+  const storage = defaultStorage();
+  if (storage) {
+    const saved = loadSession(storage, bankVersion(BATTERY));
+    if (saved && saved.state.startedAt !== null && saved.state.phase.kind !== "intro"
+      && saved.savedAt + saved.state.budgetMs > Date.now()) {
+      return saved.state;
+    }
+  }
+  return initSession(BATTERY);
+}
+
 export function App() {
-  const [session, setSession] = useState(() => initSession(BATTERY));
+  const [session, setSession] = useState(initialSession);
   const [now, setNow] = useState(Date.now());
   const viewportRef = useRef<HTMLDivElement>(null);
   useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 250); return () => window.clearInterval(id); }, []);
@@ -198,6 +221,19 @@ export function App() {
       setSession((s) => expireSubtest(s, now));
     }
   }, [now, session]);
+  // Autosave every administration transition once the battery has begun.
+  useEffect(() => {
+    const storage = defaultStorage();
+    if (storage && session.startedAt !== null) saveSession(session, storage);
+  }, [session]);
+  // A restored session whose wall clock ran out while the page was closed.
+  useEffect(() => {
+    if (session.startedAt !== null && session.phase.kind !== "results"
+      && elapsedMs(session, Date.now()) >= session.budgetMs) {
+      setSession((s) => ({ ...s, phase: { kind: "results" } }));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const phase = session.phase;
   const phaseKey = phase.kind === "item" ? phase.item.id : phase.kind + ("subtestIndex" in phase ? phase.subtestIndex : "");
   useEffect(() => { viewportRef.current?.focus(); }, [phaseKey]);
@@ -209,7 +245,7 @@ export function App() {
       {phase.kind === "instructions" && <Instructions subtest={session.subtests[phase.subtestIndex]!} index={phase.subtestIndex} onStart={() => setSession((s) => startSubtest(s, phase.subtestIndex, Date.now()))} />}
       {phase.kind === "item" && <ItemScreen key={phase.item.id} item={phase.item} sectionName={session.subtests[phase.subtestIndex]!.name} itemNumber={session.routing[phase.subtestIndex]!.administered.length + 1} onAnswer={(value, timedOut) => setSession((s) => answerItem(s, value, Date.now(), timedOut))} />}
       {phase.kind === "break" && <BreakScreen completed={phase.subtestIndex + 1} onContinue={() => setSession((s) => ({ ...s, phase: { kind: "instructions", subtestIndex: phase.subtestIndex + 1 } }))} />}
-      {phase.kind === "results" && <Results session={session} onReset={() => setSession(initSession(BATTERY))} />}
+      {phase.kind === "results" && <Results session={session} onReset={() => { const storage = defaultStorage(); if (storage) clearSession(storage); setSession(initSession(BATTERY)); }} />}
     </div>
     {session.phase.kind === "results" && <Staircase session={session} />}
   </main>;

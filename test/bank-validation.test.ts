@@ -7,7 +7,7 @@ const items = BATTERY.flatMap((s) => s.items);
 
 test("battery contains the complete authored pool", () => {
   assert.equal(BATTERY.length, 12);
-  assert.equal(items.length, 257);
+  assert.equal(items.length, 261);
 });
 
 test("all item and subtest identifiers are unique", () => {
@@ -34,22 +34,44 @@ test("every item satisfies the schema and guessing contract", () => {
   }
 });
 
-test("every subtest spans a useful difficulty range and reaches a high ceiling", () => {
+/**
+ * Per-subtest honest difficulty spans (2026-08-20 difficulty audit,
+ * docs/DIFFICULTY_AUDIT.md §2). Banks whose FORMATS structurally cap below
+ * b=+2 (2D rotation, 4x4 folding, single-probe paired associates,
+ * analogy/information spans compressed to audit predictions) assert their
+ * real ceilings rather than a uniform fiction: a bank claiming items it does
+ * truly have mis-routes the adaptive engine exactly where claims matter most.
+ * High-range measurement is carried by matrix reasoning, general information,
+ * the span banks, number series and figure series.
+ */
+const HONEST_SPANS: Record<string, { floor: number; ceiling: number }> = {
+  matrixReasoning: { floor: -2.0, ceiling: 3.0 },
+  precisionLexicon: { floor: -1.2, ceiling: 2.2 },
+  digitSpan: { floor: -2.0, ceiling: 2.5 },
+  numberSeries: { floor: -2.0, ceiling: 2.3 },
+  paperFolding: { floor: -1.0, ceiling: 1.4 },
+  verbalAnalogies: { floor: -2.0, ceiling: 1.4 },
+  letterNumberSeq: { floor: -2.0, ceiling: 2.5 },
+  quantComparison: { floor: -2.0, ceiling: 1.5 },
+  mentalRotation: { floor: -1.5, ceiling: 1.3 },
+  generalInformation: { floor: -2.0, ceiling: 3.0 },
+  figureSeries: { floor: -2.0, ceiling: 2.2 },
+  pairedAssociates: { floor: -1.5, ceiling: 0.9 },
+};
+
+test("every subtest reaches its audit-honest basal and ceiling", () => {
   for (const subtest of BATTERY) {
+    const span = HONEST_SPANS[subtest.id];
+    assert.ok(span, subtest.id + " missing from HONEST_SPANS");
     const bs = subtest.items.map((i) => i.b);
-    if (subtest.id === "precisionLexicon") {
-      // Corpus-calibrated difficulties (b = 4 - wordfreq zipf of the keyed
-      // word). The definable vocabulary pool tops out near zipf 5.4, so the
-      // -2.0 basal demand for authored banks is unreachable without
-      // contrived items. Assert the real calibrated span instead.
-      assert.ok(Math.min(...bs) <= -1.2, subtest.id + " lacks easy basal items");
-      assert.ok(Math.max(...bs) >= 2.2, subtest.id + " lacks difficult ceiling items");
-      assert.ok(Math.max(...bs) - Math.min(...bs) >= 3.4, subtest.id + " b range is too narrow");
-    } else {
-      assert.ok(Math.min(...bs) <= -2, subtest.id + " lacks easy basal items");
-      assert.ok(Math.max(...bs) >= 2.5, subtest.id + " lacks difficult ceiling items");
-      assert.ok(Math.max(...bs) - Math.min(...bs) >= 4.5, subtest.id + " b range is too narrow");
-    }
+    assert.ok(
+      Math.min(...bs) <= span.floor,
+      subtest.id + " lacks easy basal items (min b " + Math.min(...bs).toFixed(2) + " > " + span.floor + ")",
+    );
+    assert.ok(
+      Math.max(...bs) >= span.ceiling,
+      subtest.id + " lacks ceiling items (max b " + Math.max(...bs).toFixed(2) + " < " + span.ceiling + ")",
+    );
     assert.ok(subtest.routing.minItems > 0 && subtest.routing.maxItems <= subtest.items.length);
   }
 });

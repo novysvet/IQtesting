@@ -1,6 +1,7 @@
 import type { Item, Response, Subtest } from "./types.ts";
 import { initRouting, nextItem, applyResponse, finishRouting } from "./routing.ts";
 import type { RoutingState, StopReason } from "./routing.ts";
+import { bankVersion, newSessionId } from "./telemetry.ts";
 
 /**
  * Session state machine.
@@ -9,6 +10,11 @@ import type { RoutingState, StopReason } from "./routing.ts";
  * its own pool. This module owns the ordering, the per-subtest routing state,
  * and the wall-clock budget. It holds no React state itself so it can be
  * driven directly from tests.
+ *
+ * NORMING TELEMETRY: every session carries a sessionId and the bankVersion
+ * hash of the exact item bank that routed it, and every recorded response
+ * keeps the raw answer and the keyed option position (see exportSession in
+ * telemetry.ts) so response data survives for calibration.
  */
 
 export type Phase =
@@ -29,11 +35,18 @@ export interface SessionState {
   sectionStartedAt: number | null;
   /** Total battery budget in milliseconds. */
   budgetMs: number;
+  /** Random identity for this administration (retest/bot linkage in norming data). */
+  sessionId: string;
+  /** Content hash of the item bank that routed this session (see telemetry.ts). */
+  bankVersion: string;
 }
 
 export const BATTERY_BUDGET_MIN = 180;
 
-export function initSession(subtests: Subtest[]): SessionState {
+export function initSession(
+  subtests: Subtest[],
+  identity?: { sessionId?: string; bankVersion?: string },
+): SessionState {
   return {
     phase: { kind: "intro" },
     subtests,
@@ -43,6 +56,8 @@ export function initSession(subtests: Subtest[]): SessionState {
     startedAt: null,
     sectionStartedAt: null,
     budgetMs: BATTERY_BUDGET_MIN * 60_000,
+    sessionId: identity?.sessionId ?? newSessionId(),
+    bankVersion: identity?.bankVersion ?? bankVersion(subtests),
   };
 }
 
@@ -97,6 +112,11 @@ export function answerItem(
     correct,
     latencyMs: Math.max(0, now - startedAt),
     timedOut,
+    subtestId: subtest.id,
+    positionInSubtest: state.routing[subtestIndex]!.administered.length + 1,
+    positionInBattery: state.responses.length + 1,
+    rawAnswer: raw,
+    answerIndex: typeof item.answer === "number" ? item.answer : null,
   };
 
   const routing = applyResponse(state.routing[subtestIndex]!, item, response);
