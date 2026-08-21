@@ -68,8 +68,12 @@ battery keeps its full remaining budget.
    arrays, ids, raw answers, nesting depth, and total body size are all
    bounded), rate-limiting per IP, and rejecting duplicate session ids.
    Worker validation is the only full validation gate; the norming pipeline
-   later re-screens validity independently (see NORMING.md §4). Deploy with
-   `wrangler` — see `worker/wrangler.toml` (entry `index.js`).
+   later re-screens validity independently (see NORMING.md §4). Deployed at
+   `https://iqtesting-collect.novysvet.workers.dev` (KV namespaces `SESSIONS`
+   and `RATE`); pushes to `main` under `worker/` redeploy automatically via
+   `.github/workflows/worker-deploy.yml` (requires the `CLOUDFLARE_API_TOKEN`
+   repo secret). Manual deploys: `npx wrangler deploy` in `worker/` — see
+   `worker/wrangler.toml` (entry `index.js`).
 4. **Pipeline**:
    ```
    node --experimental-strip-types tools/norming.ts data/exports --out data/norms.json

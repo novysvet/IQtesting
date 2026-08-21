@@ -12,11 +12,9 @@ ALLOWED_ORIGIN = "https://novysvet.github.io"
 
 [[kv_namespaces]]
 binding = "SESSIONS"
-id = "REPLACE_WITH_SESSIONS_NAMESPACE_ID"
+id = "48c053a0003948e7aa66b05aa119b4f5"
 
 [[kv_namespaces]]
 binding = "RATE"
-id = "REPLACE_WITH_RATE_NAMESPACE_ID"
+id = "611c67fe48b14367b4292f45d4245cf7"
 
-[[routes]]
-pattern = "iqtesting-collect.<your-subdomain>.workers.dev/*"

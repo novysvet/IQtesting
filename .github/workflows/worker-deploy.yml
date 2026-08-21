@@ -1,0 +1,34 @@
+name: Deploy collection worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - ".github/workflows/worker-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: worker-deploy
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          workingDirectory: worker
+          command: deploy
+      - name: Smoke test (health)
+        run: |
+          sleep 10
+          curl -fsS --retry 5 --retry-delay 5 --retry-all-errors \
+            https://iqtesting-collect.novysvet.workers.dev/api/health > /dev/null
+          echo "health check passed"
