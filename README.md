@@ -2,8 +2,9 @@
 
 A browser-administered adaptive cognitive battery built around the
 Cattell–Horn–Carroll model: 21 subtests sampling seven broad abilities
-(Gf, Gc, Gv, Gwm, Gq, Gs, Glr) over a 438-item pool, scored with 3PL IRT,
-EAP estimation, and maximum-information routing.
+(Gf, Gc, Gv, Gwm, Gq, Gs, Glr) over a 438-item pool (inventory in
+`src/battery.ts`), scored with 3PL IRT, EAP estimation, and
+maximum-information routing.
 
 ## Contents
 
@@ -29,7 +30,9 @@ pnpm build        # production bundle in dist/ (Pages base /IQtesting/)
 
 ## Multi-sitting administration
 
-The battery is built to be taken test by test. The 260-minute budget is
+The battery is built to be taken test by test. The battery budget
+(`BATTERY_BUDGET_MIN` in `src/core/session.ts`, the sum of the per-subtest
+budgets in `src/battery.ts` — 260 minutes at authoring) is
 ACTIVE scored time only: it accrues while a section is open and freezes
 during instructions, practice samples, checkpoints, and any pause between
 sittings. Every completed section lands on a **checkpoint** showing that
@@ -61,25 +64,37 @@ battery keeps its full remaining budget.
    worker when `VITE_SUBMIT_URL` is configured at build time; the manual JSON
    download remains as fallback.
 3. **Worker** (`worker/`): Cloudflare Worker validating every submission
-   (`worker/validator.js`, re-checked offline), rate-limiting per IP, and
-   rejecting duplicate session ids. Deploy with `wrangler` — see
-   `worker/wrangler.toml`.
+   (`worker/validator.js` — structural validation with size caps: strings,
+   arrays, ids, raw answers, nesting depth, and total body size are all
+   bounded), rate-limiting per IP, and rejecting duplicate session ids.
+   Worker validation is the only full validation gate; the norming pipeline
+   later re-screens validity independently (see NORMING.md §4). Deploy with
+   `wrangler` — see `worker/wrangler.toml` (entry `index.js`).
 4. **Pipeline**:
    ```
    node --experimental-strip-types tools/norming.ts data/exports --out data/norms.json
    ```
    re-screens validity independently, computes item statistics, and distills
-   a `NormTable`. When `norms.json` (N ≥ 100, matching bank+form hash) ships
-   at the deploy root, the results screen automatically switches percentiles
-   from the assumed N(0,1) model to the sample's empirical distribution.
+   a `NormTable`. Pass `--form calibration` when the exports were collected
+   under the calibration form (the bank hash is form-stamped, so adaptive
+   and calibration data never mix). When `norms.json` (N ≥ 100, matching
+   bank+form hash) ships at the deploy root, the results screen
+   automatically switches percentiles from the assumed N(0,1) model to the
+   sample's empirical distribution.
 
 ## Censoring policy
 
 Responses that carry no ability evidence are flagged, not discarded:
 `omitted` (section expired with the item on screen) and `interrupted`
 (tab hidden during memory exposure) stay in the export but are excluded from
-estimation, person fit, and the discontinue streak. Latencies carry `awayMs`
-so validity screening judges active time, not wall-clock time.
+ability estimation and person fit. Of the two, only `interrupted` is also
+held out of the discontinue miss-streak (`src/core/routing.ts`) — an
+omitted response technically counts as a miss, but omissions are only ever
+recorded when a section (or the battery) closes, at which point no further
+items are routed, so the streak is never actually consumed by one.
+Concentrated interruption (over 30% of a subtest's responses) is itself
+flagged by validity screening. Latencies carry `awayMs` so validity
+screening judges active time, not wall-clock time.
 
 ## Documentation
 
@@ -91,13 +106,14 @@ so validity screening judges active time, not wall-clock time.
 
 ## Testing
 
-242 tests pin the engine: key re-derivation for every bank (fold simulation,
+288 tests pin the engine: key re-derivation for every bank (fold simulation,
 matrix rules, series rules, rotation structure, tiling uniqueness, artlang
 grammars, logic-game solution spaces, corpus-calibrated zipfs), scale-floor
 behaviour under random responding, routing stop rules, fixed-form
-administration, option-permutation balance, practice contracts, multi-sitting
-clock semantics, export enrichment, persistence, norms gating, and the
-endpoint validator.
+administration, option-permutation balance, key-position de-cycling and
+exploit-resistance regressions, practice contracts, multi-sitting clock
+semantics, export enrichment, the bank-version content hash, validity
+screening, persistence, norms gating, and the endpoint validator.
 
 ## License
 

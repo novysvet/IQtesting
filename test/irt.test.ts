@@ -88,14 +88,20 @@ test("selectNextItem maximizes information and skips used items", () => {
   const pool = [mk("low", 1.4, -2), mk("mid", 1.4, 0), mk("high", 1.4, 2)];
   assert.equal(selectNextItem(pool, 0, new Set())?.id, "mid");
   assert.equal(selectNextItem(pool, 2, new Set())?.id, "high");
-  assert.equal(selectNextItem(pool, 0, new Set(["mid"]))?.id ?? "", selectNextItem(pool, 0, new Set(["mid"]))!.id);
-  assert.notEqual(selectNextItem(pool, 0, new Set(["mid"]))?.id, "mid");
+  // With "mid" used, the winner is "low": under the 3PL the information of a
+  // b = -2 item at theta 0 beats its b = +2 mirror (the guessing floor c
+  // penalizes items whose p collapses toward c), so this is a genuine value,
+  // not a tie-break accident.
+  assert.equal(selectNextItem(pool, 0, new Set(["mid"]))?.id, "low");
   assert.equal(selectNextItem(pool, 0, new Set(["low", "mid", "high"])), null);
 });
 
 test("selectNextItem is deterministic under ties", () => {
   const pool = [mk("b", 1.0, 0), mk("a", 1.0, 0)];
   const first = selectNextItem(pool, 0, new Set())?.id;
+  // Documented tie-break: equal information and equal b-distance fall to the
+  // lexicographically smaller id ("a"), not first-seen order ("b").
+  assert.equal(first, "a");
   for (let i = 0; i < 5; i++) {
     assert.equal(selectNextItem(pool, 0, new Set())?.id, first);
   }

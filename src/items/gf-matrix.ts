@@ -59,10 +59,14 @@ export const matrixReasoning: Subtest = {
     id: "prac-mx-02", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
     a: 1, b: -3, c: 0.2,
     // rule: rotation advances 0 -> 45 -> 90 degrees across each row
+    // (demo rows re-authored 2026-08-21: hex and arw artwork has no
+    // symmetry at 45 or 90 degrees, so every rotation step renders
+    // visibly; the former cir/sq demo rows were pixel-identical cells
+    // and a square whose 90 degrees equals its 0)
     prompt: "Which figure completes the matrix?",
     options: ["tri:1:none:135", "tri:1:half:90", "tri:1:none:90", "sq:1:none:90", "tri:1:none:45"],
     answer: 2,
-    render: { kind: "matrix", rows: 3, cols: 3, cells: ["cir:1:none:0", "cir:1:none:45", "cir:1:none:90", "sq:1:none:0", "sq:1:none:45", "sq:1:none:90", "tri:1:none:0", "tri:1:none:45", null] },
+    render: { kind: "matrix", rows: 3, cols: 3, cells: ["hex:1:none:0", "hex:1:none:45", "hex:1:none:90", "arw:1:none:0", "arw:1:none:45", "arw:1:none:90", "tri:1:none:0", "tri:1:none:45", null] },
   },
   {
     id: "prac-mx-03", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
@@ -96,10 +100,13 @@ export const matrixReasoning: Subtest = {
     id: "mx-001", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
     a: 1, b: -2.6, c: 0.2,
     // rule: count increases 1,2,3 across rows
+    // (re-authored 2026-08-21: the previous grid was byte-identical to
+    // prac-mx-01, so the bank floor measured practice exposure rather than
+    // ability — same rule class and b, fresh shapes and key figure)
     prompt: "Which figure completes the matrix?",
-    options: ["tri:2:none:0", "tri:1:none:0", "sq:3:none:0", "tri:4:none:0", "tri:3:none:0"],
+    options: ["arw:2:none:0", "arw:1:none:0", "hex:3:none:0", "arw:4:none:0", "arw:3:none:0"],
     answer: 4,
-    render: { kind: "matrix", rows: 3, cols: 3, cells: ["cir:1:none:0", "cir:2:none:0", "cir:3:none:0", "sq:1:none:0", "sq:2:none:0", "sq:3:none:0", "tri:1:none:0", "tri:2:none:0", null] },
+    render: { kind: "matrix", rows: 3, cols: 3, cells: ["dia:1:none:0", "dia:2:none:0", "dia:3:none:0", "hex:1:none:0", "hex:2:none:0", "hex:3:none:0", "arw:1:none:0", "arw:2:none:0", null] },
   },
   {
     id: "mx-002", subtest: "matrixReasoning", broad: "Gf", narrow: "I",

@@ -1,14 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BATTERY } from "../src/battery.ts";
-import { answerItem, answerPractice, beginBattery, initSession, startSubtest } from "../src/core/session.ts";
+import { answerItem, answerPractice, beginBattery, formVariant, initSession, startSubtest } from "../src/core/session.ts";
+import type { SessionIdentity } from "../src/core/session.ts";
 import { bankVersion, exportSession } from "../src/core/telemetry.ts";
 import { clearSession, loadSession, memoryStorage, saveSession } from "../src/core/persistence.ts";
 import { combineInverseVariance } from "../src/core/scoring.ts";
 import type { Subtest } from "../src/core/types.ts";
 
-function driveSomeItems(subtests: Subtest[], count: number, nowBase: number) {
-  let state = initSession(subtests);
+function driveSomeItems(subtests: Subtest[], count: number, nowBase: number, identity: SessionIdentity = {}) {
+  let state = initSession(subtests, identity);
   state = beginBattery(state, nowBase);
   let now = nowBase;
   state = startSubtest(state, 0, (now += 1_000));
@@ -73,8 +74,9 @@ test("exportSession produces a complete norming record", () => {
     const sub = BATTERY.find((s) => s.id === r.subtestId)!;
     const item = sub.items.find((i) => i.id === r.itemId)!;
     assert.equal(r.answerIndex, typeof item.answer === "number" ? item.answer : null);
-    const rawOk = typeof item.answer === "number" ? r.rawAnswer === r.rawAnswer : true;
-    assert.ok(rawOk);
+    // The drive answers every item correctly: the exported raw answer must be
+    // exactly the item's key — the option index for MC, the key string as typed.
+    assert.equal(r.rawAnswer, typeof item.answer === "number" ? item.answer : String(item.answer));
   }
   assert.ok(doc.composite && typeof doc.composite.standardScore === "number");
 });
@@ -101,6 +103,26 @@ test("persistence round-trips an in-progress session and rejects stale banks", (
 
   clearSession(storage);
   assert.equal(loadSession(storage, bankVersion(BATTERY)), null);
+});
+
+test("calibration-form saves restore under the form-aware bank version", () => {
+  // Regression for App.tsx restoredSession: initSession stamps the save with
+  // formVariant(form) hashed into bankVersion, so a calibration save restores
+  // ONLY against the form-aware hash — the variant-less adaptive hash must
+  // keep rejecting it (stale-bank protection stays intact for both forms).
+  const storage = memoryStorage();
+  const state = driveSomeItems(BATTERY, 4, 1_000_000, { form: "calibration" });
+  assert.equal(state.form, "calibration");
+  assert.equal(state.bankVersion, bankVersion(BATTERY, formVariant("calibration")));
+  assert.notEqual(state.bankVersion, bankVersion(BATTERY), "calibration and adaptive hashes must differ");
+  saveSession(state, storage, 2_000_000);
+  assert.equal(loadSession(storage, bankVersion(BATTERY)), null, "adaptive hash must not restore a calibration save");
+  const restored = loadSession(storage, bankVersion(BATTERY, formVariant("calibration")));
+  assert.ok(restored, "form-aware hash must restore the calibration save");
+  assert.equal(restored!.state.sessionId, state.sessionId);
+  assert.equal(restored!.state.form, "calibration");
+  assert.equal(restored!.state.responses.length, state.responses.length);
+  assert.equal(restored!.state.phase.kind, state.phase.kind);
 });
 
 test("correlated-error floor keeps pooled SEs honest", () => {

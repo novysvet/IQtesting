@@ -5,18 +5,19 @@ import {
 } from "../src/core/norms.ts";
 import type { NormTable } from "../src/core/norms.ts";
 
+/** A perfectly normal reference sample of 101 thetas spanning -2..+2. */
+const SAMPLE101 = Array.from({ length: 101 }, (_, i) => -2 + i * 0.04);
+
 function table(over: Partial<NormTable> = {}): NormTable {
-  // A perfectly normal reference sample of 101 thetas spanning -2..+2.
-  const sample = Array.from({ length: 101 }, (_, i) => -2 + i * 0.04);
   return {
     format: "iqtesting-norms",
     version: 1,
     bankVersion: "deadbeef",
-    sampleN: sample.length,
+    sampleN: SAMPLE101.length,
     excludedInvalid: 0,
     collectedFrom: null,
     collectedTo: null,
-    thetaSample: sample,
+    thetaSample: SAMPLE101,
     ...over,
   };
 }
@@ -59,10 +60,20 @@ test("validateNorms rejects wrong bank, small samples, unsorted data", () => {
   assert.equal(validateNorms(table()), true);
   // Wrong bank version when a current version is supplied.
   assert.equal(validateNorms(table(), "ffffff00"), false);
-  // Below the floor.
-  assert.equal(validateNorms(table({ sampleN: MIN_NORM_SAMPLE - 1 })), false);
-  // Unsorted.
-  assert.equal(validateNorms(table({ thetaSample: [1, 0], sampleN: MIN_NORM_SAMPLE })), false);
+  // Below the floor: the lengths MATCH (99 = 99) so the length check passes
+  // and the sampleN < MIN_NORM_SAMPLE branch is what rejects.
+  assert.equal(validateNorms(table({ sampleN: MIN_NORM_SAMPLE - 1, thetaSample: SAMPLE101.slice(0, MIN_NORM_SAMPLE - 1) })), false);
+  // Unsorted: length matches (100 = 100) so rejection must come from the
+  // sortedness loop, not a length short-circuit. A sorted 100-entry table
+  // with otherwise identical fields is the positive control.
+  assert.equal(validateNorms(table({ sampleN: MIN_NORM_SAMPLE, thetaSample: SAMPLE101.slice(0, MIN_NORM_SAMPLE) })), true);
+  assert.equal(
+    validateNorms(table({
+      sampleN: MIN_NORM_SAMPLE,
+      thetaSample: Array.from({ length: MIN_NORM_SAMPLE }, (_, i) => MIN_NORM_SAMPLE - i),
+    })),
+    false,
+  );
   // sampleN must equal the array length.
   assert.equal(validateNorms(table({ sampleN: 999 })), false);
   // Wrong format/version markers.
@@ -71,7 +82,8 @@ test("validateNorms rejects wrong bank, small samples, unsorted data", () => {
 });
 
 test("normedBand returns null for tables that cannot back a claim", () => {
-  assert.equal(normedBand(0, 0.3, table({ sampleN: 42 })), null);
+  // Lengths match (42 = 42): the rejection is the below-floor branch.
+  assert.equal(normedBand(0, 0.3, table({ sampleN: 42, thetaSample: SAMPLE101.slice(0, 42) })), null);
   assert.equal(normedBand(0, 0.3, table({ bankVersion: "otherbank" }), "currentbank"), null);
 });
 

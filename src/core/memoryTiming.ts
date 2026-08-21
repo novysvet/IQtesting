@@ -1,9 +1,9 @@
 /** Standardized visual working-memory presentation intervals. */
-export const SPAN_READY_MS = 1500;
-export const SPAN_SYMBOL_MS = 1100;
-export const SPAN_GAP_MS = 300;
+const SPAN_READY_MS = 1500;
+const SPAN_SYMBOL_MS = 1100;
+const SPAN_GAP_MS = 300;
 
-export type SpanFrame =
+type SpanFrame =
   | { kind: "ready" }
   | { kind: "symbol"; index: number }
   | { kind: "gap" }

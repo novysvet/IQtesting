@@ -133,6 +133,65 @@ test("keys verify against the full solution space per question form", () => {
   }
 });
 
+test("key positions are de-cycled: histogram spread and no run of three", () => {
+  // Regression (red-team P0): every anl key sat at original index 0, so an
+  // honest all-correct section read as a straight-line run in validity
+  // screening. Keys must now spread across slots with no positional pattern.
+  const positions = analyticalReasoning.items.map((i) => i.answer as number);
+  const hist = new Map<number, number>();
+  for (const p of positions) hist.set(p, (hist.get(p) ?? 0) + 1);
+  for (const [slot, count] of hist) {
+    assert.ok(count < 5, `answer slot ${slot} holds ${count}/12 keys — positional clustering`);
+  }
+  let run = 1;
+  for (let i = 1; i < positions.length; i++) {
+    run = positions[i] === positions[i - 1] ? run + 1 : 1;
+    assert.ok(run < 3, `key positions form a run of ${run} ending at item ${i} — authored position cycle`);
+  }
+});
+
+test("zero-deduction strategies score at chance: no intro-order option, no restated-bullet key", () => {
+  // Regression (red-team P0): "pick the option that lists the entities in
+  // intro/alphabetical order" and "pick the option that restates a stated
+  // condition" used to score far above chance. Now any option equal to the
+  // intro/alphabetical order must violate a constraint, and the keyed claim
+  // must be derived — never a verbatim premise bullet or given stem.
+  for (const item of [...analyticalReasoning.items, ...(analyticalReasoning.practice ?? [])]) {
+    const r = requireLogic(item);
+    const allCodes = [...r.constraints, ...(r.given ?? [])];
+    const decoded = item.options!.map((o) => decodeOption(item, o));
+    const keyed = decoded[item.answer as number]!;
+    if (isOrderCode(keyed)) {
+      const orders = new Set([r.entities.join(","), [...r.entities].sort().join(",")]);
+      for (let i = 0; i < decoded.length; i++) {
+        if (!orders.has(decoded[i]!)) continue;
+        assert.ok(
+          !satisfies(decoded[i]!.split(","), allCodes),
+          item.id + " option " + decoded[i] + " is the intro/alphabetical order and violates no constraint",
+        );
+      }
+    } else {
+      for (const code of allCodes) {
+        const [op, a, b] = code.split(":") as [string, string, string];
+        if (op === "fixed") {
+          assert.notEqual(keyed, `${a}:${b}`, item.id + " keyed claim restates stated constraint " + code);
+        }
+      }
+      const premises = [
+        ...r.constraints.map((c) => constraintBullet(c)),
+        ...(r.given ?? []).map((c) => {
+          const [, a, b] = c.split(":") as [string, string, string];
+          return `If ${a} is ${ordinal(Number(b))}`;
+        }),
+      ].join(" ");
+      assert.ok(
+        !premises.includes(item.options![item.answer as number]!.slice(0, -1)),
+        item.id + " keyed claim appears verbatim in the premises",
+      );
+    }
+  }
+});
+
 test("difficulty architecture: honest span -1.5..+2.5, a band, c fixed at 1/5", () => {
   const bs = analyticalReasoning.items.map((i) => i.b);
   assert.ok(Math.min(...bs) <= -1.5, "floor must reach -1.5");

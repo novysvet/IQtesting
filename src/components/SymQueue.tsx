@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { NonsenseGlyph } from "./NonsenseGlyphs.tsx";
 
 /**
@@ -23,8 +23,11 @@ export function SymQueueRun({ legend, queue, onSubmit }: {
   const pressesRef = useRef<string[]>([]);
   const doneRef = useRef(false);
   const wrongTimerRef = useRef<number | null>(null);
-  const keyFor = new Map(legend);
-  const glyphFor = new Map(legend.map(([g, k]) => [k, g]));
+  // The legend is a bank constant for the item: build the lookup Maps once
+  // per legend instead of per render, so `press` keeps its identity across
+  // parent re-renders (the battery ticker re-renders the tree every 250 ms).
+  const keyFor = useMemo(() => new Map(legend), [legend]);
+  const glyphFor = useMemo(() => new Map(legend.map(([g, k]) => [k, g])), [legend]);
   const expected = pos < queue.length ? keyFor.get(queue[pos]!) ?? "" : "";
 
   const press = useCallback((key: string) => {
@@ -46,18 +49,23 @@ export function SymQueueRun({ legend, queue, onSubmit }: {
   // expected/pos track the queue cursor; legend and queue are stable per item.
   }, [expected, pos, queue.length, onSubmit, glyphFor]);
 
+  // Latest-ref: the window listener is attached once and always calls the
+  // current press. Re-attaching on every press-identity change also used to
+  // cancel the pending wrong-key flash timer mid-flight, sticking the flash.
+  const pressRef = useRef(press);
+  useEffect(() => { pressRef.current = press; }, [press]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key.length !== 1) return;
-      press(e.key.toUpperCase());
+      pressRef.current(e.key.toUpperCase());
     };
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
       if (wrongTimerRef.current !== null) window.clearTimeout(wrongTimerRef.current);
     };
-  }, [press]);
+  }, []);
 
   return (
     <div className="symqueue" role="group" aria-label="symbol selection stimulus">
@@ -93,7 +101,7 @@ function KeyCaps({ legend, wrongKey, onPress }: {
 }) {
   return (
     <div className="symqueue-caps" aria-label="response keys">
-      {legend.map(([key]) => (
+      {legend.map(([, key]) => (
         <button key={key} type="button"
           className={"symqueue-cap num" + (wrongKey === key ? " is-wrong" : "")}
           aria-label={"key " + key}

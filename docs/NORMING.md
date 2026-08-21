@@ -12,15 +12,17 @@ operating procedure for replacing that assumption with collected data.
 Two failure modes contaminate a norming sample, and both now have mechanical
 defenses:
 
-1. **Random responders.** An all-random examinee earns a provisional composite
-   near IQ 75 — the EAP prior shrinks chance-level performance up from the
-   floor, and nothing distinguished "random clicking" from "genuinely low
-   ability". Absorbed into a norm sample, such sessions deflate the mean and
-   corrupt every percentile derived from it.
-   **Defense:** `src/core/validity.ts` screens every session on three
-   independent signatures (§2). Invalid sessions are flagged on the results
-   screen (the score is struck through and declared uninterpretable) and the
-   verdict travels inside the export record.
+1. **Random responders.** Before the 2026-08-21 scale-floor revision, an
+   all-random examinee earned a provisional composite near IQ 75 (audit §9) —
+   the EAP prior shrunk chance-level performance up from the floor, and
+   nothing distinguished "random clicking" from "genuinely low ability".
+   Honest scoring since the revision reports such sessions near IQ 50, but
+   they still carry no ability information. Absorbed into a norm sample,
+   they deflate the mean and corrupt every percentile derived from it.
+   **Defense:** `src/core/validity.ts` screens every session on independent
+   signatures of disengagement and contamination (§2). Invalid sessions are
+   flagged on the results screen (the score is struck through and declared
+   uninterpretable) and the verdict travels inside the export record.
 
 2. **Bank drift.** A norm table describes one exact item bank. After any item
    edit the table is silently wrong.
@@ -35,7 +37,8 @@ defenses:
 | Person-fit z (lz-style, per subtest) | observed correct vs model-expected correct, each subtest evaluated at its OWN reporting-grade estimate (wide prior), pooled by Σp(1−p). Evaluating against the composite theta biases z at both tails; per-subtest evaluation is the standard multi-scale form. | invalid ≤ −3.0 · questionable ≤ −2.5 |
 | Difficulty gradient (theta-free) | point-biserial r(item b, correctness). Every engaged examinee, at any ability level, passes easy items and fails hard ones (r ≈ −0.13..−0.45 measured); guessing is difficulty-blind (r ≈ 0 ± 0.08). This signal carries guesser detection now that scoring reports chance-level performance honestly — at an honest low theta a guesser's pattern LOOKS consistent and lz alone weakens. Computed from n ≥ 60 with ≥ 5 correct and ≥ 15 wrong. | invalid when r > −0.12 AND fit z ≤ −1.5 · questionable when r > −0.12 |
 | Rapid responding | share of power-item (no per-item cap) responses under 2000 ms | invalid when ≥ 50% AND fit z ≤ −1.5 · questionable ≥ 40% |
-| Straight-lining | longest run of one chosen option index / modal share — computed ONLY over items with ≥ 3 options: binary formats produce long honest runs, and adaptive order reorders keys into streaks (keys are de-cycled, so genuine multi-option patterns wander) | invalid run ≥ 10 · questionable run ≥ 7 or modal ≥ 50% |
+| Straight-lining | longest run of one chosen option index / modal share — computed ONLY over items with ≥ 3 options: binary formats produce long honest runs, and adaptive order reorders keys into streaks. Runs reset at every subtest boundary (2026-08-21): the same option index in two different subtests is a numbering coincidence, not a repeated position selection — without the reset, honest high-ability examinees accumulated cross-subtest runs through subtests whose keys cluster at one index. Modal share stays battery-wide. | invalid run ≥ 10 · questionable run ≥ 7 or modal ≥ 50% |
+| Interruption concentration | per-subtest share of `interrupted` responses (tab hidden during memory exposure) — the tab-hide exploit concentrates censoring in one subtest, while ordinary distraction interrupts once or twice. Denominator is every response of the subtest (scored, omitted, and interrupted); subtests with fewer than 5 responses are not screened, so a single interruption can never trip it (1/5 = 20%). Exported as `maxInterruptedSubtestShare` (null when no subtest qualifies) | questionable when any subtest's share > 30% — never invalid on its own |
 | Insufficient | fewer than 20 scored responses | never normed |
 
 Verdicts: `valid` → `questionable` → `invalid`, plus `insufficient`.
@@ -65,17 +68,24 @@ rescue the score, which is already honest.
   collected under this mode — identical forms across examinees are what IRT
   calibration and DIF analysis require.
 - **Collection worker** (`worker/`): the results screen POSTs exports when
-  `VITE_SUBMIT_URL` is configured; the worker validates structurally,
-  rate-limits per IP, and rejects duplicate session ids. The manual JSON
-  download remains as fallback.
+  `VITE_SUBMIT_URL` is configured; the worker validates structurally with
+  hard size caps (`worker/validator.js`: every string, array, id-like field,
+  raw answer, nesting depth, and the total body size is bounded), rate-limits
+  per IP, and rejects duplicate session ids. The manual JSON download
+  remains as fallback. Worker validation is the only full structural gate —
+  the pipeline below re-screens validity, it does not re-validate structure.
 - **Comprehension check**: the first scored section is gated by an
   instruction-comprehension question; failures return to the instructions
   and are counted in the export (`comprehensionAttempts`).
 - **Censoring flags**: `omitted` (section expired with the item on screen)
   and `interrupted` (tab hidden during memory exposure) responses stay in
-  the record but are excluded from estimation, person fit, and the
-  discontinue streak; latencies carry `awayMs` so screening judges active
-  time.
+  the record but are excluded from ability estimation and person fit. Only
+  `interrupted` is also held out of the discontinue miss-streak
+  (`src/core/routing.ts`): an omitted response counts as a miss there, but
+  omissions are only recorded when a section closes — after which no
+  further items are routed — so the streak is never consumed by one
+  (README, Censoring policy). Latencies carry `awayMs` so screening judges
+  active time.
 
 ### 3.2 Procedure
 
@@ -100,14 +110,21 @@ table back reported scores.
 node --experimental-strip-types tools/norming.ts data/exports --out data/norms.json
 ```
 
-Options: `--include-questionable` keeps questionable sessions in the sample
-(default: excluded). The tool:
+Collecting under the calibration form? Add `--form calibration` — the tool
+then expects and stamps the calibration bank hash (the form variant is part
+of `bankVersion`, so adaptive and calibration exports can never back one
+table). The flag defaults to `adaptive` and throws loudly on any other
+value rather than silently falling back. Options: `--include-questionable`
+keeps questionable sessions in the sample (default: excluded). The tool:
 
 1. Loads exports, skipping malformed/foreign-format files (all skips counted).
-2. Drops sessions whose `bankVersion` ≠ current bank.
+2. Drops sessions whose `bankVersion` ≠ the current bank hash for the
+   selected form (`--form`).
 3. **Re-screens validity independently** — the embedded verdict is never
    trusted; a tampered export cannot smuggle a bot into the sample.
-4. Computes per-item statistics over surviving sessions:
+4. Computes per-item statistics over surviving sessions, with censored
+   responses (`omitted`, `interrupted`) excluded from every diagnostic —
+   p, rest score, latency, timeout rate — mirroring the estimation policy:
    - p-value (proportion correct),
    - corrected point-biserial (item-rest r),
    - mean latency, timeout rate,

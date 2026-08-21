@@ -24,13 +24,39 @@ import type { Item, Subtest } from "../core/types.ts";
  * `given` codes are the conditional stem ("If R is first ...").
  *
  * CALIBRATION STATUS: a/b are AUTHORED ESTIMATES anchored to game size and
- * question form, not fitted values:
- *   b = clamp(-1.5 + 0.30*(len-4) + 0.55*cons + 0.55*(form!=complete)
- *             + 0.35*(given?1:0), -1.5, +2.5)   (cons = base constraints)
- * with hand adjustments where a game solves unusually open/closed (noted per
- * item). Floor -1.5 (four entities, two constraints, complete-order),
- * ceiling +2.5 (six entities, five constraints incl. non-adjacency, under a
- * condition). a rises 1.1 -> 1.5 with constraint count. c = 1/5.
+ * question form, not fitted values. A previous revision of this header
+ * documented a closed-form b rule (a clamp of entity/constraint/form/given
+ * terms) and claimed hand adjustments were "noted per item"; neither held
+ * (the formula reproduces none of the twelve authored b values), so it is
+ * retired here rather than back-filled. The authored difficulty rationale
+ * per item — base grid is (entity count x question form); adjustments track
+ * deduction depth and premise interlock:
+ *   anl-001 -1.5  floor: 4 entities, complete-order; three pairwise
+ *                  constraints (block, order, non-adjacency).
+ *   anl-002 -1.2  4 entities, complete-order; one fixed anchor plus one
+ *                  non-adjacency to track.
+ *   anl-003 -1.0  4 entities, mustBe; +0.2: the key is a forced pin that
+ *                  must be deduced (V precedes everyone), never read.
+ *   anl-004 -0.6  5 entities, complete-order; block + ordering + two
+ *                  position bans to juggle.
+ *   anl-005 -0.2  5 entities, couldBe; distractors are near-miss
+ *                  placements eliminated by one rule each.
+ *   anl-006 +0.5  5 entities, mustBe under a condition; one-step forced
+ *                  pin (adjacency under the given).
+ *   anl-007 +0.9  5 entities, mustBe under a condition; two-step slot
+ *                  exclusion to reach the pin.
+ *   anl-008 +1.2  6 entities, complete-order; four constraints incl. a
+ *                  non-adjacency tracked across the whole order.
+ *   anl-009 +1.5  6 entities, mustBe; the pin requires combining all five
+ *                  premises (before-all plus the non-adjacency twist).
+ *   anl-010 +1.8  5 entities, couldBe under a condition; +0.3 for
+ *                  counterfactual distractors one rule away from feasible.
+ *   anl-011 +2.2  6 entities, mustBe under a condition; multi-step slot
+ *                  exclusion for the pin.
+ *   anl-012 +2.5  ceiling: 6 entities, couldBe under a condition; densest
+ *                  interlock of non-adjacency, ordering, and the anchor.
+ * a spans 1.1..1.5 rising loosely with premise load; c = 1/5. Practice
+ * items sit at b = -3 (unscored demonstrations).
  */
 
 export function constraintBullet(code: string): string {
@@ -91,11 +117,10 @@ function buildGameItem(spec: GameSpec, practiceIndex?: number): Item {
       if (op !== "fixed") throw new Error(spec.id + " only fixed givens are supported");
       return `If ${a} is ${ordinal(Number(b))}`;
     }).join(" and ");
-    question = `${givenLine}, which one of the following ${spec.form === "mustBe" ? "must" : "cannot"} be true?`;
-    // COULD-BE under a condition asks "could be true"; fix wording below.
     if (spec.form === "couldBe") {
       return finalize(spec, practiceIndex, bullets, `${givenLine}, which one of the following could be true?`, options);
     }
+    question = `${givenLine}, which one of the following must be true?`;
     return finalize(spec, practiceIndex, bullets, question, options);
   } else {
     question = spec.form === "mustBe"
@@ -121,15 +146,19 @@ const PRACTICE: GameSpec[] = [
   {
     id: "prac-anl-01", intro: "Four packages are delivered one at a time: A, B, C, and D.",
     entities: ["A", "B", "C", "D"],
-    constraints: ["fixed:A:1"], form: "complete",
-    optionCodes: ["A,B,C,D", "B,A,C,D", "C,A,B,D", "B,C,A,D", "D,A,B,C"], answer: 0,
+    // Key A,B,D,C. The intro/alphabetical order A,B,C,D is a trap option: B
+    // and C would sit consecutively, violating notadj:B:C.
+    constraints: ["fixed:A:1", "notadj:B:C"], form: "complete",
+    optionCodes: ["C,A,B,D", "B,C,A,D", "A,B,D,C", "A,B,C,D", "B,A,C,D"], answer: 2,
     a: 1.0, b: -3,
   },
   {
     id: "prac-anl-02", intro: "Four hikers reach a bridge one after another: A, B, C, and D.",
     entities: ["A", "B", "C", "D"],
-    constraints: ["fixed:B:4", "before:A:C"], form: "mustBe",
-    optionCodes: ["B:4", "A:1", "C:3", "D:2", "C:2"], answer: 0,
+    // Key B:4 is DERIVED (B trails A, C, and D), never stated: the sample
+    // teaches deduction, not bullet-matching.
+    constraints: ["before:A:B", "before:C:B", "before:D:B"], form: "mustBe",
+    optionCodes: ["C:2", "B:4", "A:1", "C:3", "D:2"], answer: 1,
     a: 1.0, b: -3,
   },
 ];
@@ -139,32 +168,40 @@ const GAMES: GameSpec[] = [
     id: "anl-001",
     intro: "Four runners finish a race with no ties: R, S, T, and U.",
     entities: ["R", "S", "T", "U"],
-    constraints: ["before:T:U", "adj:R:S"], form: "complete",
-    optionCodes: ["R,S,T,U", "R,S,U,T", "T,R,U,S", "S,R,T,U", "R,T,S,U"],
-    answer: 0, a: 1.1, b: -1.5,
+    // Key T,R,S,U. The intro/alphabetical order R,S,T,U is offered as a trap:
+    // S and T would sit consecutively, violating notadj:S:T.
+    constraints: ["before:T:U", "adj:R:S", "notadj:S:T"], form: "complete",
+    optionCodes: ["T,R,U,S", "S,R,T,U", "T,R,S,U", "R,S,T,U", "R,S,U,T"],
+    answer: 2, a: 1.1, b: -1.5,
   },
   {
     id: "anl-002",
     intro: "Four books sit on a shelf, left to right: V, W, X, and Y.",
     entities: ["V", "W", "X", "Y"],
+    // Key V,X,W,Y; the intro/alphabetical order V,W,X,Y stays as the
+    // constraint-violating trap (V and W would be consecutive).
     constraints: ["fixed:Y:4", "notadj:V:W"], form: "complete",
-    optionCodes: ["V,X,W,Y", "V,W,X,Y", "W,V,Y,X", "X,V,Y,W", "W,Y,V,X"],
-    answer: 0, a: 1.15, b: -1.2,
+    optionCodes: ["V,W,X,Y", "W,V,Y,X", "X,V,Y,W", "W,Y,V,X", "V,X,W,Y"],
+    answer: 4, a: 1.15, b: -1.2,
   },
   {
     id: "anl-003",
     intro: "Four coins are flipped in sequence: V, W, X, and Y.",
     entities: ["V", "W", "X", "Y"],
-    constraints: ["fixed:Y:4", "before:W:X"], form: "mustBe",
-    optionCodes: ["Y:4", "V:1", "W:1", "X:2", "W:2"],
-    answer: 0, a: 1.2, b: -1.0,
+    // Key V:1 is DERIVED (V precedes everyone), never stated: no bullet pins
+    // V, so the old restated-bullet key (fixed:Y:4) is gone.
+    constraints: ["before:V:W", "before:V:X", "before:V:Y"], form: "mustBe",
+    optionCodes: ["Y:3", "V:1", "Y:4", "W:2", "X:3"],
+    answer: 1, a: 1.2, b: -1.0,
   },
   {
     id: "anl-004",
     intro: "Five speakers address a council across five slots: P, Q, R, S, and T.",
     entities: ["P", "Q", "R", "S", "T"],
-    constraints: ["adj:P:Q", "before:R:T", "notpos:S:3"], form: "complete",
-    optionCodes: ["P,Q,R,S,T", "P,Q,S,R,T", "P,R,Q,S,T", "P,Q,T,R,S", "P,S,Q,R,T"],
+    // Key S,P,Q,R,T. The intro/alphabetical order P,Q,R,S,T is the trap: S
+    // would sit fourth, violating notpos:S:4.
+    constraints: ["adj:P:Q", "before:R:T", "notpos:S:3", "notpos:S:4"], form: "complete",
+    optionCodes: ["S,P,Q,R,T", "P,Q,R,S,T", "P,Q,S,R,T", "P,R,Q,S,T", "P,Q,T,R,S"],
     answer: 0, a: 1.2, b: -0.6,
   },
   {
@@ -172,16 +209,18 @@ const GAMES: GameSpec[] = [
     intro: "Five paintings are hung on a wall in numbered positions: F, G, H, J, and K.",
     entities: ["F", "G", "H", "J", "K"],
     constraints: ["before:F:K", "notadj:G:H", "fixed:J:1"], form: "couldBe",
-    optionCodes: ["K:4", "F:4", "G:1", "J:2", "K:1"],
-    answer: 0, a: 1.25, b: -0.2,
+    optionCodes: ["G:1", "J:2", "K:1", "K:4", "F:4"],
+    answer: 3, a: 1.25, b: -0.2,
   },
   {
     id: "anl-006",
     intro: "Five machines are repaired one after another: M, N, O, P, and Q.",
     entities: ["M", "N", "O", "P", "Q"],
-    constraints: ["adj:M:N", "before:N:O", "fixed:Q:5"], form: "mustBe",
-    optionCodes: ["Q:5", "M:1", "N:2", "O:3", "P:3"],
-    answer: 0, a: 1.3, b: 0.5,
+    // Under the given M-first, key N:2 is DERIVED from adj:M:N; the old key
+    // restated fixed:Q:5 verbatim, so Q:5 is no longer offered.
+    constraints: ["adj:M:N", "before:N:O", "fixed:Q:5"], given: ["fixed:M:1"], form: "mustBe",
+    optionCodes: ["P:4", "N:2", "O:3", "P:3", "O:4"],
+    answer: 1, a: 1.3, b: 0.5,
   },
   {
     id: "anl-007",
@@ -190,23 +229,28 @@ const GAMES: GameSpec[] = [
     constraints: ["before:P:S", "notadj:Q:R", "adj:S:T"], given: ["fixed:R:1"], form: "mustBe",
     // Under R first, the ST block cannot start at slot 2 (P must precede S)
     // and Q cannot take slot 2, so P is pinned to second in every solution.
-    optionCodes: ["P:2", "S:4", "Q:5", "S:3", "T:5"],
-    answer: 0, a: 1.35, b: 0.9,
+    optionCodes: ["S:4", "Q:5", "S:3", "T:5", "P:2"],
+    answer: 4, a: 1.35, b: 0.9,
   },
   {
     id: "anl-008",
     intro: "Six acts audition in six numbered slots: A, B, C, D, E, and F.",
     entities: ["A", "B", "C", "D", "E", "F"],
-    constraints: ["before:A:D", "adj:C:D", "notadj:B:F"], form: "complete",
-    optionCodes: ["A,B,C,D,E,F", "A,B,C,E,D,F", "A,B,D,C,E,F", "A,B,C,F,D,E", "A,B,E,C,F,D"],
-    answer: 0, a: 1.4, b: 1.2,
+    // Key A,B,E,C,D,F. The intro/alphabetical order A,B,C,D,E,F is the trap:
+    // C would sit third, violating notpos:C:3.
+    constraints: ["before:A:D", "adj:C:D", "notadj:B:F", "notpos:C:3"], form: "complete",
+    optionCodes: ["A,B,D,C,E,F", "A,B,C,F,D,E", "A,B,E,C,D,F", "A,B,C,D,E,F", "A,B,C,E,D,F"],
+    answer: 2, a: 1.4, b: 1.2,
   },
   {
     id: "anl-009",
     intro: "Six acts audition in six numbered slots: A, B, C, D, E, and F.",
     entities: ["A", "B", "C", "D", "E", "F"],
-    constraints: ["before:A:B", "before:C:F", "notpos:D:6", "fixed:E:2"], form: "mustBe",
-    optionCodes: ["E:2", "A:1", "B:4", "C:3", "D:1"],
+    // Key A:1 is DERIVED: only F may precede A (A precedes B..E), and F
+    // cannot sit immediately before A (notadj:A:F), so A cannot be second.
+    // The old key restated fixed:E:2 verbatim.
+    constraints: ["before:A:B", "before:A:C", "before:A:D", "before:A:E", "notadj:A:F"], form: "mustBe",
+    optionCodes: ["A:1", "B:3", "C:5", "D:2", "E:4"],
     answer: 0, a: 1.4, b: 1.5,
   },
   {
@@ -214,26 +258,29 @@ const GAMES: GameSpec[] = [
     intro: "Five paintings are hung on a wall in numbered positions: F, G, H, J, and K.",
     entities: ["F", "G", "H", "J", "K"],
     constraints: ["before:F:H", "adj:J:K"], given: ["fixed:G:5"], form: "couldBe",
-    optionCodes: ["J:1", "F:2", "H:1", "K:5", "F:4"],
-    answer: 0, a: 1.45, b: 1.8,
+    optionCodes: ["H:1", "K:5", "F:4", "J:1", "F:2"],
+    answer: 3, a: 1.45, b: 1.8,
   },
   {
     id: "anl-011",
     intro: "Six plots in a garden row receive one plant each: P, Q, R, S, T, and U.",
     entities: ["P", "Q", "R", "S", "T", "U"],
-    constraints: ["adj:Q:R", "before:S:U", "notadj:P:T", "before:R:U", "notpos:Q:6", "fixed:U:6"],
+    // Under P first, key S:2 is DERIVED by slot exclusion: Q is banned from
+    // slot 2 (notpos) and dragged right by the QR block, U must trail R and
+    // T, and T is banned from slot 2 by notadj:P:T — only S can be second.
+    // The old key restated fixed:U:6 verbatim.
+    constraints: ["adj:Q:R", "before:R:U", "before:T:U", "notpos:Q:2", "notadj:P:T"],
     given: ["fixed:P:1"], form: "mustBe",
-    // Under P first, U is pinned to the sixth plot by its own constraint.
-    optionCodes: ["U:6", "Q:2", "R:3", "S:2", "T:5"],
-    answer: 0, a: 1.5, b: 2.2,
+    optionCodes: ["Q:4", "S:2", "Q:3", "R:4", "T:5"],
+    answer: 1, a: 1.5, b: 2.2,
   },
   {
     id: "anl-012",
     intro: "Six acts audition in six numbered slots: A, B, C, D, E, and F.",
     entities: ["A", "B", "C", "D", "E", "F"],
     constraints: ["notadj:A:B", "before:D:F", "fixed:C:3"], given: ["fixed:A:2"], form: "couldBe",
-    optionCodes: ["E:4", "A:4", "B:2", "C:1", "F:1"],
-    answer: 0, a: 1.5, b: 2.5,
+    optionCodes: ["C:1", "F:1", "E:4", "A:4", "B:2"],
+    answer: 2, a: 1.5, b: 2.5,
   },
 ];
 

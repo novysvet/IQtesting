@@ -3,20 +3,30 @@
  * table plus a calibration report.
  *
  * Usage:
- *   node --experimental-strip-types tools/norming.ts [exportsDir] [--out norms.json] [--include-questionable]
+ *   node --experimental-strip-types tools/norming.ts [exportsDir] [--out norms.json]
+ *                                       [--include-questionable] [--form adaptive|calibration]
+ *
+ * `--form calibration` selects the fixed calibration administrations (the
+ * designated norming-collection mode): the expected bankVersion is the
+ * form-aware hash, and the emitted NormTable is stamped with it so a
+ * calibration table can only back calibration sessions. Default: adaptive.
  *
  * Inputs: one or more ExportDocument JSON files (format "iqtesting-responses",
  * version 1) as produced by the results screen / telemetry.exportSession.
  *
  * Steps:
- *   1. Load every export; keep only those stamped with the CURRENT bank's
- *      bankVersion (anything else cannot be scored against this item bank).
+ *   1. Load every export; keep only those stamped with the current
+ *      bank+form bankVersion (anything else cannot be scored against this
+ *      item bank under this administration form).
  *   2. Re-run validity screening independently of the embedded verdict — the
  *      pipeline trusts recomputation, not self-report.
  *   3. Exclude invalid + insufficient sessions (questionable only with the
  *      flag); every exclusion is counted and reported.
  *   4. Compute per-item statistics over surviving sessions: p-value,
  *      corrected point-biserial (item-rest r), latency, timeout rate, flags.
+ *      Censored responses (omitted/interrupted) carry administrative, not
+ *      ability, evidence, so they are excluded here per the censoring policy
+ *      (person-level scores already exclude them in irt/validity).
  *   5. Distill the composite-theta distribution into a NormTable JSON that
  *      src/core/norms.ts can consume, and write a human-readable report.
  *
@@ -35,24 +45,36 @@ import { pathToFileURL } from "node:url";
 import { BATTERY } from "../src/battery.ts";
 import { bankVersion } from "../src/core/telemetry.ts";
 import type { ExportDocument } from "../src/core/telemetry.ts";
+import { formVariant } from "../src/core/session.ts";
 import { scoreComposite } from "../src/core/scoring.ts";
 import { screenSession } from "../src/core/validity.ts";
 import type { ValidityReport } from "../src/core/validity.ts";
-import type { Item, Response } from "../src/core/types.ts";
+import type { BatteryForm, Item, Response } from "../src/core/types.ts";
 import type { NormTable } from "../src/core/norms.ts";
 
 export interface Args {
   dir: string;
   out: string;
   includeQuestionable: boolean;
+  /** Administration form whose bank+form hash exports must carry. */
+  form: BatteryForm;
 }
 
 export function parseArgs(argv: string[]): Args {
-  const args: Args = { dir: "./data/exports", out: "./data/norms.json", includeQuestionable: false };
+  const args: Args = { dir: "./data/exports", out: "./data/norms.json", includeQuestionable: false, form: "adaptive" };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
     if (a === "--out") args.out = argv[++i] ?? args.out;
     else if (a === "--include-questionable") args.includeQuestionable = true;
+    else if (a === "--form") {
+      const f = argv[++i];
+      // Reject typos loudly: a silent fallback to adaptive would drop every
+      // calibration export into wrongBank — the exact failure this flag fixes.
+      if (f !== "adaptive" && f !== "calibration") {
+        throw new Error(`--form expects "adaptive" or "calibration", got ${JSON.stringify(f ?? "nothing")}`);
+      }
+      args.form = f;
+    }
     else if (!a.startsWith("--")) args.dir = a;
   }
   return args;
@@ -161,6 +183,13 @@ export function itemRestR(correct: boolean[], rest: number[]): number | null {
   return sxy / Math.sqrt(sxx * syy);
 }
 
+/**
+ * Per-item calibration diagnostics over the included sessions. Censoring
+ * policy: omitted (section expired on the item) and interrupted (tab hidden
+ * during memory exposure) responses carry no ability evidence, so they are
+ * excluded from every diagnostic — p, rest score, latency, timeout rate —
+ * mirroring validity.ts screening. Person-level scoring is untouched.
+ */
 export function computeItemStats(sessions: Loaded[]): ItemStat[] {
   const byId = new Map<string, Item & { subtestId: string }>();
   for (const s of BATTERY) for (const i of s.items) byId.set(i.id, { ...i, subtestId: s.id });
@@ -169,9 +198,9 @@ export function computeItemStats(sessions: Loaded[]): ItemStat[] {
   const acc = new Map<string, Acc>();
   for (const { responses } of sessions) {
     let totalRaw = 0;
-    for (const r of responses) if (r.correct) totalRaw++;
+    for (const r of responses) if (!r.omitted && !r.interrupted && r.correct) totalRaw++;
     for (const r of responses) {
-      if (!byId.has(r.itemId)) continue;
+      if (!byId.has(r.itemId) || r.omitted || r.interrupted) continue;
       const a = acc.get(r.itemId) ?? { correct: [], rest: [], latencies: [], timeouts: 0 };
       a.correct.push(r.correct);
       a.rest.push(totalRaw - (r.correct ? 1 : 0));
@@ -207,8 +236,15 @@ export function computeItemStats(sessions: Loaded[]): ItemStat[] {
   return stats;
 }
 
-export function buildNormTable(included: Loaded[], excludedCount: number): NormTable {
-  const currentBank = bankVersion(BATTERY);
+export function buildNormTable(
+  included: Loaded[],
+  excludedCount: number,
+  form: BatteryForm = "adaptive",
+): NormTable {
+  // Stamped with the bank+FORM hash: a calibration-form table can only back
+  // calibration sessions (validateNorms compares the full hash), never the
+  // adaptive administration and vice versa.
+  const currentBank = bankVersion(BATTERY, formVariant(form));
   const thetas = included
     .map((l) => l.doc.composite?.theta ?? scoreComposite(BATTERY, l.responses).theta)
     .filter((t) => Number.isFinite(t))
@@ -240,13 +276,13 @@ export interface PipelineResult {
 }
 
 export function runPipeline(args: Args): PipelineResult {
-  const currentBank = bankVersion(BATTERY);
+  const currentBank = bankVersion(BATTERY, formVariant(args.form));
   const { loaded, skipped } = loadExports(args.dir);
   const onBank = loaded.filter((l) => l.doc.bankVersion === currentBank);
   const wrongBank = loaded.length - onBank.length;
 
   const screen = screenSample(onBank, args.includeQuestionable);
-  const table = buildNormTable(screen.included, screen.excluded.length);
+  const table = buildNormTable(screen.included, screen.excluded.length, args.form);
   const stats = computeItemStats(screen.included);
 
   return {
@@ -309,7 +345,7 @@ export function writeOutputs(args: Args, result: PipelineResult): { normsPath: s
 
 function main(): void {
   const args = parseArgs(process.argv.slice(2));
-  console.log(`Norming pipeline · bank ${bankVersion(BATTERY)}`);
+  console.log(`Norming pipeline · bank ${bankVersion(BATTERY, formVariant(args.form))}${args.form === "calibration" ? " (calibration form)" : ""}`);
 
   const result = runPipeline(args);
   console.log(`Loaded ${result.filesLoaded} export file(s) from ${resolve(args.dir)}`);

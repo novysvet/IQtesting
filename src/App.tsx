@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BATTERY } from "./battery.ts";
-import { answerItem, answerMatching, answerMatchingDemo, answerPractice, beginBattery, expireSubtest, initSession, remainingMs, resumeSavedSession, sectionRemainingMs, startSubtest, elapsedMs, BATTERY_BUDGET_MIN } from "./core/session.ts";
+import { answerItem, answerMatching, answerMatchingDemo, answerPractice, beginBattery, expireSubtest, formVariant, initSession, remainingMs, resumeSavedSession, sectionRemainingMs, startSubtest, BATTERY_BUDGET_MIN } from "./core/session.ts";
 import type { AnswerMeta } from "./core/session.ts";
 import type { ConsentRecord, Demographics, Item, ItemRender, Subtest } from "./core/types.ts";
 import { scoreComposite } from "./core/scoring.ts";
@@ -75,11 +75,17 @@ function InstrumentHeader({ session, now }: { session: ReturnType<typeof initSes
   </header>;
 }
 
+/** Pairs exposure duration — one constant shared by the exposure timer and the
+ * render, so the "STUDY INTERVAL COMPLETE" switch matches the onReady flip. */
+function pairsDurationMs(pairs: number): number {
+  return Math.max(6000, pairs * 1400);
+}
+
 function MemoryPresentation({ render, onReady, onInvalid }: { render: Extract<ItemRender, { kind: "span" | "pairs" }>; onReady: (ready: boolean) => void; onInvalid: () => void }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
     const started = performance.now();
-    const duration = render.kind === "pairs" ? Math.max(6000, render.pairs.length * 1400) : spanDurationMs(render.sequence.length);
+    const duration = render.kind === "pairs" ? pairsDurationMs(render.pairs.length) : spanDurationMs(render.sequence.length);
     let finished = false;
     setElapsed(0);
     onReady(false);
@@ -99,7 +105,7 @@ function MemoryPresentation({ render, onReady, onInvalid }: { render: Extract<It
   // The item render object is stable; timer-driven parent renders must not restart exposure.
   }, [render]);
   if (render.kind === "pairs") {
-    const duration = Math.max(6000, render.pairs.length * 1400);
+    const duration = pairsDurationMs(render.pairs.length);
     return elapsed < duration
       ? <div className="pair-study">{render.pairs.map(([a, b]) => <div key={a}><strong>{a}</strong><span>{b}</span></div>)}</div>
       : <div className="memory-closed"><span>STUDY INTERVAL COMPLETE</span>Enter the requested associate.</div>;
@@ -134,7 +140,9 @@ function OptionContent({ item, option, index }: { item: Item; option: string; in
   }
   if (r?.kind === "series") return <Figure spec={option} size={70} />;
   if (r?.kind === "fold") return <HoleGrid indices={JSON.parse(option) as number[]} size={72} />;
-  if (r?.kind === "rotation") return <RotationFigure spec={r.candidates[index] ?? option} size={72} />;
+  // candidates[] is authored parallel to options[] (verified by the bank), so
+  // the original option index always addresses a candidate directly.
+  if (r?.kind === "rotation") return <RotationFigure spec={r.candidates[index]!} size={72} />;
   if (r?.kind === "vpuzzle") return <PuzzlePieceFigure cells={r.pieces[index] ?? []} cols={r.cols} />;
   return <span>{option}</span>;
 }
@@ -204,7 +212,11 @@ function ItemScreen({ item, sectionName, itemNumber, sessionId, practice, onAnsw
     const meta: AnswerMeta = { awayMs: awayRef.current || undefined };
     if (constructed && text.trim()) { onAnswer(text, false, meta); return; }
     if (multi > 0) {
-      if (picked.size === multi) onAnswer([...picked].sort((a, b) => a - b).map(originalOf).join(","), false, meta);
+      // Map DISPLAY picks to ORIGINAL indices first, THEN sort ascending:
+      // the key is original indices joined ascending, and sorting display
+      // slots before mapping scrambles the string whenever the permutation
+      // is not order-preserving (5/6 of permuted items).
+      if (picked.size === multi) onAnswer([...picked].map(originalOf).sort((a, b) => a - b).join(","), false, meta);
       return;
     }
     if (!constructed && selected !== null) onAnswer(originalOf(selected), false, meta);
@@ -228,7 +240,7 @@ function ItemScreen({ item, sectionName, itemNumber, sessionId, practice, onAnsw
           <span className="option-key num">{String.fromCharCode(65 + i)}</span><OptionContent item={item} option={option} index={perm ? perm[i]! : i} />
         </button>)}
       </div>}
-      {!symqueue && memoryReady && !displayOptions && <label className="recall-field"><span className="label">Your response</span><input autoFocus value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoComplete="off" spellCheck={false} /></label>}
+      {!symqueue && memoryReady && !displayOptions && <label className="recall-field"><span className="label">Your response</span><input autoFocus value={text} maxLength={256} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoComplete="off" spellCheck={false} /></label>}
     </div>
     <div className="item-actions"><span>{practice ? "This sample is not scored or recorded. " : ""}{multi > 0 ? "Select exactly " + multi + " pieces. " : ""}{symqueue ? "The queue submits itself when complete. " : practice ? "Continue" : "Answer once. You cannot return to this item."}</span>{!symqueue && <button className="primary" onClick={submit} disabled={!memoryReady || (constructed ? !text.trim() : multi > 0 ? picked.size !== multi : selected === null)}>{practice ? "Continue" : <>Record answer <span aria-hidden="true">→</span></>}</button>}</div>
   </section>;
@@ -518,7 +530,10 @@ const POOL_SIZE = BATTERY.reduce((n, s) => n + s.items.length, 0);
 function restoredSession() {
   const storage = defaultStorage();
   if (storage) {
-    const saved = loadSession(storage, bankVersion(BATTERY));
+    // Validate against the FORM-AWARE bank hash: initSession stamps the save
+    // with formVariant(form) hashed in, so a calibration save must be matched
+    // with the calibration hash or it can never restore.
+    const saved = loadSession(storage, bankVersion(BATTERY, formVariant(requestedForm())));
     if (saved && saved.state.startedAt !== null && saved.state.phase.kind !== "intro") {
       // Re-base the multi-sitting clock: bank only work time through the
       // last autosave, re-open any segment at now (see resumeSavedSession).
@@ -555,7 +570,14 @@ export function App() {
   useEffect(() => { const id = window.setInterval(() => setNow(Date.now()), 250); return () => window.clearInterval(id); }, []);
   useEffect(() => {
     if (session.startedAt !== null && session.phase.kind !== "results" && remainingMs(session, now) === 0) {
-      setSession((s) => ({ ...s, phase: { kind: "results" } }));
+      // Battery out of time: RECORD the in-flight content first — the item
+      // as an omission, an open matching page as timed-out blanks — via the
+      // session's own expiry path (which also closes the scored segment),
+      // instead of overwriting the phase and silently dropping it.
+      setSession((s) => {
+        const closed = expireSubtest(s, now);
+        return closed.phase.kind === "results" ? closed : { ...closed, phase: { kind: "results" } };
+      });
     } else if (sectionRemainingMs(session, now) === 0) {
       setSession((s) => expireSubtest(s, now));
     }
@@ -565,14 +587,6 @@ export function App() {
     const storage = defaultStorage();
     if (storage && session.startedAt !== null) saveSession(session, storage);
   }, [session]);
-  // A restored session whose wall clock ran out while the page was closed.
-  useEffect(() => {
-    if (session.startedAt !== null && session.phase.kind !== "results"
-      && elapsedMs(session, Date.now()) >= session.budgetMs) {
-      setSession((s) => ({ ...s, phase: { kind: "results" } }));
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
   const startBattery = useCallback((demo: Demographics, participantId: string | null) => {
     setSession(initSession(BATTERY, {
       participantId,
@@ -589,9 +603,8 @@ export function App() {
       ? session.subtests[phase.subtestIndex]?.practice?.[phase.practiceIndex]?.id ?? "practice"
       : phase.kind + ("subtestIndex" in phase ? phase.subtestIndex : "");
   useEffect(() => { viewportRef.current?.focus(); }, [phaseKey]);
-  const active = pre === "battery" && phase.kind !== "intro";
   const showChrome = pre === "battery" && phase.kind !== "intro";
-  return <main className={"app " + (active ? "is-active" : "is-intro")}>
+  return <main className={"app " + (showChrome ? "is-active" : "is-intro")}>
     {showChrome && <InstrumentHeader session={session} now={now} />}
     <div className="viewport" ref={viewportRef} tabIndex={-1}>
       {pre === "consent" && <Consent onAccept={(record) => { setConsent(record); setPre("demographics"); }} />}

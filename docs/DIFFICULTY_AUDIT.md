@@ -53,7 +53,7 @@ Fixes: mx-006 → ≈ −1.2 (biggest single error; also opens a ~1-logit hole a
 
 Authored b = 4 − zipf(key), a=1.35, c=0.2 for all. Full per-item tables from the four slice auditors are consistent with these summaries:
 
-- **Band 1 (lex-001..013, zipf > 4.8):** everyone knows every option; difficulty is cue crispness and distractor overlap, not rarity. Authored spread 0.66 logits should be ~1.0. Worst: lex-006 *private* TOO-EASY-by-0.35 (personal/secret partially fit; AMBIGUITY), lex-010 *rich* TOO-HARD-by-0.4 (absurd distractors → elimination), lex-013 *patient* AMBIGUITY (calm fits "without becoming annoyed"). Adjacent authored gaps (0.02–0.09) are pseudo-precision; slice-internal order is effectively arbitrary.
+- **Band 1 (lex-001..013, zipf > 4.8 — approximate banding; the enforced cuts in `test/lexicon.test.ts` are 4.9/4.45/3.8/3.0, and lex-012/013 sit at 4.79/4.77):** everyone knows every option; difficulty is cue crispness and distractor overlap, not rarity. Authored spread 0.66 logits should be ~1.0. Worst: lex-006 *private* TOO-EASY-by-0.35 (personal/secret partially fit; AMBIGUITY), lex-010 *rich* TOO-HARD-by-0.4 (absurd distractors → elimination), lex-013 *patient* AMBIGUITY (calm fits "without becoming annoyed"). Adjacent authored gaps (0.02–0.09) are pseudo-precision; slice-internal order is effectively arbitrary.
 - **Band 2 (lex-014..025):** mapping saturates; authored spread 0.44 vs predicted ~1.3–1.5. Worst: lex-020 *hungry* TOO-EASY-by-0.85 (picture-vocabulary giveaway), lex-021 *curious* effective 2-choice (strange/odd/unusual are mutual synonyms), lex-025 *crucial* TOO-HARD-by-0.35 (vital is a dictionary synonym of the key; AMBIGUITY), lex-017 *obvious* AMBIGUITY (clear).
 - **Band 3 (lex-026..038):** broadly credible (8/13 within ±0.2). Exceptions: lex-029 *polite* TOO-EASY-by-0.45 (idiomatic giveaway), lex-032 *pragmatic* TOO-HARD-by-0.40 (distractor "practical" has a near-identical definition; AMBIGUITY). Stem leaks: lex-030 and lex-035 embed their own distractors ("hesitant", "gentle") in the definition.
 - **Band 4 ceiling (lex-039..050):** systematic ceiling compression −0.2 to −0.35 per item. Causes: GRE-fame of the keys (elucidate, disparage, ameliorate, inchoate, supercilious, equivocate are all prep-list words), and rarest-option-is-key / elimination exploits in lex-045, 049, 050. Authored ceiling b=2.28 (IQ 134) → predicted effective ≈ 1.9 (IQ ~128); nothing measures IQ 140+ here.
@@ -161,7 +161,7 @@ Floor and ceiling genuinely survive audit (hardest: gin-021 Abelard ≈ +3.2, gi
 
 ## 5. Norming readiness — engine findings
 
-Model/engine (verified, `src/core/`): 3PL, EAP on 181-point grid with N(0,1) prior, max-information routing, inverse-variance broad pooling, fixed literature g-weights, linear IQ map. Engine is deterministic and tested — fine as a scoring machine, but:
+Model/engine (verified, `src/core/`; engine description as of audit date): 3PL, EAP on a 181-point grid with N(0,1) prior (a 225-point [−7,+7] grid since §9; subtest reporting now uses the wide `REPORT_PRIOR_SD = 2` prior, routing keeps N(0,1)), max-information routing, inverse-variance broad pooling, fixed literature g-weights, linear IQ map. Engine is deterministic and tested — fine as a scoring machine, but:
 
 | Prerequisite | Status |
 |---|---|
@@ -173,7 +173,7 @@ Model/engine (verified, `src/core/`): 3PL, EAP on 181-point grid with N(0,1) pri
 | Item metadata sidecar | PARTIAL — derivable from source; no frozen snapshot |
 | Engine determinism for data collection | READY |
 
-Additional engine risks: composite/broad SEs assume independent subtest errors (anti-conservative CI, real g-correlation makes ±3-point composites too narrow); timed-out answered items scored incorrect; tab-blur during memory presentation scores as an unavoidable wrong answer feeding the 3-miss discontinue (ability-uncorrelated censoring); unanswered items at section expiry are omitted (informative censoring); no routing telemetry (exposure/DIF analysis impossible); G_WEIGHTS not data-derived.
+Additional engine risks (pre-fix status as written 2026-08-20): composite/broad SEs assume independent subtest errors (anti-conservative CI, real g-correlation makes ±3-point composites too narrow); timed-out answered items scored incorrect; tab-blur during memory presentation scores as an unavoidable wrong answer feeding the 3-miss discontinue (ability-uncorrelated censoring); unanswered items at section expiry are omitted (informative censoring); no routing telemetry (exposure/DIF analysis impossible); G_WEIGHTS not data-derived. *Since fixed: composite SEs floor at the best single component (§7.3); tab-blur responses are recorded `interrupted` and excluded from estimation and the discontinue streak, with concentrated interruption now screened (§10.2); expiry omissions are censored flags excluded from estimation; routing telemetry ships in every export (§7.3). Still open: G_WEIGHTS stay literature-fixed pending norming data.*
 
 ---
 
@@ -232,7 +232,7 @@ All changes verified by new/extended machine-checked tests; full suite, typechec
 - All parameters remain authored priors — the audit's predictions are now the bank's values, but only response data can calibrate them. The provisional-calibration caveat stands everywhere scores appear.
 - Battery high-range measurement (IQ 145+) rests on matrix (b 3.0), general information (3.2), digit span (2.9), LNS (2.6): folding, rotation, quant comparison, paired associates, and analogies have honest ceilings at or below b ≈ +1.5.
 - Lexicon ceiling stays corpus-capped (max b 2.28); the 5-option format with c=0.2 structurally caps useful vocabulary difficulty near b ≈ 2.8 regardless.
-- Answer-position permutation remains deterministic (hash of item id); positions are now recorded per response (answerIndex) so bias is auditable from collected data; a seeded per-session permutation remains a possible future change.
+- Answer-position permutation remained deterministic at audit time (hash of item id); positions were recorded per response so bias was auditable from collected data. A seeded per-session permutation was implemented on 2026-08-21 (Fisher-Yates over `sessionId + itemId`, `src/core/presentation.ts`; binary formats are never permuted) — documented as current in ITEM_SCHEMA's telemetry section.
 - gin-028 (Mansa Musa) and gin-024 (event horizon) are flagged for drift monitoring at the first calibration refresh; gin Euro-Anglo-centric items remain a norming-sample consideration.
 
 ---
@@ -241,7 +241,7 @@ All changes verified by new/extended machine-checked tests; full suite, typechec
 
 ### 8.1 Motivation (user feedback)
 
-Users flagged two gaps. First, the battery had **no processing-speed measurement at all**: every subtest was an un-timed power test, so the CHC broad factor Gs (narrow ability P, perceptual speed — scanning, symbol/digit pairing under time pressure) went unsampled. Second, several classic formats were missing: symbol search, coding/character pairing, arithmetic, visual puzzles, and block counting. The expansion adds all of these plus two 1926-SAT formats, artificial language and definitions — the latter **replacing precisionLexicon** (same corpus-calibrated Gc/VL construct, new whole-page matching administration) to break format monotony: twelve subtests of one-at-a-time adaptive pages was producing page-format fatigue that modality alternation could not offset. Battery grows 12 → 18 subtests and 180 → 226 budgeted minutes; Gs enters the composite at g-weight 0.7 (`G_WEIGHTS`, `src/core/scoring.ts` — level with Gv). New-format authoring contracts: docs/ITEM_SCHEMA.md.
+Users flagged two gaps. First, the battery had **no processing-speed measurement at all**: every subtest was an un-timed power test, so the CHC broad factor Gs (narrow ability P, perceptual speed — scanning, symbol/digit pairing under time pressure) went unsampled. Second, several classic formats were missing: symbol search, coding/character pairing, arithmetic, visual puzzles, and block counting. The expansion adds all of these plus two 1926-SAT formats, artificial language and definitions — the latter **replacing precisionLexicon** (same corpus-calibrated Gc/VL construct, new whole-page matching administration) to break format monotony: twelve subtests of one-at-a-time adaptive pages was producing page-format fatigue that modality alternation could not offset. Battery grows 12 → 18 subtests and 180 → 226 budgeted minutes (superseded later on 2026-08-21 by the redesign wave: 21 subtests / 438 items / 260 min — see ITEM_SCHEMA's inventory); Gs enters the composite at g-weight 0.7 (`G_WEIGHTS`, `src/core/scoring.ts` — level with Gv). New-format authoring contracts: docs/ITEM_SCHEMA.md.
 
 ### 8.2 Honest spans for the new banks
 
@@ -251,8 +251,8 @@ Same contract as every other bank (§1.1): a bank claims only the ceiling its FO
 |---|---|---|
 | arithmetic | −2.5..+2.6 | story-problem steps, fraction/percent/rate layering, multi-step compound items |
 | symbolSearch | −2.0..+1.2 | search-row length, near-miss confusability — scanning speed caps low by format |
-| charPairing | −1.5..+1.0 | row length, key-confusable glyph pairs; typed output, c = 0 |
-| blockCounting | −1.8..+1.9 | hidden-cube count, footprint size |
+| charPairing — retired 2026-08-21; superseded by `symbolSelection` (−2.0..+1.0: choice-reaction over a glyph queue, pressed-key string, c = 0) | −1.5..+1.0 | row length, key-confusable glyph pairs; typed output, c = 0 |
+| blockCounting | −1.8..+1.9 (floor deepened to −2.8 by §9) | hidden-cube count, footprint size |
 | visualPuzzles | −1.5..+2.2 | silhouette size, confusable non-tiling piece triples |
 | artificialLanguage | −2.0..+2.4 | lexicon size, grammar-rule depth |
 | definitions | −1.44..+2.28 | corpus-derived (b = 4 − zipf of the key word), not authored ranks |
@@ -267,7 +267,7 @@ The answer-key rule (a key that cannot be re-derived by machine does not ship) a
 
 - **arithmetic**: keys computed from the stated quantities by exact arithmetic, twice independently.
 - **symbolSearch**: keys re-derived from targets/search set membership.
-- **charPairing**: digit strings re-derived from the persistent key + sequence.
+- **charPairing** (retired 2026-08-21): digit strings re-derived from the persistent key + sequence. Successor contract — **symbolSelection**: keys re-derived from the legend + queue as the exact pressed-key string (`test/symqueue.test.ts`).
 - **blockCounting**: totals re-computed from the height maps; the hidden-cube visibility model (hidden iff not top of column AND +x neighbour taller AND +y neighbour taller) asserted per cube.
 - **visualPuzzles**: tiling verified by set algebra — the key triple's union equals the target exactly, and every other 3-subset of the six pieces fails to tile it.
 - **artificialLanguage**: independent translators — two implementations of the glossary + grammar — agree on every key.
@@ -303,7 +303,8 @@ ray-sampled the isometric renderer's occlusion). Findings and dispositions:
   defensible options; four definitions distractors are defensible-inferior
   near-mits (serious/kind/cynical/new) — intentional format difficulty.
 
-Full-battery browser walk (18 sections, wrong-answer run): all new renderers
+Full-battery browser walk (18 sections as of that date — 21 since the
+2026-08-21 redesign wave; wrong-answer run): all new renderers
 mount, the matching page records per-definition responses, multi-select
 puzzle submission works, results composite includes Gs.
 
@@ -346,8 +347,9 @@ session state machine: a completely random examinee averaged **IQ 72.5**
   streak means "keep descending" — reversal-style testing as in SB5/WAIS.
   maxItems still bounds every run.
 
-**Banks** (+11 items, 358 → 369; every key machine-re-derived by the banks'
-existing test contracts):
+**Banks** (+11 items, 358 → 369 — superseded later the same day by the
+2026-08-21 redesign wave (438 items; NEWER rows in ITEM_SCHEMA's inventory);
+every key machine-re-derived by the banks' existing test contracts):
 
 | bank | new basals | floor |
 |---|---|---|
@@ -405,3 +407,120 @@ per the user's direction, no effort is spent extending measurement above
 IQ 145 — norming data must come first.
 
 Regression pinning all of this: `test/random-floor.test.ts`.
+
+---
+
+## §10 2026-08-21 audit wave (exploit regeneration + collection hardening)
+
+A second audit pass (docs-vs-code reality sweep, per-bank red-teaming, engine
+and worker review) landed same-day fixes after §9. Bank shape is unchanged —
+21 subtests / 438 items / Σ budget 260 min; per-subtest item counts and every
+authored a/b/c are untouched; each change below is pinned by a new or extended
+regression test. The `bankVersion` hash necessarily rotated (§10.2), so any
+export or norm table predating this section is correctly rejected as
+wrong-bank.
+
+### 10.1 Bank regenerations (display/distractor layer; examinee-visible correct answers preserved)
+
+- **analyticalReasoning (anl)** — key positions de-cycled (no answer slot
+  holds more than 3 of 12 keys; longest same-slot run 1). The
+  intro/alphabetical-order tell killed: in the four complete-order items
+  whose intro order WAS the consistent key (anl-001/004/008 + practice),
+  that order is now offered as a genuinely-violating distractor and the key
+  moved to a different consistent order. The restated-bullet tell killed:
+  must-be items re-keyed from stated conditions to DERIVED claims
+  (anl-003/006/009/011 + practice; no claim item offers a verbatim
+  restatement of a given). Zero-deduction strategies now score 0 on both
+  tell classes. The false closed-form b-provenance claim retired; per-item
+  authored rationales documented instead (b values unchanged).
+- **numberSeries (nsr)** — distractor value sets re-authored on 10 of 18
+  items + both practice items so the key's value-rank spreads across all
+  five ranks (4/4/3/3/4); "always pick the modal rank" drops from 8/18 to
+  4/18. Keys, difference chains, prompts, and positions unchanged.
+- **quantComparison (qcp)** — qcp-002 and qcp-010 converted to genuinely
+  underdetermined (D-keyed) items with no visible variable, so "no visible
+  variable ⇒ eliminate D" fails on concrete-looking items. A/B/C/D answer
+  histogram now 5/5/6/4.
+- **blockCounting (blc)** — distractor families re-authored per item. The
+  old fixed family (total±1 / visible / total+2) made the key the median
+  option value in 17/17 items ("pick the middle number" scored 100% at
+  chance 20%). Value-rank histogram now {2nd-smallest 6, median 5,
+  2nd-largest 6}; the visible count is still offered on every burying
+  pile (the "forgot the hidden blocks" attractor survives); authored
+  answer positions re-spread (max 4/17 per slot).
+- **paperFolding (pf)** — options rotated by a non-cyclic per-item
+  schedule; key positions max 4/16 per slot, lag-1..6 positional
+  autocorrelation at or below the 1/5 chance rate, no exact period ≤ 7.
+  Every keyed option string is unchanged; only its index moved.
+- **visualPuzzles (vpz)** — the subset-sum tell killed: the distractor in
+  the three size-decidable items (vpz-001/002 + practice) was resized so
+  every scored AND practice item has ≥2 size-feasible triples — counting
+  cells never decides an item; tiling uniqueness is geometric (exhaustive
+  translation enumeration). prac-vpz-02 re-authored: the old demo had
+  four defensible triples, three identically-rendering piece pairs, and
+  disconnected/1-cell pieces.
+- **symbolSearch (ssr)** — embedded-target slot balanced 7/8 across the 15
+  Yes items (was 13/2): each single-slot scan strategy now scores 22–23/30,
+  the format-inherent floor (15 free No-item hits + ceil(15/2)); the
+  13-vs-2 learnable pattern (binomial p = 0.0037) is gone.
+- **matrixReasoning (mx)** — mx-001 re-authored: its cell grid was
+  render-identical to practice item prac-mx-01, so the bank's floor item
+  (b = −2.6) measured practice exposure. Same rule class, same b/a/c,
+  fresh rows and key (regression forbids any scored item sharing a grid
+  with a practice item). prac-mx-02's demo rows re-authored — three cells
+  rendered identically and the square row's 0°≡90°, making the taught
+  rotation rule invisible.
+
+### 10.2 Engine, collection, and validity
+
+- **`bankVersion` now covers prompt/render/timeLimitSec/budgetMin**
+  (`src/core/telemetry.ts`): previously a prompt edit, render-payload
+  change, per-item time cap, or budget change could leave the hash
+  identical while the examinee's experience changed. The canonical string
+  now hashes every item's prompt, serialized render payload, and
+  timeLimitSec plus each subtest's budgetMin (perturbation-pinned by
+  `test/bank-version.test.ts`). Unscored material (practice,
+  matchingPractice) stays excluded by design; the form-variant stamping
+  mechanism is unchanged.
+- **Validity screening** (`src/core/validity.ts`): straight-lining runs
+  now reset at subtest boundaries — the same raw-answer index in two
+  subtests is a numbering coincidence, not a repeated selection, and
+  cross-subtest accumulation had been flagging honest high-ability
+  examinees. New interruption-concentration screen: a subtest in which
+  more than 30% of responses (minimum 5) are `interrupted` flags
+  questionable — the concentrated tab-hide pattern — exported as
+  `maxInterruptedSubtestShare`. Thresholds otherwise unchanged.
+- **Session/administration** (`src/core/session.ts`, `src/App.tsx`):
+  multi-select answers map display indices back to original option indices
+  before grading (exactly-correct Visual Puzzles picks were graded wrong
+  under non-order-preserving permutations); calibration-form saves restore
+  under the form-aware bank hash (previously rejected as stale-bank);
+  battery expiry records in-flight work — the on-screen item as an
+  omission, an open matching page as timed-out blanks — instead of
+  discarding it.
+- **Worker** (`worker/`): wrangler entrypoint corrected to `index.js`; the
+  validator now enforces hard size caps (strings ≤ 2048, arrays ≤ 512,
+  id-like fields ≤ 64, rawAnswer ≤ 64, nesting depth ≤ 32, responses
+  ≤ 2000, raw body ≤ 2 MiB); rate limiting delegates to the tested
+  `checkRate` with write-first KV accounting; the stored KV record is the
+  validated document itself plus `receivedAt`, so worker-collected
+  sessions load in the norming pipeline instead of being skipped as
+  wrong-format.
+- **Norming pipeline** (`tools/norming.ts`): `--form calibration` selects
+  the calibration bank hash for filtering and table stamping (unknown
+  values throw loudly); censored responses (`omitted`/`interrupted`) are
+  excluded from item statistics (p, rest-r, latency, timeout rate),
+  mirroring the estimation policy.
+
+### 10.3 Standing caveat
+
+Nothing in this section calibrates anything. Every a/b/c remains an authored
+prior, every span remains un-normed, and the provisional caveat stands
+everywhere scores appear. The regenerations remove measured
+non-substantive strategies — pre-fix, "pick the median value" scored 17/17
+on blockCounting, "pick the intro order" 4/5 on analytical, "pick the modal
+rank" 8/18 on number series, and a single-slot scan 28/30 on symbol search;
+post-fix each sits at or near its format's chance floor, and the new
+regression guards bound any residual concentration (quant comparison's C
+remains modal by one item, 6/20 vs 5/20 — documented, guarded, accepted).
+None of this validates the difficulty scale.

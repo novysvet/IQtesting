@@ -12,12 +12,18 @@ import type { Item, Subtest } from "../core/types.ts";
  * +y always show that face, so hidden cubes only occur under raised interior
  * columns.
  *
- * Every key is DERIVED as sum(heights); distractors follow the fixed family
- * total-1 / total+1 / visible-count / total+2, with total-2 substituted on
- * collision, so all five options are distinct integers within +/-3 of the
- * key (which caps the hidden count at 3 by construction). test/blocks.test.ts
- * re-derives total/visible/hidden from every height map with the same
- * visibility model and is the executable statement of these conventions.
+ * Every key is DERIVED as sum(heights). Distractors are plausible miscounts:
+ * distinct integers within +/-3 of the total, and every pile that buries
+ * cubes also offers its VISIBLE count (the "forgot the hidden blocks"
+ * answer). 2026-08-21 anti-exploit re-authoring: the former fixed family
+ * total-1 / total+1 / visible / total+2 always placed two options below and
+ * two above the key, making the key the MEDIAN option value in 17/17 items
+ * ("pick the middle number" scored 100% at chance 20%). Families are now
+ * mixed per item — 1-below/3-above, 2/2, or 3-below/1-above — so the key's
+ * value rank varies (no rank exceeds 6/17 items; pinned by test).
+ * test/blocks.test.ts re-derives total/visible/hidden from every height map
+ * with the same visibility model and is the executable statement of these
+ * conventions.
  *
  * Content difficulty is anchored b -2.8 .. +1.9 on three dimensions: total
  * cubes (6 -> 24), HIDDEN fraction (0 -> 3 inferred cubes, with stacked
@@ -41,8 +47,8 @@ const BLOCK_BANK: Item[] = [
     a: 0.9, b: -2.8, c: 0.2,
     // flat 3x2 slab of height-1 cubes | total 6 | hidden 0 (basal)
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["5", "7", "6", "4", "8"],
-    answer: 2,
+    options: ["7", "4", "8", "5", "6"],
+    answer: 4,
     render: { kind: "blocks", cols: 3, rows: 3, heights: [1, 1, 1, 1, 1, 1, 0, 0, 0] },
   },
   {
@@ -50,8 +56,8 @@ const BLOCK_BANK: Item[] = [
     a: 0.9, b: -2.5, c: 0.2,
     // flat H-shape of height-1 cubes | total 7 | hidden 0 (basal)
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["6", "8", "7", "5", "9"],
-    answer: 2,
+    options: ["8", "7", "10", "6", "9"],
+    answer: 1,
     render: { kind: "blocks", cols: 3, rows: 3, heights: [1, 1, 1, 0, 1, 0, 1, 1, 1] },
   },
   {
@@ -59,8 +65,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.0, b: -1.8, c: 0.2,
     // 3x3 slab + front-right tower of 2 | total 10 | hidden 0
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["9", "11", "8", "10", "12"],
-    answer: 3,
+    options: ["11", "8", "10", "7", "9"],
+    answer: 2,
     render: { kind: "blocks", cols: 3, rows: 3, heights: [1, 1, 1, 1, 1, 1, 1, 1, 2] },
   },
   {
@@ -68,8 +74,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.0, b: -1.5, c: 0.2,
     // 3x3 slab, centre tower, one corner cut | total 9 | hidden 1 (tower base)
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["8", "9", "10", "7", "11"],
-    answer: 1,
+    options: ["9", "11", "8", "12", "10"],
+    answer: 0,
     render: { kind: "blocks", cols: 3, rows: 3, heights: [1, 1, 1, 1, 2, 1, 1, 1, 0] },
   },
   {
@@ -77,8 +83,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.0, b: -1.2, c: 0.2,
     // irregular L footprint, back-left tower | total 8 | hidden 1
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["7", "9", "10", "6", "8"],
-    answer: 4,
+    options: ["10", "6", "8", "11", "7"],
+    answer: 2,
     render: { kind: "blocks", cols: 3, rows: 3, heights: [2, 1, 1, 1, 1, 0, 1, 1, 0] },
   },
   {
@@ -86,8 +92,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.05, b: -0.9, c: 0.2,
     // 3x3 slab, ridge of two towers | total 11 | hidden 2
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["11", "12", "9", "13", "10"],
-    answer: 0,
+    options: ["10", "12", "8", "11", "9"],
+    answer: 3,
     render: { kind: "blocks", cols: 3, rows: 3, heights: [1, 2, 1, 1, 2, 1, 1, 1, 1] },
   },
   {
@@ -95,8 +101,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.05, b: -0.6, c: 0.2,
     // first 4-wide footprint: full 4x3 slab, raised 2x1 interior | total 14 | hidden 2
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["13", "16", "14", "12", "15"],
-    answer: 2,
+    options: ["16", "14", "12", "17", "15"],
+    answer: 1,
     render: { kind: "blocks", cols: 4, rows: 3, heights: [1, 1, 1, 1, 1, 2, 2, 1, 1, 1, 1, 1] },
   },
   {
@@ -104,7 +110,7 @@ const BLOCK_BANK: Item[] = [
     a: 1.1, b: -0.3, c: 0.2,
     // deep 3x4 pile, right-edge wall + interior ridge, corner cut | total 15 | hidden 2
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["14", "16", "13", "15", "17"],
+    options: ["13", "17", "14", "15", "16"],
     answer: 3,
     render: { kind: "blocks", cols: 3, rows: 4, heights: [1, 1, 2, 1, 2, 2, 1, 2, 1, 0, 1, 1] },
   },
@@ -113,8 +119,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.1, b: 0.0, c: 0.2,
     // 4x3 slab, interior tower + right-edge tower | total 15 | hidden 2
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["16", "15", "13", "17", "14"],
-    answer: 1,
+    options: ["13", "16", "12", "14", "15"],
+    answer: 4,
     render: { kind: "blocks", cols: 4, rows: 3, heights: [1, 2, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1] },
   },
   {
@@ -122,8 +128,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.1, b: 0.3, c: 0.2,
     // first 4x4 footprint: notched corners, interior L of towers | total 16 | hidden 2
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["15", "17", "18", "14", "16"],
-    answer: 4,
+    options: ["18", "14", "16", "19", "17"],
+    answer: 2,
     render: { kind: "blocks", cols: 4, rows: 4, heights: [0, 1, 1, 1, 1, 2, 1, 1, 1, 2, 2, 1, 1, 1, 0, 0] },
   },
   {
@@ -131,8 +137,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.15, b: 0.6, c: 0.2,
     // 4x4, twin height-3 towers + interior step | total 19 | hidden 3
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["20", "16", "19", "18", "21"],
-    answer: 2,
+    options: ["17", "20", "16", "18", "19"],
+    answer: 4,
     render: { kind: "blocks", cols: 4, rows: 4, heights: [1, 1, 1, 0, 1, 3, 1, 0, 1, 3, 2, 1, 1, 1, 1, 1] },
   },
   {
@@ -140,7 +146,7 @@ const BLOCK_BANK: Item[] = [
     a: 1.15, b: 0.9, c: 0.2,
     // first 5-wide footprint: notched 5x4 terrace | total 20 | hidden 3
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["20", "21", "17", "19", "22"],
+    options: ["20", "17", "22", "19", "21"],
     answer: 0,
     render: { kind: "blocks", cols: 5, rows: 4, heights: [1, 1, 1, 1, 0, 1, 2, 2, 1, 0, 1, 2, 1, 1, 2, 1, 1, 1, 0, 0] },
   },
@@ -149,7 +155,7 @@ const BLOCK_BANK: Item[] = [
     a: 1.2, b: 1.2, c: 0.2,
     // full 4x4 terrace, back-right tower of 3 | total 21 | hidden 3
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["22", "18", "20", "21", "23"],
+    options: ["23", "18", "24", "21", "22"],
     answer: 3,
     render: { kind: "blocks", cols: 4, rows: 4, heights: [1, 1, 1, 3, 1, 2, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1] },
   },
@@ -158,8 +164,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.2, b: 1.45, c: 0.2,
     // 5x4, stacked height-3 interior beside the right wall | total 23 | hidden 3
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["22", "23", "20", "25", "24"],
-    answer: 1,
+    options: ["23", "21", "24", "20", "22"],
+    answer: 0,
     render: { kind: "blocks", cols: 5, rows: 4, heights: [1, 1, 1, 1, 2, 1, 1, 3, 2, 0, 1, 1, 2, 1, 1, 1, 1, 1, 0, 1] },
   },
   {
@@ -167,8 +173,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.25, b: 1.65, c: 0.2,
     // 5x4, front-left tower + buried interior, two notches | total 22 | hidden 3
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["21", "23", "19", "24", "22"],
-    answer: 4,
+    options: ["24", "22", "19", "23", "21"],
+    answer: 1,
     render: { kind: "blocks", cols: 5, rows: 4, heights: [1, 2, 1, 1, 1, 1, 2, 1, 1, 0, 1, 1, 2, 1, 2, 0, 1, 1, 1, 1] },
   },
   {
@@ -176,8 +182,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.25, b: 1.8, c: 0.2,
     // 4x4, stacked height-3 interior against the right wall, corner towers | total 23 | hidden 3
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["24", "20", "23", "22", "25"],
-    answer: 2,
+    options: ["25", "20", "26", "24", "23"],
+    answer: 4,
     render: { kind: "blocks", cols: 4, rows: 4, heights: [1, 1, 1, 3, 1, 1, 3, 2, 1, 1, 2, 1, 0, 1, 1, 3] },
   },
   {
@@ -185,8 +191,8 @@ const BLOCK_BANK: Item[] = [
     a: 1.3, b: 1.9, c: 0.2,
     // ceiling: notched 5x4, stacked height-3 interior + edge towers | total 24 | hidden 3
     prompt: "How many blocks are in the pile, including blocks you cannot see?",
-    options: ["24", "25", "21", "26", "23"],
-    answer: 0,
+    options: ["23", "24", "21", "25", "22"],
+    answer: 1,
     render: { kind: "blocks", cols: 5, rows: 4, heights: [1, 2, 1, 1, 0, 1, 1, 1, 3, 2, 1, 1, 1, 2, 2, 0, 0, 2, 0, 2] },
   },
 ];
@@ -195,6 +201,9 @@ const BLOCK_BANK: Item[] = [
 // the key through positions 3,1,4,0,2 in bank order (a guessable cycle). This
 // fixed per-item right-rotation (1, 2, 3 slots repeating) breaks the cycle
 // while preserving every option set, every key word, and all parameters.
+// The 2026-08-21 distractor re-authoring also re-chose the authored answer
+// positions so the rotated key positions spread 4/3/3/4/3 across the five
+// slots (the previous sets concentrated on slot 3 in 6/17 items).
 function rotateOptions(bank: Item[]): Item[] {
   return bank.map((it, i) => {
     const r = (i % 3) + 1;
@@ -220,7 +229,7 @@ export const blockCounting: Subtest = {
       a: 0.9, b: -3, c: 0.2,
       // flat 2x2 slab of height-1 cubes | total 4 | hidden 0
       prompt: "How many blocks are in the pile, including blocks you cannot see?",
-      options: ["3", "5", "4", "2", "6"],
+      options: ["5", "3", "4", "7", "6"],
       answer: 2,
       render: { kind: "blocks", cols: 2, rows: 2, heights: [1, 1, 1, 1] },
     },
@@ -229,7 +238,7 @@ export const blockCounting: Subtest = {
       a: 0.9, b: -3, c: 0.2,
       // one column of two | total 5 | the ground cube under the tall column is hidden
       prompt: "How many blocks are in the pile, including blocks you cannot see?",
-      options: ["4", "6", "5", "3", "7"],
+      options: ["3", "6", "5", "2", "4"],
       answer: 2,
       render: { kind: "blocks", cols: 2, rows: 2, heights: [2, 1, 1, 1] },
     },

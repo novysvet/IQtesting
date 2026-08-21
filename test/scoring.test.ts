@@ -2,8 +2,9 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   thetaToStandard, band, normalCdf, combineInverseVariance,
-  scoreComposite, erf,
+  scoreComposite, erf, G_WEIGHTS,
 } from "../src/core/scoring.ts";
+import { BATTERY } from "../src/battery.ts";
 import type { Item, Response, Subtest } from "../src/core/types.ts";
 
 test("theta maps to the 100/15 scale", () => {
@@ -101,4 +102,32 @@ test("higher performance yields a higher g composite", () => {
   const low = scoreComposite(subs, mkResp(1));
   const high = scoreComposite(subs, mkResp(6));
   assert.ok(high.g.score > low.g.score, `${high.g.score} !> ${low.g.score}`);
+});
+
+test("the g-weight map is pinned and covers every factor in the battery", () => {
+  // The composite is a weighted mean of broad-factor thetas, so G_WEIGHTS
+  // silently re-scales every reported g score. Pin the actual literature-
+  // informed weights (Gf/Gc highest ... Glr lowest, Gs at 0.7) against
+  // independent literals: dropping the weighting entirely (all 1.0) or
+  // re-tuning one factor must turn this red.
+  assert.deepEqual({ ...G_WEIGHTS }, {
+    Gf: 1.0,
+    Gc: 0.95,
+    Gq: 0.9,
+    Gwm: 0.75,
+    Gv: 0.7,
+    Gs: 0.7,
+    Glr: 0.6,
+  });
+  // Exactly the seven CHC broad abilities — no stray entries, none missing.
+  assert.deepEqual(Object.keys(G_WEIGHTS).sort(), ["Gc", "Gf", "Glr", "Gq", "Gs", "Gv", "Gwm"]);
+  // Every broad factor actually present in the battery must carry a weight,
+  // or scoreComposite would fold `undefined` into its weighted sums.
+  const batteryFactors = new Set(BATTERY.map((s) => s.broad));
+  for (const factor of batteryFactors) {
+    assert.ok(factor in G_WEIGHTS, "broad factor " + factor + " has no g-weight");
+  }
+  for (const w of Object.values(G_WEIGHTS)) {
+    assert.ok(w > 0 && w <= 1, "g-weight " + w + " outside the (0, 1] band");
+  }
 });

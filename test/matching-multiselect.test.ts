@@ -1,8 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import type { Item, Subtest } from "../src/core/types.ts";
-import { initSession, startSubtest, answerMatching, expireSubtest, sectionRemainingMs, isCorrect } from "../src/core/session.ts";
+import { initSession, startSubtest, answerMatching, expireSubtest, sectionRemainingMs, isCorrect, BATTERY_BUDGET_MIN } from "../src/core/session.ts";
 import { bankVersion } from "../src/core/telemetry.ts";
+import { optionPermutation } from "../src/core/presentation.ts";
+import { visualPuzzles } from "../src/items/gv-puzzle.ts";
 import { scoreComposite } from "../src/core/scoring.ts";
 
 /** Synthetic matching subtest in the 1926-definitions format. */
@@ -90,6 +92,33 @@ test("expireSubtest on a matching page scores everything blank", () => {
   assert.equal(out.responses.length, 3);
 });
 
+test("battery-budget expiry with the matching page open records the page, then results", () => {
+  // Regression for the App battery-expiry tick: it used to flip straight to
+  // results (and answerMatching's budget guard dropped the page with 0
+  // responses). The page must be RECORDED blank/timedOut before closing.
+  const s = begun([mkMatching(), mkFollowing()]); // scored segment opens at t=1000
+  const out = expireSubtest(s, (BATTERY_BUDGET_MIN + 1) * 60_000);
+  assert.equal(out.phase.kind, "results", "an exhausted battery ends in results");
+  assert.equal(out.responses.length, 3, "the open page must be recorded, not dropped");
+  assert.ok(out.responses.every((r) => r.timedOut === true), "battery-expired blanks are timedOut");
+  assert.ok(out.responses.every((r) => r.rawAnswer === null), "battery-expired blanks carry no raw answer");
+  assert.ok(out.responses.every((r) => r.correct === false));
+  assert.equal(out.stopReasons[0], "time-limit");
+  assert.equal(out.segmentStart, null, "the scored segment must close with the battery");
+});
+
+test("answerMatching past the battery budget records the blank page before closing", () => {
+  // The session-layer guard itself: even a submit that lands after the budget
+  // ran out records the page blank/timedOut (the assignments are void — the
+  // page expired mid-display) instead of returning results with 0 responses.
+  const s = begun([mkMatching(), mkFollowing()]);
+  const out = answerMatching(s, [1, 0, 2, 3, 0, 0], (BATTERY_BUDGET_MIN + 1) * 60_000);
+  assert.equal(out.phase.kind, "results");
+  assert.equal(out.responses.length, 3);
+  assert.ok(out.responses.every((r) => r.timedOut === true && r.rawAnswer === null && r.correct === false));
+  assert.equal(out.segmentStart, null);
+});
+
 test("section clock runs during the matching phase and closes afterward", () => {
   const s = begun([mkMatching()]);
   const mid = sectionRemainingMs(s, 1000 + 60_000);
@@ -106,6 +135,37 @@ test("multi-select answers compare canonically through normalise", () => {
   };
   assert.equal(isCorrect(item, "0,3,4"), true);
   assert.equal(isCorrect(item, "1,3,4"), false);
+});
+
+test("multi-select UI mapping grades exactly-correct picks correct under every display permutation", () => {
+  // Regression for the ItemScreen submit order: picked DISPLAY indices must
+  // be mapped to ORIGINAL option indices FIRST, then sorted ascending. The
+  // old sort-display-then-map order graded correct picks wrong 5/6 of the
+  // time whenever the session permutation was not order-preserving.
+  const multiItems = visualPuzzles.items.filter((i) => (i.multi ?? 0) >= 2);
+  assert.ok(multiItems.length > 0, "visualPuzzles multi items not found");
+  let orderSensitiveSeeds = 0;
+  for (const item of multiItems) {
+    const keys = String(item.answer).split(",").map(Number);
+    for (let seed = 0; seed < 40; seed++) {
+      const sessionId = "perm-seed-" + seed;
+      const perm = optionPermutation(sessionId, item.id, item.options!.length);
+      assert.ok(perm, "multi items always have >= 3 options, so a permutation exists");
+      // The examinee clicks the display slots where the keyed pieces landed.
+      const pickedDisplay = new Set(
+        perm.flatMap((original, display) => (keys.includes(original) ? [display] : [])),
+      );
+      assert.equal(pickedDisplay.size, keys.length);
+      // The old, buggy submit expression (sort display slots, then map).
+      const buggy = [...pickedDisplay].sort((a, b) => a - b).map((d) => perm[d]!).join(",");
+      if (buggy !== item.answer) orderSensitiveSeeds++;
+      // The fixed submit expression from App.tsx ItemScreen.submit.
+      const submitted = [...pickedDisplay].map((d) => perm[d]!).sort((a, b) => a - b).join(",");
+      assert.equal(submitted, item.answer, item.id + " key string mangled under permutation");
+      assert.equal(isCorrect(item, submitted), true, item.id + " correct picks graded wrong");
+    }
+  }
+  assert.ok(orderSensitiveSeeds > 0, "no permutation reordered the picks — the regression guard is vacuous");
 });
 
 test("Gs has a g-weight and flows through composite scoring", () => {

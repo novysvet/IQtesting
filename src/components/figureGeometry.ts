@@ -1,17 +1,17 @@
-export interface FigureLayout {
+interface FigureLayout {
   columns: number;
   rows: number;
   width: number;
   height: number;
 }
 
-import type { CellSpecV2, FigureSpec, MatrixFill, MatrixPosition, MatrixShape } from "../core/types.ts";
+import type { FigureSpec, MatrixPosition } from "../core/types.ts";
 
 export const FIGURE_CELL = 30;
 export const FIGURE_INSET = 3;
 export const MAX_FIGURE_COUNT = 9;
 
-export const MATRIX_POSITIONS = ["NW", "N", "NE", "W", "C", "E", "SW", "S", "SE"] as const;
+const MATRIX_POSITIONS = ["NW", "N", "NE", "W", "C", "E", "SW", "S", "SE"] as const;
 export const MATRIX_SHAPES = ["tri", "sq", "cir", "dia", "hex", "arw", "cross", "star"] as const;
 export const MATRIX_FILLS = ["none", "half", "solid", "hatch"] as const;
 
@@ -22,9 +22,9 @@ export const POSITION_CENTER: Record<MatrixPosition, [number, number]> = {
   SW: [18, 82], S: [50, 82], SE: [82, 82],
 };
 
-/** Offsets for marks sharing one position; 0 means no sharing. */
+/** Offsets for marks sharing one position. Index = number of marks (>= 1);
+ *  groups are only created for positions that carry at least one mark. */
 export const OVERLAY_OFFSETS: Record<number, [number, number][]> = {
-  0: [],
   1: [[0, 0]],
   2: [[-9, 0], [9, 0]],
   3: [[0, -9], [-9, 6], [9, 6]],
@@ -63,8 +63,6 @@ export function validateCellSpec(spec: FigureSpec): void {
     seen.add(key);
   }
 }
-
-export type { CellSpecV2, MatrixFill, MatrixPosition, MatrixShape };
 
 /** Keep repeated symbols legible by arranging them in a compact grid. */
 export function figureLayout(count: number): FigureLayout {

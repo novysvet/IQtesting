@@ -29,10 +29,14 @@ function fnv1a(input: string): string {
 }
 
 /**
- * Content hash of everything that influences scoring or routing: subtest
- * configs plus every item's id, parameters, options, and key. Any parameter
- * change (e.g. a recalibration) produces a new version, so stored responses
- * always map back to the exact bank that produced them.
+ * Content hash of everything that influences the examinee's experience,
+ * scoring, or routing: subtest configs (routing rules, budgeted minutes,
+ * matching word bank) plus every item's id, parameters, options, key,
+ * prompt, render payload, and per-item time cap. Any content change — from a
+ * recalibration down to a prompt typo fix — produces a new version, so
+ * stored responses always map back to the exact bank that produced them.
+ * Unscored material (practice items, matchingPractice demos) is excluded by
+ * design: it cannot affect a score, so it must not invalidate saves.
  *
  * `variant` stamps the administration FORM (fixed calibration forms vs
  * adaptive): same items, different routing contract, therefore a different
@@ -43,10 +47,23 @@ export function bankVersion(subtests: Subtest[], variant?: string): string {
   const canonical = subtests
     .map((s) => {
       const items = s.items
-        .map((i) => [i.id, i.a, i.b, i.c, (i.options ?? []).join("\u0001"), i.answer, i.multi ?? ""].join("\u0002"))
+        .map((i) =>
+          [
+            i.id,
+            i.a,
+            i.b,
+            i.c,
+            (i.options ?? []).join("\u0001"),
+            i.answer,
+            i.multi ?? "",
+            i.prompt,
+            JSON.stringify(i.render ?? ""),
+            i.timeLimitSec ?? "",
+          ].join("\u0002"),
+        )
         .join("\u0003");
       const routing = [s.routing.maxItems, s.routing.minItems, s.routing.ceilingMisses, s.routing.targetSe, s.routing.entryTheta].join(",");
-      return [s.id, routing, items, (s.matching?.bank ?? []).join("\u0001")].join("\u0004");
+      return [s.id, s.budgetMin, routing, items, (s.matching?.bank ?? []).join("\u0001")].join("\u0004");
     })
     .join("\u0005");
   return fnv1a(variant ? canonical + "\u0006" + variant : canonical);

@@ -68,7 +68,18 @@ function engagedResponder(thetaTrue: number): Responder {
     const z = item.a * (thetaTrue - item.b);
     const p = item.c + (1 - item.c) * (z >= 0 ? 1 / (1 + Math.exp(-z)) : Math.exp(z) / (1 + Math.exp(z)));
     const correct = rng() < p;
-    if (item.multi !== undefined) return correct ? (item.answer as string) : "0,1,2";
+    if (item.multi !== undefined) {
+      if (correct) return item.answer as string;
+      // A guaranteed-wrong pick: the first `multi` option indices NOT in the
+      // key. (The former hardcoded "0,1,2" was the real key of vpz-014, so
+      // every intended-incorrect trial on that item scored CORRECT.)
+      const key = new Set((item.answer as string).split(",").map(Number));
+      const wrong: number[] = [];
+      for (let i = 0; wrong.length < item.multi; i++) {
+        if (!key.has(i)) wrong.push(i);
+      }
+      return wrong.join(",");
+    }
     if (typeof item.answer === "number") {
       return correct ? (item.answer as number) : ((item.answer as number) + 1) % (item.options?.length ?? 4);
     }
@@ -77,14 +88,34 @@ function engagedResponder(thetaTrue: number): Responder {
 }
 
 /** Drive one full battery through the real session state machine. */
-function runBattery(respond: Responder, seed: number): number {
+function runBattery(respond: Responder, seed: number) {
   const rng = mulberry32(seed);
   let s = beginBattery(initSession(BATTERY, { sessionId: "floor-" + seed }), 0);
   let t = 0;
   let guard = 0;
+  // Speeded subtests carry a per-item timeLimitSec; the responder answers
+  // those in ~2 s, well inside the cap. A flat 15 s/event pace silently
+  // truncated symbolSearch/symbolSelection at 12 items + 1 omitted response
+  // on every seed (section expiry fired at item 13), making the "random
+  // responder" unknowingly a truncated-form responder for Gs.
+  const timedOutFirst = new Set<number>();
   while (s.phase.kind !== "results" && guard++ < 8000) {
-    t += 15_000; // engaged pace: validity screening must not be what drives scores
     const phase = s.phase;
+    if (phase.kind === "item" && phase.item.timeLimitSec !== undefined) {
+      if (!timedOutFirst.has(phase.subtestIndex)) {
+        // First administered item of each speeded subtest runs the per-item
+        // cap dry and is auto-submitted by the UI (answerItem's timedOut
+        // path — the only honest way this harness can exercise it).
+        timedOutFirst.add(phase.subtestIndex);
+        t += phase.item.timeLimitSec * 1000;
+        s = answerItem(s, respond(phase.item, rng), t, true);
+        continue;
+      }
+      t += 2_000; // engaged pace: validity screening must not drive scores
+      s = answerItem(s, respond(phase.item, rng), t);
+      continue;
+    }
+    t += 15_000; // engaged pace for unspeeded formats
     if (phase.kind === "instructions") s = startSubtest(s, phase.subtestIndex, t);
     else if (phase.kind === "checkpoint") s = { ...s, phase: { kind: "instructions", subtestIndex: phase.subtestIndex + 1 } };
     else if (phase.kind === "practice") s = answerPractice(s, t);
@@ -98,6 +129,10 @@ function runBattery(respond: Responder, seed: number): number {
     }
   }
   assert.equal(s.phase.kind, "results", "battery did not terminate");
+  return s;
+}
+
+function gScoreOf(s: ReturnType<typeof runBattery>): number {
   return scoreComposite(s.subtests, s.responses).g.score;
 }
 
@@ -107,7 +142,7 @@ function mean(xs: number[]): number {
 
 test("completely random responding reports near the IQ 50 scale floor", () => {
   const iqs: number[] = [];
-  for (let seed = 1; seed <= 30; seed++) iqs.push(runBattery(randomResponder, seed));
+  for (let seed = 1; seed <= 30; seed++) iqs.push(gScoreOf(runBattery(randomResponder, seed)));
   const m = mean(iqs);
   assert.ok(
     m >= 46 && m <= 56,
@@ -115,6 +150,39 @@ test("completely random responding reports near the IQ 50 scale floor", () => {
   );
   for (const iq of iqs) {
     assert.ok(iq >= 40 && iq <= 64, `a single random administration landed at ${iq}`);
+  }
+});
+
+test("the harness administers full forms: no speeded subtest is truncated by section expiry", () => {
+  // Regression for the old flat 15 s/event pace: symbolSearch and
+  // symbolSelection (budgetMin 3, per-item timeLimitSec) were cut off at 12
+  // items + 1 OMITTED response on every seed — the section clock expired at
+  // item 13 — so the "random responder" was secretly a truncated-form
+  // responder and the timed-out recording path was never exercised. At the
+  // modeled pace every speeded subtest must now end on a ROUTING decision:
+  // symbolSearch (binary, ~50% random-correct) runs to its max-items stop,
+  // while symbolSelection legitimately discontinue-stops at the floor
+  // (random typed noise never matches the full key sequence).
+  const speededIdx = BATTERY
+    .map((s, i) => (s.items.some((i2) => i2.timeLimitSec !== undefined) ? i : -1))
+    .filter((i) => i >= 0);
+  assert.ok(speededIdx.length >= 2, "expected at least two speeded subtests in the battery");
+  const ssrIdx = BATTERY.findIndex((s) => s.id === "symbolSearch");
+  assert.ok(ssrIdx >= 0, "symbolSearch missing from the battery");
+  for (let seed = 1; seed <= 6; seed++) {
+    const s = runBattery(randomResponder, seed);
+    const omitted = s.responses.filter((r) => r.omitted);
+    assert.deepEqual(omitted, [], "section/battery expiry censored responses mid-form (truncated administration)");
+    for (const idx of speededIdx) {
+      assert.notEqual(s.stopReasons[idx], "time-limit", BATTERY[idx]!.id + " ended on the section clock");
+      const subtestId = BATTERY[idx]!.id;
+      assert.ok(
+        s.responses.some((r) => r.subtestId === subtestId && r.timedOut),
+        subtestId + " never recorded a timed-out response",
+      );
+    }
+    assert.equal(s.stopReasons[ssrIdx], "max-items", "symbolSearch must run its full form for a ~50% random responder");
+    assert.equal(s.routing[ssrIdx]!.administered.length, BATTERY[ssrIdx]!.routing.maxItems, "symbolSearch truncated (regression)");
   }
 });
 
@@ -132,7 +200,7 @@ test("genuine ability levels survive the floor fix", () => {
   const means: number[] = [];
   for (const { theta, lo, hi } of conditions) {
     const iqs: number[] = [];
-    for (let seed = 101; seed <= 112; seed++) iqs.push(runBattery(engagedResponder(theta), seed));
+    for (let seed = 101; seed <= 112; seed++) iqs.push(gScoreOf(runBattery(engagedResponder(theta), seed)));
     const m = mean(iqs);
     means.push(m);
     assert.ok(
@@ -146,8 +214,8 @@ test("genuine ability levels survive the floor fix", () => {
 });
 
 test("random responding scores strictly below every genuine ability level tested", () => {
-  const randomIq = mean(Array.from({ length: 12 }, (_, k) => runBattery(randomResponder, 500 + k)));
-  const lowIq = mean(Array.from({ length: 8 }, (_, k) => runBattery(engagedResponder(-2.5), 600 + k)));
+  const randomIq = mean(Array.from({ length: 12 }, (_, k) => gScoreOf(runBattery(randomResponder, 500 + k))));
+  const lowIq = mean(Array.from({ length: 8 }, (_, k) => gScoreOf(runBattery(engagedResponder(-2.5), 600 + k))));
   assert.ok(
     randomIq < lowIq,
     `random mean ${randomIq.toFixed(1)} must sit below the true-theta -2.5 mean ${lowIq.toFixed(1)}`,

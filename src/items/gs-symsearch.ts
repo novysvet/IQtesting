@@ -20,7 +20,10 @@ import type { Item, Subtest } from "../core/types.ts";
  *    distinct targets, and >=2 near-misses - same shape with different
  *    fill, or same shape+fill rotated - which blocks the "check the shape
  *    family only" heuristic;
- *  - every glyph parses against the Figure grammar "shape:1:fill:rot".
+ *  - every glyph parses against the Figure grammar "shape:1:fill:rot";
+ *  - the embedded target's slot inside the targets pair is balanced
+ *    across the Yes items (7-8 of 15 per slot), so scanning only one
+ *    listed target gains nothing (test/symsearch.test.ts pins this).
  *
  * Fairness rule: circle outlines are rotation-invariant, so no circle
  * near-miss differs from its target ONLY by rotation - circle confusers
@@ -48,8 +51,11 @@ const SS_OPTIONS = ["No", "Yes"];
 //   tier H  ssr-021..030  8-glyph rows, dense confusable families, 3
 //                          near-misses, rot twins ADJACENT to the embedded
 //                          target                     b +0.45 .. +1.2
-// a is scattered 1.1-1.5 (no lockstep ramp; a reflects how cleanly the
-// format separates fast from slow scanners near b).
+// a spans 1.1-1.5 but climbs in near-lockstep with b (corr(a,b) = 0.97
+// over the 30 items; tier mean a steps 1.15 -> 1.29 -> 1.44 E/M/H) - the
+// "parameters-by-position" pattern DIFFICULTY_AUDIT.md section 1 flags as
+// an anti-pattern. Authored estimate only: refit a from response data
+// before treating discrimination as independent of difficulty here.
 // ---------------------------------------------------------------------------
 
 /** Authored ladder: 30 items in difficulty order, Yes/No content intact. */
@@ -207,7 +213,7 @@ const SEARCH_BANK: Item[] = [
       answer: 1,
       render: {
         kind: "symsearch",
-        targets: ["star:1:hatch:0", "cir:1:solid:0"],
+        targets: ["cir:1:solid:0", "star:1:hatch:0"],
         search: ["dia:1:none:0", "cross:1:solid:0", "star:1:hatch:0", "sq:1:none:45", "hex:1:half:0", "cir:1:hatch:0"],
       },
     },
@@ -265,7 +271,7 @@ const SEARCH_BANK: Item[] = [
       answer: 1,
       render: {
         kind: "symsearch",
-        targets: ["hex:1:half:0", "sq:1:hatch:45"],
+        targets: ["sq:1:hatch:45", "hex:1:half:0"],
         search: ["tri:1:solid:0", "cir:1:none:0", "star:1:solid:0", "hex:1:half:0", "dia:1:hatch:0", "sq:1:solid:45", "cross:1:none:0"],
       },
     },
@@ -325,7 +331,7 @@ const SEARCH_BANK: Item[] = [
       answer: 1,
       render: {
         kind: "symsearch",
-        targets: ["star:1:solid:45", "tri:1:none:0"],
+        targets: ["tri:1:none:0", "star:1:solid:45"],
         search: ["cir:1:half:0", "hex:1:none:0", "cross:1:hatch:0", "star:1:solid:45", "tri:1:solid:0", "dia:1:none:45", "sq:1:solid:0"],
       },
     },
@@ -384,7 +390,7 @@ const SEARCH_BANK: Item[] = [
       answer: 1,
       render: {
         kind: "symsearch",
-        targets: ["star:1:hatch:0", "sq:1:none:45"],
+        targets: ["sq:1:none:45", "star:1:hatch:0"],
         search: ["tri:1:solid:45", "cir:1:half:0", "star:1:hatch:45", "hex:1:none:0", "star:1:hatch:0", "sq:1:none:0", "star:1:solid:0", "dia:1:hatch:0"],
       },
     },
@@ -413,7 +419,7 @@ const SEARCH_BANK: Item[] = [
       answer: 1,
       render: {
         kind: "symsearch",
-        targets: ["dia:1:solid:45", "cross:1:hatch:0"],
+        targets: ["cross:1:hatch:0", "dia:1:solid:45"],
         search: ["sq:1:half:0", "cross:1:hatch:45", "hex:1:solid:0", "cir:1:none:0", "dia:1:solid:0", "dia:1:solid:45", "arw:1:solid:45", "star:1:half:0"],
       },
     },
@@ -473,7 +479,7 @@ const SEARCH_BANK: Item[] = [
       answer: 1,
       render: {
         kind: "symsearch",
-        targets: ["cross:1:none:0", "sq:1:half:45"],
+        targets: ["sq:1:half:45", "cross:1:none:0"],
         search: ["tri:1:solid:45", "cir:1:none:0", "cross:1:none:45", "cross:1:none:0", "sq:1:half:0", "star:1:hatch:0", "sq:1:solid:45", "arw:1:none:45"],
       },
     },
@@ -502,6 +508,17 @@ const SEARCH_BANK: Item[] = [
 // correlation — without touching any stimulus, key, or parameter. Ids are
 // renumbered to the presented order; content is unchanged.
 const SEARCH_ORDER = [15, 1, 2, 4, 3, 5, 6, 7, 8, 10, 9, 12, 11, 13, 14, 16, 0, 18, 17, 20, 19, 22, 24, 21, 26, 23, 25, 28, 27, 29];
+
+// 2026-08-21 adversarial-verification fix: 13 of the 15 Yes items embedded
+// targets[0] and no No item contains any target, so "scan only the FIRST
+// listed target; answer Yes iff found" scored 28/30. Six Yes items
+// (authored ssr-011/015/019/023/025/029) now list their embedded target
+// second, splitting the slots 7/8 - display order only; keys, search
+// rows, near-miss structure and a/b are untouched. Single-slot scans sum
+// to a constant ((15 + slot0) + (15 + slot1) = 45 because each Yes item
+// embeds exactly one target), so a near-even split is the optimum: both
+// single-slot strategies sit at 22-23/30, the format-inherent floor.
+// test/symsearch.test.ts pins the 6..9 band.
 
 function bankOrder(bank: Item[]): Item[] {
   return SEARCH_ORDER.map((src, i) => ({

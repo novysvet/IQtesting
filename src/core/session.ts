@@ -318,6 +318,8 @@ export function answerMatchingDemo(state: SessionState, now: number): SessionSta
  * item is recorded — blanks included, flagged timedOut when the page
  * expired — because the format is speeded: unattempted items are scored
  * incorrect but stay distinguishable in the export via rawAnswer null.
+ * Battery-budget expiry with the page open is no exception: the page is
+ * recorded blank/timedOut before the battery closes (never dropped).
  */
 export function answerMatching(
   state: SessionState,
@@ -329,18 +331,24 @@ export function answerMatching(
   const { subtestIndex, startedAt } = state.phase;
   const subtest = state.subtests[subtestIndex]!;
   const bank = subtest.matching?.bank ?? [];
-  if (elapsedActiveMs(state, now) >= state.budgetMs) {
-    return closeSegment({ ...state, phase: { kind: "results" } }, now);
-  }
-  const latencyMs = Math.max(0, now - startedAt);
+  // Battery budget exhausted with the page open: the page expired mid-display,
+  // so it is recorded blank and flagged timedOut — never silently dropped —
+  // and closeSubtest below then ends the battery (its own out-of-time check).
+  const budgetOut = elapsedActiveMs(state, now) >= state.budgetMs;
+  const page: readonly number[] = budgetOut ? [] : assignments;
+  const expired = timedOut || budgetOut;
+  // Wall-clock latency is clamped to the worker validator's max: after a long
+  // multi-sitting restore, now - startedAt spans the away gap and would reject
+  // the whole export at the collection gate.
+  const latencyMs = Math.min(Math.max(0, now - startedAt), 3_600_000);
   const responses: Response[] = subtest.items.map((item, i) => {
     const wordIndex = bank.indexOf(item.answer as string);
-    const typed = wordIndex >= 0 ? (assignments[wordIndex] ?? 0) : 0;
+    const typed = wordIndex >= 0 ? (page[wordIndex] ?? 0) : 0;
     return {
       itemId: item.id,
       correct: typed === i + 1,
       latencyMs,
-      timedOut: typed === 0 ? true : timedOut,
+      timedOut: typed === 0 ? true : expired,
       subtestId: subtest.id,
       positionInSubtest: i + 1,
       positionInBattery: state.responses.length + i + 1,
@@ -367,7 +375,7 @@ export function answerMatching(
     routing,
     responses: [...state.responses, ...responses],
   };
-  return closeSubtest(advanced, subtestIndex, timedOut ? "time-limit" : "max-items", now);
+  return closeSubtest(advanced, subtestIndex, expired ? "time-limit" : "max-items", now);
 }
 
 /**
@@ -395,7 +403,7 @@ export function answerItem(
   const response: Response = {
     itemId: item.id,
     correct,
-    latencyMs: Math.max(0, now - startedAt),
+    latencyMs: Math.min(Math.max(0, now - startedAt), 3_600_000),
     timedOut,
     interrupted: meta.interrupted ?? undefined,
     awayMs: meta.awayMs,
@@ -417,10 +425,10 @@ export function answerItem(
     responses: [...state.responses, response],
   };
 
-  // Out of time? Stop the whole battery rather than truncating one subtest.
-  if (elapsedActiveMs(state, now) >= state.budgetMs) {
-    return closeSegment({ ...advanced, phase: { kind: "results" } }, now);
-  }
+  // NOTE: no battery re-check here — the budget guard at the top of this
+  // function already caught elapsed >= budgetMs, and an answer recorded
+  // below budget leaves closeSubtest to end the battery on its own
+  // out-of-time check when the section closes.
 
   const { item: following, stopReason } = nextItem(subtest.items, routing, subtest.routing);
   const nextRouting2 = [...advanced.routing];
@@ -447,7 +455,7 @@ function closeWithOmission(state: SessionState, subtestIndex: number, now: numbe
   const omittedResponse: Response = {
     itemId: item.id,
     correct: false,
-    latencyMs: Math.max(0, now - startedAt),
+    latencyMs: Math.min(Math.max(0, now - startedAt), 3_600_000),
     timedOut: true,
     omitted: true,
     subtestId: subtest.id,

@@ -1,4 +1,4 @@
-import type { Subtest } from "../core/types.ts";
+import type { Item, Subtest } from "../core/types.ts";
 
 /**
  * Gv / Visualization - paper folding.
@@ -29,38 +29,8 @@ import type { Subtest } from "../core/types.ts";
  * be located below the old -1.6 floor. Parameters remain AUTHORED ESTIMATES,
  * not calibrated.
  */
-export const paperFolding: Subtest = {
-  id: "paperFolding",
-  name: "Paper Folding",
-  broad: "Gv",
-  narrow: ["Vz"],
-  instructions:
-    "Follow each blue arrow: vertical folds move the right half over to the left, and horizontal folds move the bottom half upward. Holes are then punched through every layer of the folded stack. Choose the pattern seen after unfolding.",
-  budgetMin: 20,
-  routing: { maxItems: 13, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
-  // Unscored sample: one fold, one punch — the minimum executable case of
-  // the convention (derived [5,9] by the same simulation the bank test uses).
-  practice: [
-  {
-    id: "prac-pf-01", subtest: "paperFolding", broad: "Gv", narrow: "Vz",
-    a: 0.9, b: -3, c: 0.2,
-    // folds H | punches [[1,1]] | derived [5,9]
-    prompt: "The sheet is folded as shown, then punched through all layers. Which pattern appears when it is unfolded?",
-    options: ['[6,10]', '[5]', '[5,9]', '[1,13]', '[4,7]'],
-    answer: 2,
-    render: { kind: "fold", steps: ["H"], result: '[[1,1]]' },
-  },
-  {
-    id: "prac-pf-02", subtest: "paperFolding", broad: "Gv", narrow: "Vz",
-    a: 0.9, b: -3, c: 0.2,
-    // folds V | punches [[0,1]] | derived [1,2]
-    prompt: "The sheet is folded as shown, then punched through all layers. Which pattern appears when it is unfolded?",
-    options: ['[1,2]', '[0,3]', '[1]', '[5,10]', '[2,7]'],
-    answer: 0,
-    render: { kind: "fold", steps: ["V"], result: '[[0,1]]' },
-  },
-  ],
-  items: [
+/** Authored bank: 16 items in difficulty order (b -2.9 .. +1.5) with authored option orders. */
+const FOLD_BANK: Item[] = [
   {
     id: "pf-015", subtest: "paperFolding", broad: "Gv", narrow: "Vz",
     a: 0.9, b: -2.9, c: 0.2,
@@ -205,5 +175,60 @@ export const paperFolding: Subtest = {
     answer: 4,
     render: { kind: "fold", steps: ["H", "V"], result: '[[0,0],[1,0]]' },
   },
+];
+
+// 2026-08-21 red-team fix: the authored option orders stepped the key through
+// positions 4,2,0,3,1 in bank order across pf-001..pf-013 (a guessable
+// period-5 cycle — the same defect class fixed for blockCounting on 2026-08-20,
+// gv-blocks.ts). Each item's options are right-rotated by an irregular,
+// non-cyclic per-item amount: the schedule below never repeats a window of
+// width 1-4 back-to-back, so no rotation cadence can be learned either. Every
+// option set, every key pattern, and all parameters are unchanged. Shipped key
+// positions in bank order become 2,0,0,4,1,1,3,2,1,2,3,0,2,4,1,3 (slot counts
+// 0:3, 1:4, 2:4, 3:3, 4:2 — 4/16 is the pigeonhole optimum over 5 slots;
+// lag-1..6 positional autocorrelation at or below chance, max 2/11), pinned by
+// test/fold-simulation.test.ts.
+const FOLD_ROTATIONS = [1, 3, 1, 2, 1, 3, 2, 3, 4, 2, 0, 4, 3, 2, 1, 4];
+function rotateOptions(bank: Item[]): Item[] {
+  return bank.map((it, i) => {
+    const r = FOLD_ROTATIONS[i]!;
+    const n = it.options!.length;
+    const options = [...it.options!.slice(n - r), ...it.options!.slice(0, n - r)];
+    return { ...it, options, answer: (((it.answer as number) + r) % n) };
+  });
+}
+
+export const paperFolding: Subtest = {
+  id: "paperFolding",
+  name: "Paper Folding",
+  broad: "Gv",
+  narrow: ["Vz"],
+  instructions:
+    "Follow each blue arrow: vertical folds move the right half over to the left, and horizontal folds move the bottom half upward. Holes are then punched through every layer of the folded stack. Choose the pattern seen after unfolding.",
+  budgetMin: 20,
+  routing: { maxItems: 13, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: one fold, one punch — the minimum executable case of
+  // the convention (derived [5,9] by the same simulation the bank test uses).
+  // Practice stays in authored order (2 items cannot form a bank-order cycle).
+  practice: [
+  {
+    id: "prac-pf-01", subtest: "paperFolding", broad: "Gv", narrow: "Vz",
+    a: 0.9, b: -3, c: 0.2,
+    // folds H | punches [[1,1]] | derived [5,9]
+    prompt: "The sheet is folded as shown, then punched through all layers. Which pattern appears when it is unfolded?",
+    options: ['[6,10]', '[5]', '[5,9]', '[1,13]', '[4,7]'],
+    answer: 2,
+    render: { kind: "fold", steps: ["H"], result: '[[1,1]]' },
+  },
+  {
+    id: "prac-pf-02", subtest: "paperFolding", broad: "Gv", narrow: "Vz",
+    a: 0.9, b: -3, c: 0.2,
+    // folds V | punches [[0,1]] | derived [1,2]
+    prompt: "The sheet is folded as shown, then punched through all layers. Which pattern appears when it is unfolded?",
+    options: ['[1,2]', '[0,3]', '[1]', '[5,10]', '[2,7]'],
+    answer: 0,
+    render: { kind: "fold", steps: ["V"], result: '[[0,1]]' },
+  },
   ],
+  items: rotateOptions(FOLD_BANK),
 };

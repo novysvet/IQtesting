@@ -160,6 +160,31 @@ test("embedded-target index spread across Yes items", () => {
   );
 });
 
+// 2026-08-21 slot-balance regression: 13 of 15 Yes items embedded
+// targets[0] while no No item contains any target, so "scan only the
+// FIRST listed target; answer Yes iff found" scored 28/30 - the 15 No
+// items are free hits for any exact-glyph target scan. Because every Yes
+// item embeds exactly one target (test above), the two single-slot
+// strategies sum to a constant: (15 + slot0) + (15 + slot1) = 45/30. A
+// near-even split is therefore the optimum, pinning both at 22-23/30.
+test("slot balance: embedded target sits in each targets slot ~half of the Yes items", () => {
+  const yes = items.filter((i) => i.answer === 1);
+  const slot0 = yes.filter((i) => ss(i).search.includes(ss(i).targets[0]!)).length;
+  assert.ok(
+    slot0 >= 6 && slot0 <= 9,
+    "first-target embedding " + slot0 + "/15 outside the balanced 6..9 band",
+  );
+  // Direct strategy guard: scanning only one listed target must stay
+  // near the 50%-base-rate floor (<= 24/30; chance-adjusted ceiling the
+  // 6..9 band permits is 15 + 9 = 24).
+  for (const slot of [0, 1] as const) {
+    const hits = items.filter(
+      (i) => (ss(i).search.includes(ss(i).targets[slot]!) ? 1 : 0) === i.answer,
+    ).length;
+    assert.ok(hits <= 24, "scan-only-targets[" + slot + "] scores " + hits + "/30");
+  }
+});
+
 test("no duplicate glyphs in any search row; target pairs always distinct", () => {
   for (const item of items) {
     const r = ss(item);

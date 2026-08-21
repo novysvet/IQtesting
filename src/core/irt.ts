@@ -38,23 +38,19 @@ const QUAD_MIN = -7;
 const QUAD_MAX = 7;
 const QUAD_N = 225;
 
-export interface QuadPoint {
-  theta: number;
-}
-
 /** Fixed uniform grid over the theta range (prior applied at estimation time). */
-function quadrature(): QuadPoint[] {
-  const pts: QuadPoint[] = [];
+function quadrature(): number[] {
+  const pts: number[] = [];
   const step = (QUAD_MAX - QUAD_MIN) / (QUAD_N - 1);
   for (let i = 0; i < QUAD_N; i++) {
-    pts.push({ theta: QUAD_MIN + i * step });
+    pts.push(QUAD_MIN + i * step);
   }
   return pts;
 }
 
 const GRID = quadrature();
 
-export interface AbilityEstimate {
+interface AbilityEstimate {
   /** Expected a posteriori theta. */
   theta: number;
   /** Posterior standard deviation = standard error of measurement. */
@@ -77,7 +73,7 @@ export interface AbilityEstimate {
  */
 export const REPORT_PRIOR_SD = 2;
 
-export interface EstimateOptions {
+interface EstimateOptions {
   /** Prior standard deviation. Default 1 (population scale, routing-grade). */
   priorSd?: number;
 }
@@ -110,7 +106,7 @@ export function estimateAbility(
   );
 
   if (scored.length === 0) {
-    return { theta: 0, se: options.priorSd && options.priorSd !== 1 ? options.priorSd : 1, n: 0 };
+    return { theta: 0, se: options.priorSd ?? 1, n: 0 };
   }
 
   const priorSd = options.priorSd ?? 1;
@@ -120,21 +116,21 @@ export function estimateAbility(
   let sumWTheta = 0;
   let sumWTheta2 = 0;
 
-  for (const q of GRID) {
+  for (const theta of GRID) {
     // Work in log space: products of many probabilities underflow fast.
     let logLik = 0;
     for (const r of scored) {
       const item = byId.get(r.itemId)!;
-      const p = pCorrect(item, q.theta);
+      const p = pCorrect(item, theta);
       const clamped = Math.min(Math.max(p, 1e-12), 1 - 1e-12);
       logLik += r.correct ? Math.log(clamped) : Math.log(1 - clamped);
     }
     // Normal(prior) in log space; the constant keeps weights comparable
     // across prior widths so downstream variance maths needs no rescaling.
-    const w = Math.exp(logLik + logPriorNorm - 0.5 * (q.theta * q.theta) / (priorSd * priorSd));
+    const w = Math.exp(logLik + logPriorNorm - 0.5 * (theta * theta) / (priorSd * priorSd));
     sumW += w;
-    sumWTheta += w * q.theta;
-    sumWTheta2 += w * q.theta * q.theta;
+    sumWTheta += w * theta;
+    sumWTheta2 += w * theta * theta;
   }
 
   if (sumW <= 0 || !Number.isFinite(sumW)) {
@@ -144,11 +140,6 @@ export function estimateAbility(
   const mean = sumWTheta / sumW;
   const variance = Math.max(sumWTheta2 / sumW - mean * mean, 1e-9);
   return { theta: mean, se: Math.sqrt(variance), n: scored.length };
-}
-
-/** Test information at theta, summed over administered items. */
-export function testInformation(items: Item[], theta: number): number {
-  return items.reduce((sum, i) => sum + itemInformation(i, theta), 0);
 }
 
 /**

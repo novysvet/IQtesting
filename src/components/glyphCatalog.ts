@@ -21,7 +21,7 @@
  *   H=g05  J=g06  K=g07  L=g08
  */
 
-export interface GlyphDef {
+interface GlyphDef {
   /** SVG path data in the 24x24 box (stroke rendered by the component). */
   d: string;
 }

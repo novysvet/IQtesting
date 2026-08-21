@@ -25,8 +25,8 @@ before authoring. Non-negotiables:
   multi-select, the chosen option indices ascending, comma-joined
   (e.g. `"0,3,4"`). For matching items, the key word (see Whole-page
   matching below).
-- `options`: 4 or 5 entries for MC (sole exception: Symbol Search's
-  `["No","Yes"]`). All distractors must be plausible.
+- `options`: 4 or 5 entries for MC (6 for multi-select Visual Puzzles;
+  2 for Symbol Search's `["No","Yes"]`). All distractors must be plausible.
   No joke options, no "none of the above", no giveaway grammar mismatches.
 - `multi` (multi-select count): when set, exactly this many options must be
   chosen; `answer` holds the chosen indices as above and `c` is
@@ -88,6 +88,12 @@ Ambiguous items are worse than easy items. Cut anything you cannot defend.
 - When the stimulus space forces all candidates into one symmetry class
   (4x4 folding), distractors must share the key's hole count and symmetry
   class, differing only in placement.
+- Nor may the key sit at a learnable positional or value-rank pattern: no
+  answer slot or option value-rank (e.g. the median value) may dominate a
+  bank, key positions must not cycle with bank order, and countable
+  side-channel information (piece cell counts, embedded-target slot,
+  distractor family shape) must not decide items. Per-bank regression
+  guards pin all of these (2026-08-21 audit wave — DIFFICULTY_AUDIT §10).
 
 ## Style
 
@@ -220,9 +226,14 @@ pad its banks upward.
 
 ## Norming telemetry
 
-Sessions carry a `sessionId` and a `bankVersion` content hash (every id,
-parameter, option, and key; the administration form is stamped as a hash
-variant, so adaptive and calibration data never mix). Every recorded response
+Sessions carry a `sessionId` and a `bankVersion` content hash — every item
+id, parameter, option, key, prompt, render payload, and per-item time cap,
+plus each subtest's routing config, budgeted minutes, and matching word bank
+(`src/core/telemetry.ts`); the administration form is stamped as a hash
+variant, so adaptive and calibration data never mix. Unscored material
+(practice items, matchingPractice demos) is excluded from the hash by
+design: it cannot affect a score, so it must not invalidate stored sessions.
+Every recorded response
 keeps the raw answer, the keyed option position, the DISPLAY position of the
 key (`keyedPosition` — options are permuted per session via a seeded
 Fisher-Yates over `sessionId + itemId`; binary formats are never permuted),

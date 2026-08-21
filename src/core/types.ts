@@ -239,8 +239,6 @@ export interface Demographics {
   country?: string;
   /** Familiarity with timed ability tests (self-report). */
   testFamiliarity?: string;
-  /** Auto-captured device class (desktop / tablet / phone). */
-  device?: string;
 }
 
 /** Consent to use response data for norming research. */

@@ -179,11 +179,66 @@ test("number-series key positions do not repeat with a short cycle (learnable-po
   }
 });
 
+test("number-series key value-ranks span the options without a learnable mode (rank-exploit regression)", () => {
+  // 2026-08-21 re-author regression: the former bank never keyed the
+  // smallest or largest value and keyed the second-smallest in 8/18 items,
+  // so "always pick the 2nd-smallest value" scored 44% (chance 20%) and
+  // "eliminate the extremes" was risk-free. Value ranks survive the
+  // per-session display permutation, so only the authored distractor sets
+  // can break the pattern.
+  const keyRank = (item: { options?: string[]; answer: number | string }) => {
+    const vals = (item.options ?? []).map(Number);
+    const key = vals[item.answer as number]!;
+    return [...vals].sort((a, b) => a - b).indexOf(key);
+  };
+  const ranks = numberSeries.items.map((i) => keyRank(i));
+  assert.equal(ranks.length, 18);
+  // Extremes must occur: "eliminate min and max" must be unsafe.
+  assert.ok(
+    ranks.filter((r) => r === 0).length >= 3,
+    "the key is the smallest option in fewer than 3 items - the minimum is eliminable",
+  );
+  assert.ok(
+    ranks.filter((r) => r === 4).length >= 3,
+    "the key is the largest option in fewer than 3 items - the maximum is eliminable",
+  );
+  // Every rank must be represented, none may exceed 6/18 items.
+  const counts = new Map<number, number>();
+  for (const r of ranks) counts.set(r, (counts.get(r) ?? 0) + 1);
+  for (let r = 0; r <= 4; r++) {
+    assert.ok(counts.has(r), "rank " + r + " never occurs - an entire value-rank is eliminable");
+  }
+  for (const [r, n] of counts) {
+    assert.ok(n <= 6, "rank " + r + " occurs in " + n + "/18 items (more than 6)");
+  }
+  // "Always answer at the modal rank" must not beat chance beyond integer
+  // granularity: 18 items over 5 ranks force a mode of at least 4, and
+  // 4/18 = 22.2% sits within 2.3 points of the 1/5 = 20% chance level.
+  const modal = Math.max(...counts.values());
+  assert.ok(
+    modal <= Math.ceil(ranks.length / 5),
+    "the modal value-rank occurs in " + modal + "/18 items - a rank-guessing exploit",
+  );
+  // The practice items must not prime the heuristic either (both formerly
+  // keyed the second-smallest value).
+  const practice = numberSeries.practice ?? [];
+  const pracRanks = practice.map((i) => keyRank(i));
+  assert.equal(practice.length, 2, "number series practice set must have two items");
+  assert.ok(
+    pracRanks[0] !== pracRanks[1],
+    "both practice keys share a value-rank - the practice section primes a rank heuristic",
+  );
+});
+
 // ============================================================================
 // Quantitative Comparison: quantities are re-encoded as small functions
 // written from the item text; the comparison is recomputed and checked
 // against the keyed direction. The answer index is only ever the assertion
-// target - quantities are never derived from it.
+// target - quantities are never derived from it. Each encoding also lists
+// the prompt substrings it was read from, and the test asserts those
+// tokens appear verbatim in the bank prompt, so a one-digit prompt edit
+// (or a QC_OPTIONS reorder) turns this suite red instead of silently
+// "verifying" a now-wrong key.
 // ============================================================================
 
 type Dir = -1 | 0 | 1; // sign of A - B
@@ -218,38 +273,83 @@ function primesBetween(lo: number, hi: number): number {
   return count;
 }
 
-// Items whose quantities are fixed numeric constants: [quantityA, quantityB].
-const QCP_CONST: Record<string, [() => number, () => number]> = {
-  "qcp-001": [() => 12 + 15, () => 30 - 4],
-  "qcp-002": [() => 4 * 9, () => 6 * 6],
-  "qcp-003": [() => 1 / 2, () => 3 / 5],
-  "qcp-004": [() => 2 ** 5, () => 5 ** 2],
-  // percentages computed with exact integer arithmetic (25*80/100 both sides)
-  "qcp-005": [() => (25 * 80) / 100, () => (80 * 25) / 100],
-  "qcp-006": [() => Math.sqrt(50), () => 7],
-  "qcp-007": [() => (4 + 8 + 18) / 3, () => 10],
-  // x is fixed at -3 by the statement, so this is the constant case
-  "qcp-008": [() => (-3) ** 2, () => 9],
-  "qcp-010": [() => 4 * Math.sqrt(36), () => 2 * (4 + 9)],
-  "qcp-011": [() => 2 ** 30, () => 3 ** 20],
-  "qcp-012": [() => (25 - 7) / 3, () => 6],
-  "qcp-014": [() => primesBetween(20, 40), () => 4],
-  "qcp-015": [() => 0.3 ** 3, () => 0.3 ** 2 * 0.4],
-  "qcp-016": [() => 1 / 2 + 1 / 3 + 1 / 7, () => 1],
-  "qcp-017": [() => 7 ** 7, () => factorial(7)],
-  "qcp-018": [() => 5 * 4 * 3, () => 60],
-  "qcp-019": [() => 3 + 4, () => 2 * 3],
-  "qcp-020": [() => 100 - 65, () => 100 - 25],
+/** The shared option set, pinned in its canonical A/B/C/D order. */
+const QC_CANONICAL = [
+  "Quantity A is greater",
+  "Quantity B is greater",
+  "The two quantities are equal",
+  "Cannot be determined from the information given",
+];
+
+/**
+ * Word-boundary membership: the token must appear in the prompt without
+ * being glued to another letter, digit, dot, or slash, so "4" does not
+ * match "40", "0.4", or "1/4".
+ */
+function promptHasToken(prompt: string, token: string): boolean {
+  const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp("(?<![\\w./])" + escaped + "(?![\\w./])").test(prompt);
+}
+
+type QcpEncoding = {
+  /** Prompt substrings the encoded quantities were read from. */
+  tokens: string[];
+  /** Determinate items: both quantities are fixed numeric constants. */
+  konst?: [() => number, () => number];
+  /** Free-variable items: each admissible value maps to the pair [A, B]. */
+  variable?: number[][];
 };
 
-// Items with a free (qcp-009) or constrained (qcp-013) variable: each
-// admissible value of the variable maps to the pair [A, B].
 const X_SAMPLES = [2, 0.5, 1, 0, -1, 3];
-const QCP_VARIABLE: Record<string, number[][]> = {
+
+const QCP: Record<string, QcpEncoding> = {
+  "qcp-001": { tokens: ["12 + 15", "30 - 4"], konst: [() => 12 + 15, () => 30 - 4] },
+  // two numbers with sum 10: 5x5 = 25 > 24, 4x6 = 24 = 24, 1x9 = 9 < 24
+  "qcp-002": {
+    tokens: ["The product of two numbers whose sum is 10", "24"],
+    variable: [[5 * 5, 24], [4 * 6, 24], [1 * 9, 24]],
+  },
+  "qcp-003": { tokens: ["1/2", "3/5"], konst: [() => 1 / 2, () => 3 / 5] },
+  "qcp-004": { tokens: ["2^5", "5^2"], konst: [() => 2 ** 5, () => 5 ** 2] },
+  // percentages computed with exact integer arithmetic (25*80/100 both sides)
+  "qcp-005": {
+    tokens: ["25% of 80", "80% of 25"],
+    konst: [() => (25 * 80) / 100, () => (80 * 25) / 100],
+  },
+  "qcp-006": { tokens: ["The square root of 50", "7"], konst: [() => Math.sqrt(50), () => 7] },
+  "qcp-007": { tokens: ["4, 8, and 18", "10"], konst: [() => (4 + 8 + 18) / 3, () => 10] },
+  // x is fixed at -3 by the statement, so this is the constant case
+  "qcp-008": { tokens: ["x squared, where x = -3", "9"], konst: [() => (-3) ** 2, () => 9] },
   // x squared vs x cubed, x free over the reals
-  "qcp-009": X_SAMPLES.map((x) => [x ** 2, x ** 3]),
+  "qcp-009": {
+    tokens: ["x squared", "x cubed"],
+    variable: X_SAMPLES.map((x) => [x ** 2, x ** 3]),
+  },
+  // rectangles with area 36: 4x9 -> 26 < 30, 3x12 -> 30 = 30, 2x18 -> 40 > 30
+  "qcp-010": {
+    tokens: ["The perimeter of a rectangle with area 36", "30"],
+    variable: [[2 * (4 + 9), 30], [2 * (3 + 12), 30], [2 * (2 + 18), 30]],
+  },
+  "qcp-011": { tokens: ["2^30", "3^20"], konst: [() => 2 ** 30, () => 3 ** 20] },
+  "qcp-012": { tokens: ["n, where 3n + 7 = 25", "6"], konst: [() => (25 - 7) / 3, () => 6] },
   // y where y^2 = 16: both roots are admissible; B is fixed at 4
-  "qcp-013": [4, -4].map((y) => [y, 4]),
+  "qcp-013": {
+    tokens: ["y, where y squared = 16", "4"],
+    variable: [4, -4].map((y) => [y, 4]),
+  },
+  "qcp-014": { tokens: ["between 20 and 40", "4"], konst: [() => primesBetween(20, 40), () => 4] },
+  "qcp-015": {
+    tokens: ["0.3 cubed", "0.3 squared x 0.4"],
+    konst: [() => 0.3 ** 3, () => 0.3 ** 2 * 0.4],
+  },
+  "qcp-016": {
+    tokens: ["1/2 + 1/3 + 1/7", "1"],
+    konst: [() => 1 / 2 + 1 / 3 + 1 / 7, () => 1],
+  },
+  "qcp-017": { tokens: ["7^7", "7 factorial"], konst: [() => 7 ** 7, () => factorial(7)] },
+  "qcp-018": { tokens: ["three-letter", "ABCDE", "60"], konst: [() => 5 * 4 * 3, () => 60] },
+  "qcp-019": { tokens: ["3 + 4", "2 x 3"], konst: [() => 3 + 4, () => 2 * 3] },
+  "qcp-020": { tokens: ["100 - 65", "100 - 25"], konst: [() => 100 - 65, () => 100 - 25] },
 };
 
 test("every quant-comparison key holds when both quantities are recomputed (qcp-001..020)", () => {
@@ -257,18 +357,37 @@ test("every quant-comparison key holds when both quantities are recomputed (qcp-
   for (const item of quantComparison.items) {
     assert.equal(item.options!.length, 4, item.id + " must have 4 options (c = 1/4)");
     assert.equal(item.c, 0.25, item.id + " c must be 1/4");
-    const konst = QCP_CONST[item.id];
-    const variable = QCP_VARIABLE[item.id];
-    assert.ok(konst || variable, item.id + " has no encoded quantities in the test");
-    if (konst) {
-      const [qa, qb] = konst;
+    // Answer indices mean A/B/C/D only under the canonical option order:
+    // pin it, so reordering QC_OPTIONS in the bank cannot silently flip
+    // the meaning of every key.
+    assert.deepEqual(
+      item.options,
+      QC_CANONICAL,
+      item.id + " options must be the canonical QC set in A/B/C/D order",
+    );
+    const enc = QCP[item.id];
+    assert.ok(enc, item.id + " has no encoded quantities in the test");
+    // Prompt linkage: the encoded quantities were read from these prompt
+    // substrings - a prompt edit without a test update must fail here.
+    assert.ok(
+      item.prompt.startsWith("Quantity A:") && item.prompt.includes("\nQuantity B:"),
+      item.id + " prompt is not a two-quantity comparison",
+    );
+    for (const token of enc.tokens) {
+      assert.ok(
+        promptHasToken(item.prompt, token),
+        item.id + ' prompt no longer contains "' + token + '" - quantities and prompt drifted apart',
+      );
+    }
+    if (enc.konst) {
+      const [qa, qb] = enc.konst;
       assert.equal(
         direction(qa(), qb()),
         expectedDir(item.answer as number),
         item.id + " recomputed comparison contradicts the key",
       );
-    } else if (variable) {
-      const dirs = new Set(variable.map(([qa, qb]) => direction(qa!, qb!)));
+    } else if (enc.variable) {
+      const dirs = new Set(enc.variable.map(([qa, qb]) => direction(qa!, qb!)));
       if (item.answer === 3) {
         // "Cannot be determined": sampled values must genuinely disagree.
         assert.ok(
@@ -290,7 +409,7 @@ test("every quant-comparison key holds when both quantities are recomputed (qcp-
 /** Surface-structure tag per item, read from the item text. */
 const QCP_STRUCTURE: Record<string, string> = {
   "qcp-001": "sum-vs-difference",
-  "qcp-002": "product-vs-product",
+  "qcp-002": "fixed-sum-product",
   "qcp-003": "fraction-vs-fraction",
   "qcp-004": "a^b-vs-b^a",
   "qcp-005": "percent-of",
@@ -325,13 +444,49 @@ test("no two adjacent quant-comparison items share surface structure and key (tw
     );
   }
   // Specific audit regression (§2.5): qcp-004/qcp-006 must no longer both
-  // be a^b-vs-b^a with the same key.
-  assert.notEqual(QCP_STRUCTURE["qcp-004"], QCP_STRUCTURE["qcp-006"]);
+  // be a^b-vs-b^a with the same key. Derived from the bank prompts, not
+  // from the hand-maintained tags above (the previous form compared two
+  // literals in this file's own table and could never fail).
+  const byId = (id: string) => quantComparison.items.find((i) => i.id === id)!;
+  assert.match(byId("qcp-004").prompt, /2\^5/);
+  assert.doesNotMatch(byId("qcp-004").prompt, /square root/i);
+  assert.match(byId("qcp-006").prompt, /square root/i);
 });
 
 test("quant-comparison instructions disclose that unbound variables range over all reals", () => {
   assert.ok(
     quantComparison.instructions.includes("a variable may take any real value"),
     "instructions must state the all-real-values convention (fairness of D-keyed items)",
+  );
+});
+
+test("quant-comparison answers are balanced and D is not eliminable on sight (2026-08-21 re-balance regression)", () => {
+  // Former bank: A=5, B=6, C=7, D=2, with D keys only on the two
+  // bare-variable items - "no visible variable => rule out D" lifted
+  // chance from 1/4 to 1/3 on 18 items, and "always equal" scored 35%.
+  // Re-balanced bank: A=5, B=5, C=6, D=4.
+  const counts = [0, 0, 0, 0];
+  for (const item of quantComparison.items) {
+    const idx = item.answer as number;
+    counts[idx] = (counts[idx] ?? 0) + 1;
+  }
+  for (let k = 0; k < 4; k++) {
+    assert.ok(
+      counts[k]! >= 4 && counts[k]! <= 6,
+      "answer " + k + " occurs " + counts[k] + "/20 times - outside the 4..6 balance band",
+    );
+  }
+  // The D-elimination tell itself: at least one D-keyed item must carry no
+  // bare variable (ignoring the English article "a" and the Quantity
+  // labels), so "no visible variable -> rule out D" fails on
+  // concrete-looking items (currently the fixed-sum product and the
+  // fixed-area rectangle).
+  const stripLabels = (p: string) => p.replace(/Quantity [AB]:/g, "");
+  const hasBareVariable = (p: string) => /(^|[^a-zA-Z])[b-zA-Z]($|[^a-zA-Z])/.test(stripLabels(p));
+  const dItems = quantComparison.items.filter((i) => i.answer === 3);
+  assert.ok(dItems.length >= 3, "fewer than 3 D-keyed items - D is under-weighted");
+  assert.ok(
+    dItems.some((i) => !hasBareVariable(i.prompt)),
+    "every D-keyed item shows a bare variable - D is eliminable a priori on variable-free-looking items",
   );
 });

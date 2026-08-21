@@ -4,7 +4,7 @@ import { BATTERY } from "../src/battery.ts";
 import {
   initSession, beginBattery, startSubtest, answerItem, answerPractice, buildFixedOrder,
 } from "../src/core/session.ts";
-import { bankVersion } from "../src/core/telemetry.ts";
+import { bankVersion, CALIBRATION_FORM_TAG } from "../src/core/telemetry.ts";
 
 /**
  * FIXED CALIBRATION FORMS (2026-08-21, pre-norming hardening).
@@ -75,9 +75,13 @@ test("adaptive sessions are unaffected by calibration machinery", () => {
 });
 
 test("the form variant is stamped into bankVersion", () => {
+  // CALIBRATION_FORM_TAG is imported, not re-typed as a literal: the link
+  // `session.form === "calibration"` -> variant stamp (session.ts formVariant)
+  // must survive a tag rename, and renaming it without updating consumers
+  // has to turn this suite red, not silently fork the hash space.
   const adaptive = bankVersion(BATTERY);
-  const calibration = bankVersion(BATTERY, "calibration-v1");
+  const calibration = bankVersion(BATTERY, CALIBRATION_FORM_TAG);
   assert.notEqual(adaptive, calibration);
-  assert.equal(bankVersion(BATTERY, "calibration-v1"), calibration, "variant hash must be deterministic");
+  assert.equal(bankVersion(BATTERY, CALIBRATION_FORM_TAG), calibration, "variant hash must be deterministic");
   assert.equal(bankVersion(BATTERY), adaptive);
 });

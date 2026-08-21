@@ -26,7 +26,7 @@ function hashSeed(input: string): number {
 }
 
 /** Deterministic mulberry32 PRNG (same generator as the simulation tests). */
-export function seededRandom(seed: number): () => number {
+function seededRandom(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a |= 0;

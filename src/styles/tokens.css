@@ -16,7 +16,6 @@
   --ink-faint:  #9CA3AB;  /* captions, disabled, grid lines */
   --rule:       #DCE0E5;  /* hairlines */
   --signal:     #1B4DE4;  /* measurement blue - RESERVED */
-  --signal-dim: #C7D4F8;  /* signal at low emphasis */
   --amber:      #B4700A;  /* time pressure only */
   --alert:      #A3271E;  /* validity failure only - never decorative */
   --figure:     #22252A;  /* SVG stroke for test figures */
@@ -28,21 +27,13 @@
 
   --t-plate:   clamp(2.6rem, 6vw, 4.4rem);
   --t-h1:      clamp(1.8rem, 3.4vw, 2.6rem);
-  --t-h2:      1.15rem;
   --t-body:    1.0625rem;
   --t-item:    clamp(1.15rem, 2.2vw, 1.5rem);
-  --t-small:   0.8125rem;
   --t-micro:   0.6875rem;
 
   /* ---- space / geometry ---- */
-  --gap-xs: 0.375rem;
-  --gap-s:  0.75rem;
-  --gap-m:  1.25rem;
   --gap-l:  2rem;
-  --gap-xl: 3.25rem;
-  --measure: 34rem;
   --radius: 3px;         /* instruments are not rounded */
-  --hair: 1px;
 
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }

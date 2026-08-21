@@ -38,7 +38,15 @@ import type { Subtest } from "../core/types.ts";
 // distractor sits more than 3 from the key, so a near-neighbor guess gains
 // nothing over the 1/5 chance level. Error types vary across items (only
 // some retain the repeat-last-difference distractor) and key positions do
-// not cycle.
+// not cycle. 2026-08-21 rank revision (red-team audit): the distractor
+// VALUE sets were re-authored (keys, rules, prompts, display positions and
+// b values all unchanged) so the key's rank among the value-sorted options
+// spans all five ranks - 4 smallest / 4 second / 3 middle / 3 fourth /
+// 4 largest of 18 - breaking the former second-smallest mode (8/18) and
+// the never-an-extreme pattern that made "eliminate min and max"
+// risk-free. The practice items were de-primed to match (their keys are
+// now the smallest / the largest option). Guarded by the rank-distribution
+// regression in test/gq-keys.test.ts.
 // ---------------------------------------------------------------------------
 
 export const numberSeries: Subtest = {
@@ -55,17 +63,19 @@ export const numberSeries: Subtest = {
     {
       id: "prac-nsr-01", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 0.9, b: -3.5, c: 0.2,
-      // rule: constant difference +2
+      // rule: constant difference +2; key is the smallest option (the
+      // practice section must not prime the second-smallest heuristic)
       prompt: "2, 4, 6, 8, ?",
-      options: ["16", "10", "5", "20", "14"],
-      answer: 1,
+      options: ["10", "16", "20", "14", "18"],
+      answer: 0,
     },
     {
       id: "prac-nsr-02", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 0.9, b: -3.5, c: 0.2,
-      // rule: constant difference +10
+      // rule: constant difference +10; key is the largest option (rank
+      // de-priming, see prac-nsr-01)
       prompt: "5, 15, 25, 35, ?",
-      options: ["40", "50", "45", "55", "60"],
+      options: ["40", "35", "45", "30", "25"],
       answer: 2,
     },
   ],
@@ -137,76 +147,77 @@ export const numberSeries: Subtest = {
       id: "nsr-005", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 1, b: -1.4, c: 0.2,
       // rule: pronic n(n+1); differences 4,6,8,10,12
-      // distractors: 38 = 30+8 (repeated the middle difference);
-      //   56 = 42+14 (one step late); 60 = 30x2 (doubled the last term);
-      //   26 = 30-4 (reversed)
+      // distractors: 26 = 30-4 (reversed); 36 = 30+6 (reused an old
+      //   difference); 38 = 30+8 (repeated the middle difference);
+      //   56 = 42+14 (one step late)
       prompt: "2, 6, 12, 20, 30, ?",
-      options: ["38", "56", "42", "60", "26"],
+      options: ["38", "56", "42", "26", "36"],
       answer: 2,
     },
     {
       id: "nsr-006", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 1.1, b: -0.3, c: 0.2,
       // rule: x3+2
-      // distractors: 724 = 242x3-2 (sign error on the constant);
-      //   486 = 242x2+2 (wrong multiplier); 322 = 242+80 (additive read);
-      //   2186 = 728x3+2 (one step late)
+      // distractors: 242 = repeated the last term; 322 = 242+80 (additive
+      //   read); 486 = 242x2+2 (wrong multiplier); 724 = 242x3-2 (sign
+      //   error on the constant)
       prompt: "2, 8, 26, 80, 242, ?",
-      options: ["724", "728", "486", "322", "2186"],
+      options: ["724", "728", "486", "322", "242"],
       answer: 1,
     },
     {
       id: "nsr-007", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 1, b: -1, c: 0.2,
       // rule: triangular n(n+1)/2; differences 2,3,4,5,6,7
-      // distractors: 42 = 21x2 (doubled the last term); 22 = 21+1 (expected
-      //   consecutive integers); 33 = 21+12 (doubled the last difference);
-      //   14 = 21-7 (reversed)
+      // distractors: 14 = 21-7 (reversed); 15 = repeated the term before
+      //   last; 21 = one step early (repeated the last term); 22 = 21+1
+      //   (expected consecutive integers)
       prompt: "1, 3, 6, 10, 15, 21, ?",
-      options: ["42", "22", "33", "14", "28"],
+      options: ["21", "22", "15", "14", "28"],
       answer: 4,
     },
     {
       id: "nsr-008", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 1.1, b: -0.5, c: 0.2,
       // rule: n^2+1 for n = 0, 1, 2, ...
-      // distractors: 37 = 6^2+1 (one step late); 34 = 17x2 (doubled the last
-      //   term); 22 = 17+5 (reused an old difference); 10 = 17-7 (reversed)
+      // distractors: 10 = repeated the term before last; 17 = repeated the
+      //   last term; 22 = 17+5 (reused an old difference); 37 = 6^2+1 (one
+      //   step late)
       prompt: "1, 2, 5, 10, 17, ?",
-      options: ["37", "34", "26", "22", "10"],
+      options: ["37", "22", "26", "10", "17"],
       answer: 2,
     },
     {
       id: "nsr-009", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 1.1, b: -0.2, c: 0.2,
       // rule: cubes (n^3)
-      // distractors: 250 = 125x2 (doubled the last term); 36 = 6^2 (square,
-      //   not cube); 343 = 7^3 (one step late); 625 = 5^4 (kept the base,
-      //   raised the exponent)
+      // distractors: 250 = 125x2 (doubled the last term); 343 = 7^3 (one
+      //   step late); 432 = 216x2 (doubled the key); 625 = 5^4 (kept the
+      //   base, raised the exponent)
       prompt: "1, 8, 27, 64, 125, ?",
-      options: ["216", "250", "36", "343", "625"],
+      options: ["216", "250", "432", "343", "625"],
       answer: 0,
     },
     {
       id: "nsr-010", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 1.1, b: 0.1, c: 0.2,
       // rule: 2^n - 1
-      // distractors: 47 = 31+16 (repeated the difference from two steps
-      //   back); 127 = 2^7-1 (one step late); 93 = 31x3 (wrong multiplier);
-      //   46 = 31+15 (added the previous term)
+      // distractors: 93 = 31x3 (wrong multiplier); 94 = 47x2 (doubled the
+      //   term before last); 126 = 63x2 (doubled the key); 127 = 2^7-1
+      //   (one step late)
       prompt: "1, 3, 7, 15, 31, ?",
-      options: ["47", "127", "93", "63", "46"],
+      options: ["127", "93", "126", "63", "94"],
       answer: 3,
     },
     {
       id: "nsr-011", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 1.2, b: 0.8, c: 0.2,
       // rule: interleaved: odd positions +4, even positions x2
-      // distractors: 19 = 15+4 (one step late on the odd chain);
-      //   22 = 11x2 (doubled the other chain's term); 23 = 15+8 (added the
-      //   other chain's last term); 9 = 8+1 (continued the even chain)
+      // distractors: 7 = repeated the previous odd-chain term; 8 = repeated
+      //   the last even-chain term; 9 = 8+1 (continued the even chain);
+      //   11 = one step early on the odd chain (repeated the last term)
       prompt: "3, 2, 7, 4, 11, 8, ?",
-      options: ["19", "22", "15", "23", "9"],
+      options: ["11", "9", "15", "8", "7"],
       answer: 2,
     },
     {
@@ -215,11 +226,11 @@ export const numberSeries: Subtest = {
       // rule: differences double (1, 2, 4, 8, 16, 32)
       // rebuilt 2026-08: the previous item (n^2+n+1) had the same difference
       // chain 4,6,8,10 as nsr-005 - the same item priced 2.8 logits apart
-      // distractors: 50 = 34+16 (repeated the last difference);
-      //   98 = 34+64 (doubled the next difference twice); 52 = 34+18 (added
-      //   the previous term); 130 = 66+64 (one step late)
+      // distractors: 98 = 34+64 (doubled the next difference twice);
+      //   102 = 34x3 (wrong multiplier); 130 = 66+64 (one step late);
+      //   132 = 66x2 (doubled the key)
       prompt: "3, 4, 6, 10, 18, 34, ?",
-      options: ["66", "50", "98", "52", "130"],
+      options: ["66", "98", "102", "130", "132"],
       answer: 0,
     },
     {
@@ -228,11 +239,11 @@ export const numberSeries: Subtest = {
       // rule: alternating +1, x2
       // rebuilt 2026-08: the previous item (x3-2) was near-isomorphic to
       // nsr-006 (x3+2) via the geometric-differences route
-      // distractors: 16 = 15+1 (applied +1 one step early); 60 = 30x2
-      //   (continued x2); 62 = 31x2 (one step late); 45 = 30+15 (added the
-      //   previous term)
+      // distractors: 7 = repeated an early term; 15 = repeated the last
+      //   term; 16 = 15+1 (applied +1 one step early); 60 = 30x2
+      //   (continued x2)
       prompt: "2, 3, 6, 7, 14, 15, 30, ?",
-      options: ["16", "60", "62", "45", "31"],
+      options: ["16", "60", "15", "7", "31"],
       answer: 4,
     },
     {
@@ -250,21 +261,22 @@ export const numberSeries: Subtest = {
       id: "nsr-015", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 1.4, b: 1.8, c: 0.2,
       // rule: a(n)=2a(n-1)+(n-1), with a(1)=1
-      // distractors: 84 = 2x42 (dropped the +(n-1)); 47 = 42+5 (added
-      //   (n-1) without doubling); 178 = 89x2 (doubled the last term);
-      //   85 = 2x42+1 (stale constant from the first step)
+      // distractors: 126 = 2x42+42 (added the last term instead of n-1);
+      //   168 = 42x4 (wrong multiplier); 178 = 89x2 (doubled the key);
+      //   184 = 2x89+6 (one step late)
       prompt: "1, 3, 8, 19, 42, ?",
-      options: ["84", "47", "178", "89", "85"],
+      options: ["126", "168", "178", "89", "184"],
       answer: 3,
     },
     {
       id: "nsr-016", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 1.4, b: 2.4, c: 0.2,
       // rule: a(n)=a(n-1)+2a(n-2) - true ceiling item (audit §2.4)
-      // distractors: 133 = 2x53+27 (coefficients swapped); 80 = 53+27 (plain
-      //   sum); 159 = 53x3 (wrong multiplier); 213 = 107+2x53 (one step late)
+      // distractors: 27 = repeated the oldest shown term; 53 = repeated
+      //   the last term; 79 = 2x53-27 (sign error on the older term);
+      //   80 = 53+27 (plain sum)
       prompt: "2, 3, 7, 13, 27, 53, ?",
-      options: ["107", "133", "80", "159", "213"],
+      options: ["107", "53", "79", "80", "27"],
       answer: 0,
     },
   ],
@@ -290,7 +302,19 @@ const QC_OPTIONS = [
 // variables range over all reals, which makes the two
 // cannot-be-determined items (qcp-009, qcp-013) fair rather than
 // trick-based. 2026-08-21 floor revision (audit §9): qcp-019/020 are
-// single-operation basals below the old -2.2 floor.
+// single-operation basals below the old -2.2 floor. 2026-08-21
+// D-distribution revision (red-team audit): D keys previously occurred
+// only on the two bare-variable items, so a test-wise examinee could
+// delete "Cannot be determined" a priori on every concrete-looking item.
+// qcp-002 (was "4 x 9 vs 6 x 6", key equal) and qcp-010 (was
+// square-vs-rectangle perimeters, key B) were re-authored as
+// underdetermined comparisons keyed D; both hide their free degree of
+// freedom (a product under a fixed sum; a rectangle under a fixed area),
+// so "no visible variable => eliminate D" now fails on concrete-looking
+// items. The answer histogram is A=5, B=5, C=6, D=4 - "always equal"
+// lifts chance to only 6/20 (was 7/20); C stays modal by one item, which
+// the histogram guard in test/gq-keys.test.ts bounds. Both re-keys are
+// exact (see the item comments).
 // ---------------------------------------------------------------------------
 
 export const quantComparison: Subtest = {
@@ -331,10 +355,14 @@ export const quantComparison: Subtest = {
     {
       id: "qcp-002", subtest: "quantComparison", broad: "Gq", narrow: "RQ",
       a: 1, b: -2, c: 0.25,
-      // verified: 36 vs 36
-      prompt: "Quantity A: 4 x 9\nQuantity B: 6 x 6",
+      // verified: the sum fixes no product - 5x5 = 25 > 24, 4x6 = 24 = 24,
+      // 1x9 = 9 < 24, so the direction genuinely varies. Re-keyed 2026-08-21
+      // (red-team audit): was "4 x 9 vs 6 x 6" (36 = 36, key equal);
+      // converted to an underdetermined comparison with no visible variable
+      // so "no variable => eliminate D" fails here.
+      prompt: "Quantity A: The product of two numbers whose sum is 10\nQuantity B: 24",
       options: QC_OPTIONS,
-      answer: 2,
+      answer: 3,
     },
     {
       id: "qcp-003", subtest: "quantComparison", broad: "Gq", narrow: "RQ",
@@ -397,10 +425,16 @@ export const quantComparison: Subtest = {
     {
       id: "qcp-010", subtest: "quantComparison", broad: "Gq", narrow: "RQ",
       a: 1.1, b: 0.4, c: 0.25,
-      // verified: 24 vs 26
-      prompt: "Quantity A: The perimeter of a square with area 36\nQuantity B: The perimeter of a 4 by 9 rectangle",
+      // verified: the area fixes no perimeter - 4x9 gives 26 < 30, 3x12
+      // gives 30 = 30, 2x18 gives 40 > 30 (and with real-valued sides the
+      // perimeter 2(a + 36/a) takes every value from 24 up), so the
+      // direction genuinely varies. Re-keyed 2026-08-21 (red-team audit):
+      // was "perimeter of a square with area 36" vs "perimeter of a 4 by 9
+      // rectangle" (24 < 26, key B); converted to an underdetermined
+      // comparison with no visible variable.
+      prompt: "Quantity A: The perimeter of a rectangle with area 36\nQuantity B: 30",
       options: QC_OPTIONS,
-      answer: 1,
+      answer: 3,
     },
     {
       id: "qcp-011", subtest: "quantComparison", broad: "Gq", narrow: "RQ",

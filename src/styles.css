@@ -124,8 +124,6 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .word-item { display: flex; align-items: center; gap: 9px; font-size: .92rem; }
 .word-item input { width: 34px; height: 34px; padding: 0; background: var(--paper-sunk); color: var(--ink); border: 1px solid var(--rule); border-radius: var(--radius); font: 600 .92rem var(--mono); text-align: center; }
 .word-item input:focus-visible { outline: 2px solid var(--signal); outline-offset: 1px; }
-.match-actions { display: flex; justify-content: flex-end; align-items: center; gap: 28px; padding-top: 16px; border-top: 1px solid var(--rule); }
-.match-actions > span { color: var(--ink-faint); font-size: .72rem; }
 
 .trace { position: fixed; z-index: 15; inset: auto 0 0; height: 104px; background: color-mix(in srgb, var(--paper) 96%, transparent); border-top: 1px solid var(--rule); backdrop-filter: blur(10px); }
 .trace-label { height: 25px; padding: 7px max(24px, calc((100vw - 1180px) / 2)) 0; display: flex; justify-content: space-between; color: var(--ink-faint); font: 600 .57rem var(--display); letter-spacing: .13em; }

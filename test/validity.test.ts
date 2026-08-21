@@ -6,7 +6,7 @@ import { pCorrect } from "../src/core/irt.ts";
 import { scoreComposite } from "../src/core/scoring.ts";
 import {
   screenSession, validitySummary,
-  MIN_SCREENABLE_RESPONSES, RAPID_POWER_MS,
+  MIN_SCREENABLE_RESPONSES, RAPID_POWER_MS, INTERRUPTION_QUESTIONABLE_FRACTION,
 } from "../src/core/validity.ts";
 import type { Item, Response, Subtest } from "../src/core/types.ts";
 
@@ -126,6 +126,66 @@ test("an engaged LOW-ABILITY administration also screens valid (floor false-posi
       `theta ${theta}: gradient r ${report.difficultyCorrelation} must be clearly negative`,
     );
     assert.ok(composite.g.score > 55 && composite.g.score < 80, `theta ${theta} composite landed at ${composite.g.score}`);
+  }
+});
+
+test("an engaged HIGH-ABILITY administration is not flagged invalid (straight-lining false-positive regression)", () => {
+  // Regression for the cross-subtest run bug: the same-option run counter
+  // carried across subtest boundaries, and subtests whose keys cluster at one
+  // index (analyticalReasoning keyed every scored item at original index 0
+  // before the bank was de-cycled) turned honest all-correct sections into
+  // battery-wide "straight-line" runs — precisely the high-ability tail a
+  // norming study needs. Runs are per-subtest now, so honest responders at
+  // any ability level must never read as invalid. (Low theta is covered above;
+  // multiple seeds because the flag depended on the seed's answer pattern.)
+  for (const theta of [2, 2.5, 4]) {
+    for (const seed of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
+      const responses = simulateEngaged(theta, 18_000, seed);
+      const report = screenSession(BATTERY, responses);
+      assert.notEqual(
+        report.verdict, "invalid",
+        `theta ${theta} seed ${seed}: ${validitySummary(report)} — ${report.reasons.join("; ")}`,
+      );
+    }
+  }
+});
+
+test("concentrated tab-hiding in a memory subtest flags questionable; a single interruption stays clean", () => {
+  // Tab-hide exploit regression: interrupted responses are censored from
+  // estimation and STAY censored here — but their concentration in one
+  // subtest is the cheat signature (hide the tab during exactly the memory
+  // exposures that would have failed). One real distraction must not flag.
+  const censorWouldFail = (responses: Response[], count: number): number => {
+    const dsp = responses.filter((r) => r.subtestId === "digitSpan");
+    // Oracle cheat: censor the wrong (would-fail) items first, then enough
+    // extra to reach `count` — mirroring App's interrupted-response record.
+    const order = [...dsp].sort((a, b) => Number(a.correct) - Number(b.correct));
+    for (const r of order.slice(0, count)) {
+      r.interrupted = true;
+      r.correct = false;
+      r.rawAnswer = "";
+    }
+    return dsp.length;
+  };
+  // >30% of digitSpan's responses interrupted -> questionable with a reason.
+  {
+    const responses = simulateEngaged(0, 18_000, 7);
+    const served = censorWouldFail(responses, Math.ceil(0.4 * 14));
+    assert.ok(served >= 7, `digitSpan must administer enough responses to screen (${served})`);
+    const report = screenSession(BATTERY, responses);
+    assert.equal(report.verdict, "questionable", `${report.verdict}: ${report.reasons.join("; ")}`);
+    assert.ok(
+      report.reasons.some((r) => r.includes("digitSpan") && r.includes("interrupted")),
+      report.reasons.join("; "),
+    );
+    assert.ok((report.maxInterruptedSubtestShare ?? 0) > INTERRUPTION_QUESTIONABLE_FRACTION);
+  }
+  // An engaged run with no simulated interruptions stays clean and valid.
+  {
+    const responses = simulateEngaged(0, 18_000, 7);
+    const report = screenSession(BATTERY, responses);
+    assert.equal(report.verdict, "valid", `${report.verdict}: ${report.reasons.join("; ")}`);
+    assert.ok((report.maxInterruptedSubtestShare ?? 1) <= INTERRUPTION_QUESTIONABLE_FRACTION);
   }
 });
 

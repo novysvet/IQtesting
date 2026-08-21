@@ -245,6 +245,24 @@ test("section expiry records the on-screen item as omitted", () => {
   assert.equal(s.stopReasons[0], "time-limit");
 });
 
+test("battery-budget expiry with an item on screen records the omission, then results", () => {
+  // Regression for the App battery-expiry tick: it used to overwrite the
+  // phase directly, dropping the in-flight item (0 responses) and leaving the
+  // scored segment open. The battery-expiry route is expireSubtest, which
+  // records the item as an omitted censor and closes the segment.
+  let s = beginBattery(initSession([subA, subB]), 0);
+  s = startSubtest(s, 0, 0);
+  s = answerItem(s, 2, 1000); // one answered item; the next is now on screen
+  const before = s.responses.length;
+  const out = expireSubtest(s, (BATTERY_BUDGET_MIN + 1) * 60_000);
+  assert.equal(out.phase.kind, "results", "an exhausted battery ends in results");
+  assert.equal(out.responses.length, before + 1, "the on-screen item must be recorded, not dropped");
+  assert.equal(out.responses.at(-1)!.omitted, true);
+  assert.equal(out.responses.at(-1)!.correct, false);
+  assert.equal(out.stopReasons[0], "time-limit");
+  assert.equal(out.segmentStart, null, "the scored segment must close with the battery");
+});
+
 test("interrupted memory responses do not feed the discontinue streak", () => {
   let s = beginBattery(initSession([subA]), 0);
   s = startSubtest(s, 0, 0);
@@ -253,4 +271,15 @@ test("interrupted memory responses do not feed the discontinue streak", () => {
   assert.equal(s.responses[0]!.interrupted, true);
   s = answerItem(s, 0, 2000);
   assert.equal(s.routing[0]!.consecutiveMisses, 1, "a real miss still counts");
+});
+
+test("recorded latencyMs is clamped to the validator maximum across long away gaps", () => {
+  // A multi-sitting restore can leave an item on screen for hours; the raw
+  // wall-clock gap (e.g. 259,184,000 ms) must never reach the export, where
+  // the worker validator rejects anything over 3,600,000 ms.
+  let s = beginBattery(initSession([subA]), 0);
+  s = startSubtest(s, 0, 0);
+  s = answerItem(s, 2, 1000); // next item served at t=1000
+  s = answerItem(s, 2, 1000 + 72 * 3_600_000);
+  assert.equal(s.responses.at(-1)!.latencyMs, 3_600_000, "latency must clamp, not carry the away gap");
 });

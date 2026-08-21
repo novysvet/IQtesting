@@ -65,20 +65,37 @@ test("ceiling rule is floor-gated: descent continues until the bank floor is rea
 
 test("a miss streak near the floor stops immediately once minItems are satisfied", () => {
   // Simulate an examinee already at the bottom of the pool: seed the state
-  // with misses at floor items so theta sits inside the floor band.
+  // with misses at floor items so theta sits inside the floor band. Five
+  // seeded responses >= cfg.minItems (4), so the floor-gated ceiling rule
+  // fires on the very next decision.
   const floorItems = [...pool].sort((a, b) => a.b - b.b).slice(0, 5);
   let st = initRouting(cfg);
   for (const item of floorItems) {
     st = applyResponse(st, item, resp(item.id, false));
   }
+  assert.ok(st.responses.length >= cfg.minItems, "precondition: minItems satisfied");
   assert.ok(st.theta <= Math.min(...pool.map((i) => i.b)) + 0.75, "precondition: at-floor estimate");
   const { item, stopReason } = nextItem(pool, st, cfg);
-  if (st.responses.length >= cfg.minItems) {
-    assert.equal(item, null);
-    assert.equal(stopReason, "ceiling");
-  } else {
-    assert.ok(item, "below minItems the ceiling rule must not fire yet");
+  assert.equal(item, null);
+  assert.equal(stopReason, "ceiling");
+});
+
+test("below minItems a floor-band miss streak keeps serving items", () => {
+  // Same seeded at-floor state under a minimum the seed has NOT reached
+  // (5 responses < minItems 6): the ceiling rule must hold fire until the
+  // minimum is administered, or short discontinue-prone runs would be
+  // censored below their own floor.
+  const floorItems = [...pool].sort((a, b) => a.b - b.b).slice(0, 5);
+  const stricter: RoutingConfig = { ...cfg, minItems: 6 };
+  let st = initRouting(stricter);
+  for (const item of floorItems) {
+    st = applyResponse(st, item, resp(item.id, false));
   }
+  assert.ok(st.responses.length < stricter.minItems, "precondition: below minItems");
+  assert.ok(st.theta <= Math.min(...pool.map((i) => i.b)) + 0.75, "precondition: at-floor estimate");
+  const { item, stopReason } = nextItem(pool, st, stricter);
+  assert.ok(item, "below minItems the ceiling rule must not fire yet");
+  assert.equal(stopReason, null);
 });
 
 test("a correct answer resets the miss streak", () => {

@@ -5,12 +5,14 @@ import { pCorrect, estimateAbility, REPORT_PRIOR_SD } from "./irt.ts";
  * Response-validity screening — the pre-norming gate against contaminated
  * calibration data.
  *
- * WHY THIS EXISTS: an all-random examinee currently earns a clean provisional
- * composite near IQ 75. The EAP prior shrinks a chance-level run up from the
- * floor, and nothing downstream distinguishes "random clicking" from "genuinely
- * low ability". A norming sample that absorbs random responders has a deflated
- * mean and inflated tails; every percentile derived from it is wrong. So every
- * session is screened on three independent signatures of disengagement:
+ * WHY THIS EXISTS: before the 2026-08-21 scale-floor revision an all-random
+ * examinee earned a clean provisional composite near IQ 75; since the revision
+ * chance-level performance reports near IQ 50 (measured 52.4, DIFFICULTY_AUDIT
+ * §9.3). Even at the honest floor, nothing downstream distinguishes "random
+ * clicking" from "genuinely low ability". A norming sample that absorbs random
+ * responders has a deflated mean and inflated tails; every percentile derived
+ * from it is wrong. So every session is screened on independent signatures of
+ * disengagement and contamination:
  *
  * 1. PERSON FIT (lz-style). Under the fitted model, expected correct for this
  *    session's own theta estimate is sum(pCorrect(item, theta)); the observed
@@ -29,9 +31,12 @@ import { pCorrect, estimateAbility, REPORT_PRIOR_SD } from "./irt.ts";
  *    subtests are excluded from the denominator: their short latencies are the
  *    format working as designed.
  *
- * 3. STRAIGHT-LINING. Key positions are de-cycled bank-wide, so a genuine
- *    examinee's chosen indices wander while a position-spammer produces long
- *    runs of one index and a dominant modal share.
+ * 3. STRAIGHT-LINING. A position-spammer produces long runs of one option
+ *    index and a dominant modal share while a genuine examinee's chosen
+ *    indices wander. Runs are counted WITHIN a subtest: the same rawAnswer
+ *    index in two different subtests is a numbering coincidence, not a
+ *    repeated selection of one position, so crossing a subtest boundary
+ *    breaks the run.
  *
  * 4. DIFFICULTY GRADIENT (2026-08-21). Correctness must track item difficulty:
  *    every engaged examinee, at ANY ability level, passes easy items and fails
@@ -43,6 +48,15 @@ import { pCorrect, estimateAbility, REPORT_PRIOR_SD } from "./irt.ts";
  *    honestly (near IQ 50), a guesser's response pattern LOOKS consistent with
  *    their own low estimate and the lz-style fit z weakens toward ambiguity.
  *    The gradient check closes that hole without touching ability estimation.
+ *
+ * 5. INTERRUPTION CONCENTRATION. Interrupted responses (tab hidden during a
+ *    memory exposure) are censoring and stay excluded from estimation and
+ *    person fit — a real distraction interrupts one or two items and must
+ *    never be read as behaviour. But CONCENTRATION is itself a signal:
+ *    systematically hiding the tab censors exactly the items an examinee
+ *    would have failed, so a subtest whose responses are more than
+ *    INTERRUPTION_QUESTIONABLE_FRACTION interrupted is flagged questionable.
+ *    Only the concentration is screened; the censoring itself is untouched.
  *
  * All thresholds are fixed constants, deterministic, and unit-tested. The
  * verdict travels with the exported record so the norming pipeline can exclude
@@ -82,13 +96,29 @@ export const STRAIGHT_RUN_QUESTIONABLE = 7;
 export const MODAL_SHARE_QUESTIONABLE = 0.5;
 /**
  * Point-biserial r(item.b, correct) above which the session shows no usable
- * difficulty gradient. Engaged examinees land below -0.25 at every ability
- * level (the adaptive mix always spans enough difficulty); chance-level data
- * centers on 0 with SD ~ 1/sqrt(n) ≈ 0.07 at n = 200.
+ * difficulty gradient. Engaged examinees measured −0.13..−0.45 across ability
+ * levels (DIFFICULTY_AUDIT §9.2) — −0.13 is above −0.25, which is exactly why
+ * the threshold sits at −0.12, just above the engaged minimum: a flat gradient
+ * alone is only questionable and needs person-fit misfit to invalidate.
+ * Chance-level data centers on 0 with SD ~ 1/sqrt(n) ≈ 0.07 at n = 200.
  */
 export const FLAT_GRADIENT_QUESTIONABLE = -0.12;
 /** Flat gradient + this much person-fit misfit together are invalid. */
 export const FLAT_GRADIENT_INVALID_Z = -1.5;
+/**
+ * Interrupted-response share of a subtest above which the session is flagged
+ * questionable: concentrated tab-hiding during (memory) exposure censors
+ * exactly the items the examinee would have failed. Single or few
+ * interruptions stay clean — with the minimum below, one interruption can
+ * never exceed the fraction.
+ */
+export const INTERRUPTION_QUESTIONABLE_FRACTION = 0.3;
+/**
+ * Minimum responses in a subtest before interruption concentration is
+ * screened; below this the share is small-denominator noise (1 of 4 = 25%,
+ * but 1 of 3 = 33% would flag a single real distraction).
+ */
+export const INTERRUPTION_SCREEN_MIN_RESPONSES = 5;
 
 export type ValidityVerdict = "valid" | "questionable" | "invalid" | "insufficient";
 
@@ -116,6 +146,11 @@ export interface ValidityReport {
   difficultyCorrelation: number | null;
   /** Share of all scored responses auto-submitted by timeout. */
   timeoutFraction: number;
+  /**
+   * Highest interrupted (tab-hidden) share among subtests with at least
+   * INTERRUPTION_SCREEN_MIN_RESPONSES responses; null when none qualify.
+   */
+  maxInterruptedSubtestShare: number | null;
 }
 
 /**
@@ -151,6 +186,7 @@ export function screenSession(
     modalOptionShare: null,
     difficultyCorrelation: null,
     timeoutFraction: 0,
+    maxInterruptedSubtestShare: null,
   };
   if (scored.length === 0) return { ...report, verdict: "insufficient", reasons: ["No scored responses."] };
 
@@ -220,10 +256,21 @@ export function screenSession(
   let bestRun = 0;
   let curRun = 0;
   let prev: number | null = null;
+  let prevSubtest: string | null = null;
   let mcTotal = 0;
   const counts = new Map<number, number>();
   for (const r of scored) {
     const item = byId.get(r.itemId)!;
+    if (item.subtest !== prevSubtest) {
+      // Runs are per-subtest, never cross-subtest: the same rawAnswer index
+      // in two different subtests is a numbering coincidence, not a repeated
+      // selection of one position. Without this reset, honest high-ability
+      // examinees accumulated cross-subtest runs through subtests whose keys
+      // cluster at one index and were flagged as straight-liners.
+      prev = null;
+      curRun = 0;
+      prevSubtest = item.subtest;
+    }
     const chosen = typeof r.rawAnswer === "number" ? r.rawAnswer : null;
     if (chosen === null || chosen < 0) continue; // recall strings, blanks, timeout sentinels
     if ((item.options?.length ?? 0) < 3 || item.multi !== undefined) continue;
@@ -268,6 +315,40 @@ export function screenSession(
     report.difficultyCorrelation = Number((cov / Math.sqrt(varB * varC)).toFixed(3));
   }
 
+  // --- Interruption concentration -------------------------------------------
+  // Interrupted responses stay censored above (and in estimation/routing):
+  // a single interruption is a real distraction and must remain unread as
+  // behaviour. But CONCENTRATION is a signal — systematically hiding the tab
+  // during a memory exposure censors exactly the items the examinee would
+  // have failed. Only the concentration is screened, never the censoring.
+  const interruptionReasons: string[] = [];
+  let maxInterruptedShare: number | null = null;
+  {
+    const groups = new Map<string, { interrupted: number; total: number }>();
+    for (const r of responses) {
+      const item = byId.get(r.itemId);
+      if (!item) continue;
+      const g = groups.get(item.subtest) ?? { interrupted: 0, total: 0 };
+      g.total++;
+      if (r.interrupted) g.interrupted++;
+      groups.set(item.subtest, g);
+    }
+    for (const [sid, g] of groups) {
+      if (g.total < INTERRUPTION_SCREEN_MIN_RESPONSES) continue;
+      const share = g.interrupted / g.total;
+      if (maxInterruptedShare === null || share > maxInterruptedShare) {
+        maxInterruptedShare = share;
+      }
+      if (share > INTERRUPTION_QUESTIONABLE_FRACTION) {
+        interruptionReasons.push(
+          `${sid}: ${g.interrupted} of ${g.total} responses (${Math.round(share * 100)}%) interrupted (tab hidden during presentation) — concentrated censoring, the tab-hide pattern.`,
+        );
+      }
+    }
+  }
+  report.maxInterruptedSubtestShare =
+    maxInterruptedShare === null ? null : Number(maxInterruptedShare.toFixed(3));
+
   // --- Verdict --------------------------------------------------------------
   if (scored.length < MIN_SCREENABLE_RESPONSES) {
     report.verdict = "insufficient";
@@ -304,6 +385,9 @@ export function screenSession(
   } else if ((run !== null && run >= STRAIGHT_RUN_QUESTIONABLE) || (modal !== null && modal >= MODAL_SHARE_QUESTIONABLE)) {
     report.verdict = "questionable";
     report.reasons.push(`Concentrated option-position use (run ${run}, modal share ${modal}).`);
+  } else if (interruptionReasons.length > 0) {
+    report.verdict = "questionable";
+    report.reasons.push(...interruptionReasons);
   }
   return report;
 }
@@ -314,6 +398,7 @@ export function validitySummary(report: ValidityReport): string {
   if (report.personFitZ !== null) bits.push(`fit z ${report.personFitZ}`);
   if (report.rapidFraction !== null) bits.push(`rapid ${(report.rapidFraction * 100).toFixed(0)}%`);
   if (report.longestSameOptionRun !== null) bits.push(`run ${report.longestSameOptionRun}`);
+  if (report.maxInterruptedSubtestShare) bits.push(`interrupted ${(report.maxInterruptedSubtestShare * 100).toFixed(0)}%`);
   if (report.difficultyCorrelation !== null) bits.push(`gradient r ${report.difficultyCorrelation}`);
   return bits.join(" · ");
 }

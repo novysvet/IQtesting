@@ -30,15 +30,15 @@ import type { Subtest } from "../core/types.ts";
  * Pure translations of keyed pieces are deliberately NOT used: the renderer
  * normalises each piece to its own bounding box, so a translated key would
  * render pixel-identical to the keyed option - an ambiguity, not a
- * distractor. The test additionally proves the keyed triple is the UNIQUE
+ * distractor. Uniqueness is GEOMETRIC, not size-based: the test proves by
+ * exhaustive translation enumeration that the keyed triple is the UNIQUE
  * tiling triple among all C(6,3) = 20 triples even when the three chosen
- * pieces may each be slid to ANY in-grid position (exhaustive translation
- * enumeration). Because the chosen pieces must end up pairwise disjoint and
- * cover an N-cell target, their cell counts must sum to exactly N, so
- * distractor sizes are authored such that only the keyed triple sums to N
- * - that alone rules out every slid re-tiling by a non-keyed triple. The
- * tests also prove that all six options of an item render pairwise
- * distinctly.
+ * pieces may each be slid to ANY in-grid position. Cell-count sums prune
+ * little (most items admit several size-compatible triples) and are NOT a
+ * design crutch: every item, practice included, deliberately has at least
+ * TWO triples whose sizes sum to N, so counting cells alone can never
+ * decide an item - only spatial reasoning can. The tests also prove that
+ * all six options of an item render pairwise distinctly.
  *
  * CALIBRATION STATUS: all item parameters (a, b) are AUTHORED ESTIMATES by
  * inspection, not fitted to response data from a real sample; c = 0.05 is
@@ -57,22 +57,30 @@ export const visualPuzzles: Subtest = {
     "Each puzzle shows a target silhouette and six pieces. Choose exactly three pieces that fit together to rebuild the silhouette. The pieces are already shown in the orientation in which they are used: slide them into place without turning or flipping any piece.",
   budgetMin: 9,
   routing: { maxItems: 12, minItems: 6, ceilingMisses: 4, targetSe: 0.5, entryTheta: 0 },
-  // Unscored sample reusing vpz-001's verified geometry (unique tiling under
-  // all in-grid translations) so practice never teaches a wrong rule.
+  // Unscored samples carrying the same machine-checked guarantees as the
+  // scored bank (unique tiling under all in-grid translations, >= 2
+  // size-feasible triples, six pairwise-distinct renderings) so practice
+  // never teaches a wrong rule or a shortcut.
   practice: [
   {
     id: "prac-vpz-01", subtest: "visualPuzzles", broad: "Gv", narrow: "Vz",
     a: 1.0, b: -2, c: 0.05, multi: 3,
     prompt: PROMPT, options: PIECES, answer: "0,2,4",
     render: { kind: "vpuzzle", cols: 4, rows: 4, target: [4, 5, 6, 7, 8, 9, 10, 11],
-      pieces: [[4, 5, 8], [0, 1, 5, 6], [6, 7, 11], [0, 1, 4, 5], [9, 10], [9, 12, 13, 14]] },
+      pieces: [[4, 5, 8], [0, 1, 5, 6], [6, 7, 11], [1, 5], [9, 10], [9, 12, 13, 14]] },
   },
   {
+    // Second sample: solid 3x3 block keyed A/B/C sitting in place (top row
+    // + 2x2 square + upright domino). Distractors (L-tromino, S-tetromino,
+    // flat domino) each carry cells outside the block; the flat domino F
+    // is the orientation trap for keyed C. Same guarantees as the scored
+    // bank: >= 2 size-feasible triples (counting cells never decides it)
+    // and A/B/C is the unique tiling under all in-grid translations.
     id: "prac-vpz-02", subtest: "visualPuzzles", broad: "Gv", narrow: "Vz",
     a: 1.0, b: -2, c: 0.05, multi: 3,
     prompt: PROMPT, options: PIECES, answer: "0,1,2",
-    render: { kind: "vpuzzle", cols: 4, rows: 4, target: [5, 6, 9, 10],
-      pieces: [[5], [6, 9], [10], [5, 6], [8, 9], [10, 13]] },
+    render: { kind: "vpuzzle", cols: 4, rows: 4, target: [1, 2, 3, 5, 6, 7, 9, 10, 11],
+      pieces: [[1, 2, 3], [5, 6, 9, 10], [7, 11], [10, 11, 14], [8, 9, 13, 14], [12, 13]] },
   },
   ],
   items: [
@@ -80,24 +88,29 @@ export const visualPuzzles: Subtest = {
     id: "vpz-001", subtest: "visualPuzzles", broad: "Gv", narrow: "Vz",
     a: 1.0, b: -1.5, c: 0.05, multi: 3,
     // 4x4 band, 8 cells. Keyed A/C/E: corner + corner + domino, all lying
-    // in place (floor item). Distractors are Z / O / T tetrominoes sized
-    // so that no exchange of pieces can rebuild the band even after
-    // sliding: only A+C+E cell counts sum to 8.
+    // in place (floor item). Distractors are a Z-tetromino, a T-tetromino
+    // and an upright domino (the orientation trap for keyed E). Sizes do
+    // NOT decide the item: {A,C,D}, {B,D,E} and {D,E,F} also sum to 8
+    // cells; only sliding them mentally rules them out, and the exhaustive
+    // translation check in test/vpuzzle.test.ts proves A/C/E is the
+    // unique tiling.
     prompt: PROMPT, options: PIECES, answer: "0,2,4",
     render: { kind: "vpuzzle", cols: 4, rows: 4, target: [4, 5, 6, 7, 8, 9, 10, 11],
-      pieces: [[4, 5, 8], [0, 1, 5, 6], [6, 7, 11], [0, 1, 4, 5], [9, 10], [9, 12, 13, 14]] },
+      pieces: [[4, 5, 8], [0, 1, 5, 6], [6, 7, 11], [1, 5], [9, 10], [9, 12, 13, 14]] },
   },
   {
     id: "vpz-002", subtest: "visualPuzzles", broad: "Gv", narrow: "Vz",
     a: 1.05, b: -1.2, c: 0.05, multi: 3,
     // 4x4, 9-cell solid 3x3 block. Keyed B/D/F: row + L-tetromino + domino.
-    // Distractors are oversized near-misses (keyed L grown by a nub, the
-    // keyed row grown past the block, a 3x2 block under it); each carries
-    // cells outside the block and only B+D+F sizes sum to 9, so no other
-    // triple tiles the block even after sliding.
+    // Distractors are near-misses (a T-tetromino hanging off the block's
+    // bottom edge, the keyed row grown past the block, a 3x2 block under
+    // it); each carries cells outside the block. Sizes do NOT decide the
+    // item: {A,B,F} also sums to 9 cells and is ruled out only by sliding
+    // - the exhaustive translation check in test/vpuzzle.test.ts proves
+    // B/D/F is the unique tiling.
     prompt: PROMPT, options: PIECES, answer: "1,3,5",
     render: { kind: "vpuzzle", cols: 4, rows: 4, target: [0, 1, 2, 4, 5, 6, 8, 9, 10],
-      pieces: [[4, 8, 9, 10, 14], [0, 1, 2], [0, 1, 2, 3, 7], [4, 8, 9, 10], [8, 9, 10, 12, 13, 14], [5, 6]] },
+      pieces: [[10, 13, 14, 15], [0, 1, 2], [0, 1, 2, 3, 7], [4, 8, 9, 10], [8, 9, 10, 12, 13, 14], [5, 6]] },
   },
   {
     id: "vpz-003", subtest: "visualPuzzles", broad: "Gv", narrow: "Vz",

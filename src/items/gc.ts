@@ -39,7 +39,9 @@ function stablePosition(id: string): number {
 }
 
 function buildItems(prefix: string, subtest: string, narrow: NarrowAbility, data: readonly Datum[]): Item[] {
-  const config = DIFFICULTY_ORDER[prefix] ?? { order: data.map((_, i) => i + 1), span: [-3, 4] as const };
+  // Both call-site prefixes ("van", "gin") exist in DIFFICULTY_ORDER; the
+  // rank<0 / size guard below rejects any order that does not cover the bank.
+  const config = DIFFICULTY_ORDER[prefix]!;
   return data.map(([prompt, correct, distractors], index) => {
     const answer = stablePosition(prefix + "-" + String(index + 1).padStart(3, "0"));
     const rank = config.order.indexOf(index + 1);

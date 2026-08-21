@@ -1,4 +1,4 @@
-import type { BroadAbility, Item, Response, Subtest } from "./types.ts";
+import type { BroadAbility, Response, Subtest } from "./types.ts";
 import { estimateAbility, REPORT_PRIOR_SD } from "./irt.ts";
 
 /**
@@ -18,19 +18,19 @@ import { estimateAbility, REPORT_PRIOR_SD } from "./irt.ts";
  * unit prior internally (irt.ts); only reported numbers use the wide one.
  */
 
-export const SCALE_MEAN = 100;
-export const SCALE_SD = 15;
+const SCALE_MEAN = 100;
+const SCALE_SD = 15;
 
 export function thetaToStandard(theta: number): number {
   return SCALE_MEAN + SCALE_SD * theta;
 }
 
 /** SE on the theta scale -> SE on the standard-score scale. */
-export function seToStandard(se: number): number {
+function seToStandard(se: number): number {
   return SCALE_SD * se;
 }
 
-export interface ScoreBand {
+interface ScoreBand {
   score: number;
   se: number;
   /** 95% confidence interval, rounded to whole score points. */
@@ -74,7 +74,7 @@ export function normalCdf(z: number): number {
   return 0.5 * (1 + erf(z / Math.SQRT2));
 }
 
-export interface SubtestScore {
+interface SubtestScore {
   subtestId: string;
   name: string;
   broad: BroadAbility;
@@ -85,7 +85,7 @@ export interface SubtestScore {
   band: ScoreBand;
 }
 
-export function scoreSubtest(subtest: Subtest, responses: Response[]): SubtestScore {
+function scoreSubtest(subtest: Subtest, responses: Response[]): SubtestScore {
   const ids = new Set(subtest.items.map((i) => i.id));
   const mine = responses.filter((r) => ids.has(r.itemId));
   // Wide reporting prior: see the floor-semantics note in the SCALE CAVEAT.
@@ -102,7 +102,7 @@ export function scoreSubtest(subtest: Subtest, responses: Response[]): SubtestSc
   };
 }
 
-export interface BroadScore {
+interface BroadScore {
   broad: BroadAbility;
   subtests: string[];
   theta: number;
@@ -138,7 +138,7 @@ export function combineInverseVariance(
   return { theta: sumWTheta / sumW, se: Math.max(independenceSe, floorSe) };
 }
 
-export function scoreBroad(subtestScores: SubtestScore[]): BroadScore[] {
+function scoreBroad(subtestScores: SubtestScore[]): BroadScore[] {
   const groups = new Map<BroadAbility, SubtestScore[]>();
   for (const s of subtestScores) {
     const list = groups.get(s.broad) ?? [];
@@ -159,7 +159,7 @@ export function scoreBroad(subtestScores: SubtestScore[]): BroadScore[] {
   return out;
 }
 
-export interface CompositeScore {
+interface CompositeScore {
   g: ScoreBand;
   theta: number;
   se: number;
@@ -173,7 +173,9 @@ export interface CompositeScore {
  * These follow the general pattern in the CHC factor-analytic literature --
  * Gf and Gc loading highest on g, Gv and Gwm moderate, Glr lowest. They are
  * approximate literature-informed weights, not values estimated from this
- * battery's own data.
+ * battery's own data. Exported so test/scoring.test.ts can pin the actual
+ * map against independent literals (the composite silently re-scales every
+ * reported g score if these drift).
  */
 export const G_WEIGHTS: Record<BroadAbility, number> = {
   Gf: 1.0,
@@ -211,10 +213,4 @@ export function scoreComposite(
   const se = Math.max(independenceSe, floorSe);
 
   return { g: band(theta, se), theta, se, broad, subtests: subtestScores };
-}
-
-/** Convenience for tests and debugging. */
-export function scoreItemsFlat(items: Item[], responses: Response[]) {
-  const est = estimateAbility(items, responses);
-  return { ...est, band: band(est.theta, est.se) };
 }

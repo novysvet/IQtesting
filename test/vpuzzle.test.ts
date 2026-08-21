@@ -8,6 +8,12 @@ type VPuzzle = Extract<ItemRender, { kind: "vpuzzle" }>;
 const PROMPT = "Select the three pieces that assemble into the target silhouette.";
 const LABELS = ["Piece A", "Piece B", "Piece C", "Piece D", "Piece E", "Piece F"];
 
+/** Scored items plus practice samples: the anti-exploit geometry contract
+ * (unique tiling, >= 2 size-feasible triples, pairwise-distinct renderings)
+ * binds practice too, because a practice item that teaches a shortcut or a
+ * second defensible answer poisons every item that follows it. */
+const allItems: Item[] = [...visualPuzzles.items, ...(visualPuzzles.practice ?? [])];
+
 function vp(item: Item): VPuzzle {
   assert.equal(item.render?.kind, "vpuzzle", item.id + " missing vpuzzle render");
   return item.render as VPuzzle;
@@ -197,7 +203,7 @@ function tilesBySliding(parts: number[][][], targetSet: Set<number>): boolean {
 }
 
 test("the keyed triple is the unique tiling even when pieces slide to any in-grid position", () => {
-  for (const item of visualPuzzles.items) {
+  for (const item of allItems) {
     const r = vp(item);
     const keyStr = [...parseAnswer(item)].sort((a, b) => a - b).join(",");
     const targetSet = new Set(r.target);
@@ -220,8 +226,32 @@ test("the keyed triple is the unique tiling even when pieces slide to any in-gri
   }
 });
 
+test("counting cells never decides an item: at least two triples are size-feasible", () => {
+  // Regression (2026-08-21 red-team P0): vpz-001, vpz-002 and prac-vpz-01
+  // had exactly ONE of the 20 triples whose piece sizes summed to the
+  // target cell count - the key - so pure arithmetic with zero spatial
+  // reasoning solved them, and the practice item taught that shortcut.
+  // Every item (practice included) must admit at least one second
+  // size-compatible triple that only geometry rules out; the exhaustive
+  // sliding test above proves that triple does not tile.
+  for (const item of allItems) {
+    const r = vp(item);
+    const n = r.target.length;
+    let feasible = 0;
+    for (let a = 0; a < 6; a++) {
+      for (let b = a + 1; b < 6; b++) {
+        for (let c = b + 1; c < 6; c++) {
+          if (r.pieces[a]!.length + r.pieces[b]!.length + r.pieces[c]!.length === n) feasible++;
+        }
+      }
+    }
+    assert.ok(feasible >= 2,
+      item.id + " has " + feasible + " size-feasible triple(s); a cell-count subset-sum would decide it");
+  }
+});
+
 test("every piece is 4-connected, 2-6 cells, in range, and renders distinctly", () => {
-  for (const item of visualPuzzles.items) {
+  for (const item of allItems) {
     const r = vp(item);
     assert.equal(r.pieces.length, 6, item.id + " must offer six pieces");
     for (const [i, p] of r.pieces.entries()) {
@@ -232,6 +262,10 @@ test("every piece is 4-connected, 2-6 cells, in range, and renders distinctly", 
       assert.ok(connected(p, r.cols, r.rows), item.id + " piece " + i + " is not 4-connected");
     }
     const shapes = r.pieces.map((p) => shapeKey(p, r.cols));
+    // Regression (2026-08-21): prac-vpz-02 shipped three identically-
+    // rendering option pairs; two options that draw the same shape make
+    // the correct answer ambiguous, so this binds every item, practice
+    // included.
     assert.equal(new Set(shapes).size, 6, item.id + " has two options that render identically");
   }
 });

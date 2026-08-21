@@ -119,3 +119,57 @@ test("redesigned ceiling items pf-013/pf-014 are two-fold two-punch asymmetric p
   assert.ok(pf13.b! <= 1.3 && pf13.b! >= 1.0, "pf-013 should sit at the re-anchored ceiling tier");
   assert.ok(pf14.b! <= 1.6 && pf14.b! >= 1.3, "pf-014 should be the subtest ceiling");
 });
+
+// 2026-08-21 red-team regression: the authored option orders stepped the key
+// through positions 4,2,0,3,1 in bank order across pf-001..pf-013 (lag-5
+// agreement 8/11 vs chance 1/5). rotateOptions in gv-fold.ts killed the cycle;
+// this guard pins the whole class for fold, mirroring test/blocks.test.ts
+// ("key positions do not cycle with bank order") but generalised beyond
+// exact period-5 windows to partial cycles and slot concentration.
+test("key positions do not cycle with bank order (learnable-position regression)", () => {
+  const pos = paperFolding.items.map((i) => i.answer as number);
+  assert.equal(pos.length, 16);
+  // (a) No exact period up to half the bank length may explain the sequence.
+  for (let p = 1; p <= Math.floor((pos.length - 1) / 2); p++) {
+    let periodic = true;
+    for (let i = 0; i + p < pos.length; i++) {
+      if (pos[i] !== pos[i + p]!) {
+        periodic = false;
+        break;
+      }
+    }
+    assert.ok(!periodic, "answer positions repeat with period " + p);
+  }
+  // (b) Positional autocorrelation: at lags 1..6 no lag may agree far above
+  // chance (1/5). This is what catches a cycle spanning only part of the
+  // bank — the authored one was not exactly periodic yet agreed 8/11 at lag 5.
+  for (let lag = 1; lag <= 6; lag++) {
+    let matches = 0;
+    let pairs = 0;
+    for (let i = 0; i + lag < pos.length; i++) {
+      pairs++;
+      if (pos[i] === pos[i + lag]!) matches++;
+    }
+    assert.ok(
+      matches / pairs <= 0.4,
+      "key positions correlate at lag " + lag + " (" + matches + "/" + pairs + " agreements)",
+    );
+  }
+  // (c) All five slots carry keys and none holds more than 4/16 — the
+  // pigeonhole optimum over 5 slots — so always-guessing one slot stays at
+  // 25% maximum instead of drifting toward a modal position.
+  const counts = new Map<number, number>();
+  for (const p of pos) counts.set(p, (counts.get(p) ?? 0) + 1);
+  assert.equal(counts.size, 5, "key positions must spread across all 5 option slots");
+  assert.ok(
+    Math.max(...counts.values()) <= 4,
+    "one option slot holds too many keys: " + JSON.stringify([...counts.entries()]),
+  );
+  // (d) No three consecutive bank-order items key the same slot.
+  for (let i = 0; i + 2 < pos.length; i++) {
+    assert.ok(
+      pos[i] !== pos[i + 1]! || pos[i + 1] !== pos[i + 2]!,
+      "three consecutive keys in slot " + pos[i] + " at bank index " + i,
+    );
+  }
+});

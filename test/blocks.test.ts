@@ -38,7 +38,8 @@ function analyze(cols: number, rows: number, heights: number[]) {
   return { total, visible, hidden: total - visible };
 }
 
-test("every key equals the pile total and distractors follow the fixed family", () => {
+test("every key equals the pile total and distractors are plausible miscounts", () => {
+  const rankHistogram = new Map<number, number>();
   for (const item of blockCounting.items) {
     const r = blocksRender(item);
     const { total, visible, hidden } = analyze(r.cols, r.rows, r.heights);
@@ -60,12 +61,31 @@ test("every key equals the pile total and distractors follow the fixed family", 
     }
     assert.equal(new Set(distractors).size, 4, item.id + " distractors must be pairwise distinct");
 
-    // Family membership: total-1 / total+1 / visible count / total+2, with
-    // total-2 the sanctioned substitute on collision (e.g. hidden 0 or 1).
-    const family = new Set([total - 2, total - 1, total + 1, total + 2, visible]);
-    for (const d of distractors) {
-      assert.ok(family.has(d), item.id + " distractor " + d + " outside the family (total " + total + ", visible " + visible + ", hidden " + hidden + ")");
+    // Plausibility: any pile that buries cubes must offer its visible count —
+    // the "forgot the hidden blocks" answer is the format's strongest
+    // attractor, so a bank omitting it would be easier, not harder. Exact
+    // distractor membership is deliberately NOT pinned (see the rank guard
+    // below for why a fixed family shape is itself a defect).
+    if (hidden >= 1) {
+      assert.ok(distractors.includes(visible), item.id + " buries " + hidden + " cube(s) but never offers the visible count " + visible);
     }
+
+    // Value rank of the key among the sorted option values (0 = smallest).
+    const sorted = item.options!.map(Number).sort((a, b) => a - b);
+    const rank = sorted.indexOf(total);
+    assert.ok(rank >= 0, item.id + " key missing from its own options");
+    rankHistogram.set(rank, (rankHistogram.get(rank) ?? 0) + 1);
+  }
+
+  // 2026-08-21 anti-median regression: the former fixed family
+  // total-1 / total+1 / visible / total+2 placed two options below and two
+  // above the key on every item, so the key was the MEDIAN option value in
+  // 17/17 items and "always pick the middle number" scored 100% (chance
+  // 20%). Display permutation reorders positions, never values, so only the
+  // authored distractor sets can break it: families are mixed per item and
+  // no value rank may be keyed in more than 6 of the 17 items.
+  for (const [rank, count] of rankHistogram) {
+    assert.ok(count <= 6, "the key sits at value rank " + rank + " in " + count + "/17 items; no rank may exceed 6/17 (learnable value pattern)");
   }
 });
 
@@ -134,11 +154,32 @@ test("bank metadata, b anchors, and pile uniqueness are frozen", () => {
 
 // 2026-08-20 adversarial-verification regression: the authored option orders
 // stepped the key through positions 3,1,4,0,2 in bank order. rotateOptions
-// breaks the cycle; this pins it.
+// breaks the cycle; this pins it. (2026-08-21: the old window asserts
+// compared a 5-element join against a 7-element join — structurally unequal,
+// so the second could never fail. Replaced with the general period check
+// over p=1..4 plus a period-5 run-length bound, mirroring gq-keys.)
 test("key positions do not cycle with bank order", () => {
   const pos = blockCounting.items.map((i) => i.answer as number);
   assert.equal(pos.length, 17);
-  const firstFive = pos.slice(0, 5).join(",");
-  assert.notEqual(pos.slice(5, 10).join(","), firstFive, "key positions repeat with period 5 (first half)");
-  assert.notEqual(pos.slice(10).join(","), firstFive, "key positions repeat with period 5 (second half)");
+  for (let p = 1; p <= 4; p++) {
+    let periodic = true;
+    for (let i = 0; i + p < pos.length; i++) {
+      if (pos[i] !== pos[i + p]!) {
+        periodic = false;
+        break;
+      }
+    }
+    assert.ok(!periodic, "answer positions repeat with period " + p);
+  }
+  // Period 5 cannot be "perfect" across 17 positions, so bound the longest
+  // run of consecutive lag-5 matches instead: five in a row is one full
+  // 5-window repeating verbatim — enough for a coached examinee to lock the
+  // cycle from what they have seen.
+  let run = 0;
+  let maxRun = 0;
+  for (let i = 5; i < pos.length; i++) {
+    run = pos[i] === pos[i - 5] ? run + 1 : 0;
+    maxRun = Math.max(maxRun, run);
+  }
+  assert.ok(maxRun < 5, "key positions repeat a full 5-window (" + maxRun + " consecutive lag-5 matches) — learnable period-5 cycle");
 });

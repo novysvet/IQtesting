@@ -40,7 +40,7 @@ import type { Item, Subtest } from "../core/types.ts";
 
 export type ArtlangLangId = "A" | "B" | "C";
 
-export interface ArtlangLexeme {
+interface ArtlangLexeme {
   readonly al: string;
   readonly en: string;
   /** Irregular English forms used to phrase sources and keys. */
@@ -87,9 +87,9 @@ export type ArtlangError =
   | { readonly error: "adjMisattach" }
   | { readonly error: "adjSwap" }
   | { readonly error: "stemSwap"; readonly slot: "verb" | "subject" | "object"; readonly with: string }
-  | { readonly error: "moveAffix"; readonly what: "plural" | "intensive" | "possessive"; readonly to: "adjective" | "noun" };
+  | { readonly error: "moveAffix"; readonly what: "plural" | "intensive" | "possessive" };
 
-export type ArtlangItemType = "lookup" | "word" | "sentence-en" | "sentence-al" | "derived" | "combined";
+type ArtlangItemType = "lookup" | "word" | "sentence-en" | "sentence-al" | "derived" | "combined";
 
 export interface ArtlangItemSpec {
   readonly id: string;
@@ -109,7 +109,7 @@ export interface ArtlangItemSpec {
 // Language data
 // ---------------------------------------------------------------------------
 
-export const ARTLANG_LANGUAGES: Record<
+const ARTLANG_LANGUAGES: Record<
   ArtlangLangId,
   { readonly name: string; readonly lines: readonly (readonly ArtlangLexeme[])[]; readonly examples: readonly ArtlangSentence[] }
 > = {
@@ -367,6 +367,13 @@ function renderSentenceEn(lang: ArtlangLangId, s: WorkSentence): string {
 // Rule-error application (bank side; the test re-implements independently)
 // ---------------------------------------------------------------------------
 
+/** Singularize the first plural NP (the shared transform of `drop plural`
+ *  and `numberSwap`; the error names stay distinct for semantics). */
+function depluralize(nps: WorkNP[]): void {
+  const np = nps.find((n) => n.plural);
+  if (np) np.plural = false;
+}
+
 function applyArtlangError(spec: ArtlangItemSpec, err: ArtlangError): { work: WorkReading; swapped: boolean } {
   const work = toWorkReading(spec.reading);
   const sentence = work.kind === "sentence" ? work.sentence : undefined;
@@ -377,8 +384,7 @@ function applyArtlangError(spec: ArtlangItemSpec, err: ArtlangError): { work: Wo
       if (err.what === "article") {
         for (const np of nps) np.definite = false;
       } else if (err.what === "plural") {
-        const np = nps.find((n) => n.plural);
-        if (np) np.plural = false;
+        depluralize(nps);
       } else if (err.what === "past") {
         if (sentence) sentence.past = false;
       } else if (err.what === "possessive") {
@@ -414,11 +420,9 @@ function applyArtlangError(spec: ArtlangItemSpec, err: ArtlangError): { work: Wo
     case "wrongTense":
       if (sentence) sentence.past = !sentence.past;
       break;
-    case "numberSwap": {
-      const np = nps.find((n) => n.plural);
-      if (np) np.plural = false;
+    case "numberSwap":
+      depluralize(nps);
       break;
-    }
     case "adjMisattach":
       if (sentence && sentence.subjects[0] && sentence.objects[0]) {
         const to = sentence.subjects[0];
@@ -457,7 +461,6 @@ function applyArtlangError(spec: ArtlangItemSpec, err: ArtlangError): { work: Wo
         const np = nps.find((n) => n.intensive);
         if (np) {
           np.intensive = false;
-          np.plural = false;
           np.moveIntensiveToNoun = true;
         }
       }
@@ -538,7 +541,7 @@ export const ARTLANG_SPECS: readonly ArtlangItemSpec[] = [
       { error: "drop", what: "possessive" },
       { error: "drop", what: "plural" },
       { error: "drop", what: "article" },
-      { error: "moveAffix", what: "possessive", to: "noun" },
+      { error: "moveAffix", what: "possessive" },
     ],
   },
   {
@@ -621,7 +624,7 @@ export const ARTLANG_SPECS: readonly ArtlangItemSpec[] = [
       { error: "drop", what: "plural" },
       { error: "drop", what: "article" },
       { error: "drop", what: "case" },
-      { error: "moveAffix", what: "plural", to: "adjective" },
+      { error: "moveAffix", what: "plural" },
     ],
   },
   {
@@ -702,8 +705,8 @@ export const ARTLANG_SPECS: readonly ArtlangItemSpec[] = [
     errors: [
       { error: "drop", what: "intensive" },
       { error: "drop", what: "plural" },
-      { error: "moveAffix", what: "intensive", to: "noun" },
-      { error: "moveAffix", what: "plural", to: "adjective" },
+      { error: "moveAffix", what: "intensive" },
+      { error: "moveAffix", what: "plural" },
     ],
   },
   {
