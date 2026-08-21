@@ -37,6 +37,11 @@ test("a well-formed export is accepted", () => {
   assert.equal(verdict.ok, true);
 });
 
+test("the 13-17 age band is accepted for anonymous minor participation", () => {
+  const verdict = validateSubmission(goodBody({ demographics: { ageBand: "13-17" } }));
+  assert.equal(verdict.ok, true);
+});
+
 test("structural garbage is rejected with a reason", () => {
   const cases = [
     null,

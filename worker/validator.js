@@ -60,7 +60,7 @@ export function validateSubmission(body) {
   if (body.demographics !== null && body.demographics !== undefined) {
     if (!isPlainObject(body.demographics)) return { ok: false, reason: "demographics must be an object" };
     const band = body.demographics.ageBand;
-    const bands = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
+    const bands = ["13-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
     if (!bands.includes(band)) return { ok: false, reason: "demographics.ageBand invalid" };
   }
   if (body.consent !== null && body.consent !== undefined) {

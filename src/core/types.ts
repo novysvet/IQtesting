@@ -225,7 +225,14 @@ export interface RoutingDecision {
  * Travels inside the export record for stratification and DIF analysis.
  */
 export interface Demographics {
-  ageBand: "18-24" | "25-34" | "35-44" | "45-54" | "55-64" | "65+";
+  /**
+   * Participation floor is 13: below that, COPPA's verifiable-consent
+   * machinery applies to any data collection from a child, and this
+   * instrument has no parental-consent flow. 13-17-year-olds may take the
+   * battery because the record is fully anonymous (no names, contacts, or
+   * accounts); the consent screen asks them to confirm guardian permission.
+   */
+  ageBand: "13-17" | "18-24" | "25-34" | "35-44" | "45-54" | "55-64" | "65+";
   sex?: string;
   education?: string;
   nativeLanguage?: string;
