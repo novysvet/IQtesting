@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { BATTERY } from "../src/battery.ts";
 import { bankVersion } from "../src/core/telemetry.ts";
-import type { Item, Subtest } from "../src/core/types.ts";
+import { canonicalCell } from "../src/components/figureGeometry.ts";
+import type { CellSpecV2, Item, Subtest } from "../src/core/types.ts";
 
 /**
  * PRACTICE CONTRACT (2026-08-21, pre-norming hardening).
@@ -143,6 +144,57 @@ test("practice keys re-derive per format", () => {
         }
       }
       assert.deepEqual([...cells].sort((a, b) => a - b), [...r.target].sort((a, b) => a - b), item.id + " tiling does not cover the target");
+    } else if (r?.kind === "matrix") {
+      assert.equal(r.cells.length, 9, item.id + " matrix needs nine cells");
+      assert.equal(r.cells[8], null, item.id + " ninth matrix cell must be empty");
+      if (typeof r.cells[0] === "string") {
+        // Legacy rows: shape constant per row; count/fill/rot each either
+        // constant across rows 1-2 or stepping by a fixed delta; extrapolate
+        // row 3 from the two given cells of the target row.
+        const parse = (spec: string) => {
+          const [sh, ct, fl, ro] = spec.split(":");
+          return { sh: sh!, ct: Number(ct), fl: fl!, ro: Number(ro) };
+        };
+        const c7 = parse(r.cells[6] as string);
+        const c8 = parse(r.cells[7] as string);
+        const p7 = parse(r.cells[3] as string);
+        const p8 = parse(r.cells[4] as string);
+        // Attribute carried when constant across rows 1-2, else stepped by
+        // the target row's own delta.
+        const carryOrStep = (refPrev: number, refFirst: number, curFirst: number, curSecond: number) =>
+          refPrev === refFirst ? curSecond : curSecond + (curSecond - curFirst);
+        const count = carryOrStep(p8.ct, p7.ct, c7.ct, c8.ct);
+        const rot = carryOrStep(p8.ro, p7.ro, c7.ro, c8.ro);
+        assert.equal(p8.fl, p7.fl, item.id + " legacy fill steps across rows; no fill ladder to extrapolate");
+        const expected = c7.sh + ":" + count + ":" + c8.fl + ":" + rot;
+        const hits = (item.options ?? []).map((o, i) => ({ o, i })).filter(({ o }) => o === expected);
+        assert.equal(hits.length, 1, item.id + " derived key " + expected + " does not match exactly one option");
+        assert.equal(hits[0]!.i, item.answer, item.id + " key is not the derived continuation " + expected);
+      } else {
+        // Structured cells: cell 3 keeps only positions present in BOTH cell 1
+        // and cell 2 (intersection), shape from cell 1. Verify rows 1-2, then
+        // derive row 3 and compare canonically against the option grids.
+        // The ninth cell is the asserted-empty target slot; only the eight
+        // given cells must be structured.
+        const structCells = r.cells.slice(0, 8).map((c) => {
+          if (c === null || typeof c === "string") throw new Error(item.id + " structured matrix needs eight given structured cells");
+          return c;
+        });
+        const byPos = (cell: CellSpecV2) => new Set(cell.marks.map((m) => m.pos));
+        const predict = (c1: CellSpecV2, c2: CellSpecV2): CellSpecV2 => ({
+          v: 2 as const,
+          marks: c1.marks.filter((m) => byPos(c2).has(m.pos)),
+        });
+        for (const row of [0, 1]) {
+          const pred = predict(structCells[3 * row]!, structCells[3 * row + 1]!);
+          assert.equal(canonicalCell(pred), canonicalCell(structCells[3 * row + 2]!), item.id + " row " + (row + 1) + " violates the intersection rule");
+        }
+        const predicted = predict(structCells[6]!, structCells[7]!);
+        const oc = r.optionCells ?? [];
+        const hits = oc.map((c, i) => ({ c, i })).filter(({ c }) => canonicalCell(c) === canonicalCell(predicted));
+        assert.equal(hits.length, 1, item.id + " intersection prediction matches " + hits.length + " options");
+        assert.equal(hits[0]!.i, item.answer, item.id + " key is not the intersection prediction");
+      }
     }
   }
 });
