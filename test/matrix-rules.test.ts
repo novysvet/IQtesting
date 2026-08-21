@@ -207,6 +207,15 @@ test("every structured item reproduces its rule and keys exactly the rule output
         assert.notEqual(canonicalCell(option), canonicalCell(predicted), item.id + " distractor " + index + " also satisfies the rule");
       }
     });
+
+    // No two displayed options may coincide: a duplicated distractor makes the
+    // five-choice format degenerate even when the key itself is unique.
+    for (let i = 0; i < optionCells.length; i++) {
+      for (let j = i + 1; j < optionCells.length; j++) {
+        assert.notEqual(canonicalCell(optionCells[i]!), canonicalCell(optionCells[j]!),
+          item.id + " options " + i + " and " + j + " are identical");
+      }
+    }
   }
 });
 
