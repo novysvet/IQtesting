@@ -53,8 +53,10 @@ battery keeps its full remaining budget.
 
 ## Data collection (norming pipeline)
 
-1. **Consent + demographics** gate every fresh session (age ≥ 18 required;
-   only the age band is mandatory). Records travel inside the export.
+1. **Consent + demographics** gate every fresh session (age ≥ 13 required;
+   13–17-year-olds confirm guardian permission — the record is fully
+   anonymous, so no parental-consent data flow exists; only the age band is
+   mandatory). Records travel inside the export.
 2. **Submission**: the results screen POSTs the export to the collection
    worker when `VITE_SUBMIT_URL` is configured at build time; the manual JSON
    download remains as fallback.

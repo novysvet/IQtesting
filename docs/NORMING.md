@@ -52,7 +52,9 @@ rescue the score, which is already honest.
 
 ### 3.1 Infrastructure (added 2026-08-21)
 
-- **Consent + demographics** gate every fresh session: age ≥ 18 required,
+- **Consent + demographics** gate every fresh session: age ≥ 13 required
+  (13–17-year-olds confirm guardian permission on the demographics screen;
+  the record is anonymous, so no parental-consent data flow exists),
   research-use consent recorded with a text version, and an optional
   demographics block (age band mandatory; sex, education, native language,
   country, test familiarity, self-chosen participant code optional). All of

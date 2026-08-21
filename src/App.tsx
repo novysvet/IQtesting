@@ -25,7 +25,7 @@ function envVar(name: string): string | undefined {
 const SUBMIT_ENDPOINT = envVar("VITE_SUBMIT_URL");
 const BASE_URL = envVar("BASE_URL") ?? "/";
 const PARTICIPANT_KEY = "iqtesting.participant.v1";
-const CONSENT_VERSION = "2026-08-21";
+const CONSENT_VERSION = "2026-08-21.1";
 
 const ABILITY_NAMES: Record<string, string> = {
   Gf: "Fluid reasoning", Gc: "Comprehension–knowledge", Gv: "Visual processing",
@@ -236,18 +236,19 @@ function ItemScreen({ item, sectionName, itemNumber, sessionId, practice, onAnsw
 
 function Consent({ onAccept }: { onAccept: (record: ConsentRecord) => void }) {
   const [agreed, setAgreed] = useState(false);
-  const [adult, setAdult] = useState(false);
+  const [thirteen, setThirteen] = useState(false);
   return <section className="intro">
     <div className="intro-index label">INFORMED CONSENT · RESEARCH USE</div>
     <div className="intro-grid">
-      <div><h1><span>Before you</span><br />begin.</h1><p className="lede">This battery is a research instrument. With your consent, your anonymous response data — answers, timings, and device context — is used to calibrate items and build norm tables. There are no names, no emails, and no accounts.</p>
-        <label className="consent-row"><input type="checkbox" checked={adult} onChange={(e) => setAdult(e.target.checked)} /> I am 18 years of age or older.</label>
+      <div><h1><span>Before you</span><br />begin.</h1><p className="lede">This battery is a research instrument. With your consent, your anonymous response data — answers, timings, and device context — is used to calibrate items and build norm tables. There are no names, no emails, and no accounts. Because nothing identifying is collected, 13–17-year-olds may take part with a parent or guardian's permission.</p>
+        <label className="consent-row"><input type="checkbox" checked={thirteen} onChange={(e) => setThirteen(e.target.checked)} /> I am 13 years of age or older.</label>
         <label className="consent-row"><input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} /> I consent to my anonymous response data being used for psychometric research, and I understand scores are provisional research estimates, not diagnoses.</label>
-        <button className="primary primary-large" disabled={!agreed || !adult} onClick={() => onAccept({ acceptedAt: Date.now(), version: CONSENT_VERSION })}>Continue <span aria-hidden="true">→</span></button>
+        <button className="primary primary-large" disabled={!agreed || !thirteen} onClick={() => onAccept({ acceptedAt: Date.now(), version: CONSENT_VERSION })}>Continue <span aria-hidden="true">→</span></button>
       </div>
       <dl className="specimen">
         <div><dt>Data collected</dt><dd>Answers · timing · device class</dd></div>
         <div><dt>Personal data</dt><dd>None required</dd></div>
+        <div><dt>Minimum age</dt><dd>13 — minors need guardian permission</dd></div>
         <div><dt>Withdrawal</dt><dd>Close the tab any time; nothing is submitted without this consent</dd></div>
         <div><dt>Intended use</dt><dd>Research only — not diagnosis or placement</dd></div>
       </dl>
@@ -255,7 +256,7 @@ function Consent({ onAccept }: { onAccept: (record: ConsentRecord) => void }) {
   </section>;
 }
 
-const AGE_BANDS: Demographics["ageBand"][] = ["18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
+const AGE_BANDS: Demographics["ageBand"][] = ["13-17", "18-24", "25-34", "35-44", "45-54", "55-64", "65+"];
 
 function Demographics({ onContinue }: { onContinue: (demo: Demographics, participantId: string | null) => void }) {
   const [ageBand, setAgeBand] = useState<Demographics["ageBand"] | "">("");
@@ -297,6 +298,7 @@ function Demographics({ onContinue }: { onContinue: (demo: Demographics, partici
             </select></label>
           {field("Participant code", participantId, setParticipantId, "optional — enables retest comparison")}
         </div>
+        {ageBand === "13-17" && <p className="demo-note">If you are under 18, continuing confirms that a parent or guardian permits your participation. Nothing identifying is collected or stored.</p>}
         <button className="primary primary-large" disabled={!ageBand} onClick={() => {
           try {
             if (participantId.trim()) globalThis.localStorage?.setItem(PARTICIPANT_KEY, participantId.trim());
