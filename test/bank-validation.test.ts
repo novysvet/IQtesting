@@ -7,7 +7,7 @@ const items = BATTERY.flatMap((s) => s.items);
 
 test("battery contains the complete authored pool", () => {
   assert.equal(BATTERY.length, 18);
-  assert.equal(items.length, 358);
+  assert.equal(items.length, 369);
 });
 
 test("all item and subtest identifiers are unique", () => {
@@ -52,32 +52,34 @@ test("every item satisfies the schema and guessing contract", () => {
 });
 
 /**
- * Per-subtest honest difficulty spans (2026-08-20 difficulty audit,
- * docs/DIFFICULTY_AUDIT.md §2). Banks whose FORMATS structurally cap below
- * b=+2 (2D rotation, 4x4 folding, single-probe paired associates,
- * analogy/information spans compressed to audit predictions) assert their
- * real ceilings rather than a uniform fiction: a bank claiming items it does
- * truly have mis-routes the adaptive engine exactly where claims matter most.
- * High-range measurement is carried by matrix reasoning, general information,
- * the span banks, number series and figure series.
+ * Per-subtest honest difficulty spans. Ceilings follow the 2026-08-20
+ * difficulty audit (docs/DIFFICULTY_AUDIT.md §2); floors were extended
+ * 2026-08-21 (audit §9) so the adaptive descent can collect evidence at the
+ * scale floor — the precondition for reporting chance-level performance near
+ * IQ 50 instead of shrinking it toward the population mean. Banks whose
+ * FORMATS structurally cap below b=+2 (2D rotation, 4x4 folding, single-probe
+ * paired associates, analogy/information spans compressed to audit
+ * predictions) assert their real ceilings rather than a uniform fiction: a
+ * bank claiming items it does not truly have mis-routes the adaptive engine
+ * exactly where claims matter most.
  */
 const HONEST_SPANS: Record<string, { floor: number; ceiling: number }> = {
   matrixReasoning: { floor: -2.0, ceiling: 3.0 },
   definitions: { floor: -1.2, ceiling: 2.2 },
   digitSpan: { floor: -2.0, ceiling: 2.5 },
-  numberSeries: { floor: -2.0, ceiling: 2.3 },
-  paperFolding: { floor: -1.0, ceiling: 1.4 },
+  numberSeries: { floor: -3.5, ceiling: 2.3 },
+  paperFolding: { floor: -2.9, ceiling: 1.4 },
   verbalAnalogies: { floor: -2.0, ceiling: 1.4 },
   arithmetic: { floor: -2.5, ceiling: 2.6 },
-  mentalRotation: { floor: -1.5, ceiling: 1.3 },
+  mentalRotation: { floor: -3.2, ceiling: 1.3 },
   letterNumberSeq: { floor: -2.0, ceiling: 2.5 },
   figureSeries: { floor: -2.0, ceiling: 2.2 },
   symbolSearch: { floor: -2.0, ceiling: 1.2 },
   generalInformation: { floor: -2.0, ceiling: 3.0 },
   visualPuzzles: { floor: -1.5, ceiling: 2.2 },
-  quantComparison: { floor: -2.0, ceiling: 1.5 },
+  quantComparison: { floor: -2.8, ceiling: 1.5 },
   artificialLanguage: { floor: -2.0, ceiling: 2.4 },
-  blockCounting: { floor: -1.8, ceiling: 1.9 },
+  blockCounting: { floor: -2.8, ceiling: 1.9 },
   charPairing: { floor: -1.5, ceiling: 1.0 },
   pairedAssociates: { floor: -1.5, ceiling: 0.9 },
 };

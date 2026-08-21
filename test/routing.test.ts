@@ -33,22 +33,52 @@ test("never exceeds maxItems", () => {
   assert.ok(st.responses.length <= cfg.maxItems, `administered ${st.responses.length}`);
 });
 
-test("ceiling rule fires after consecutive misses, not before minItems", () => {
+test("ceiling rule is floor-gated: descent continues until the bank floor is reached", () => {
+  // Pool spans b -3..+2.8. Four straight misses from entry theta 0 leave the
+  // estimate far above the pool floor, so routing must KEEP DESCENDING (the
+  // old bare miss-streak stop censored the low end and inflated chance-level
+  // scores). The stop may only fire once theta is within FLOOR_BAND of the
+  // pool's easiest item.
   let st = initRouting(cfg);
-  // Three misses immediately -- below minItems, so must NOT stop for ceiling.
-  for (let i = 0; i < 3; i++) {
+  for (let i = 0; i < 4; i++) {
     const { item } = nextItem(pool, st, cfg);
     assert.ok(item, "should still serve items below minItems");
     st = applyResponse(st, item, resp(item.id, false));
   }
-  assert.equal(st.consecutiveMisses, 3);
+  assert.equal(st.consecutiveMisses, 4);
+  const floor = Math.min(...pool.map((i) => i.b));
+  assert.ok(st.theta > floor + 0.75, "precondition: estimate still above the floor band");
   const stillGoing = nextItem(pool, st, cfg);
-  assert.ok(stillGoing.item, "minItems not reached, must continue");
-  st = applyResponse(st, stillGoing.item, resp(stillGoing.item.id, false));
-  // Now n=4 >= minItems and misses=4 >= ceilingMisses -> stop.
-  const stopped = nextItem(pool, st, cfg);
-  assert.equal(stopped.item, null);
-  assert.equal(stopped.stopReason, "ceiling");
+  assert.ok(stillGoing.item, "miss streak above the floor must not stop routing");
+  // Drive all-wrong until a stop fires: it must be the floor-gated ceiling
+  // rule, reached with the estimate inside the floor band.
+  let guard = 0;
+  let stopped = stillGoing;
+  while (stopped.item && guard++ < 60) {
+    st = applyResponse(st, stopped.item!, resp(stopped.item!.id, false));
+    stopped = nextItem(pool, st, cfg);
+  }
+  assert.equal(stopped.stopReason, "ceiling", "expected the floor-gated ceiling stop");
+  assert.ok(st.theta <= floor + 0.75, "ceiling stop fired above the floor band");
+  assert.ok(st.responses.length <= cfg.maxItems);
+});
+
+test("a miss streak near the floor stops immediately once minItems are satisfied", () => {
+  // Simulate an examinee already at the bottom of the pool: seed the state
+  // with misses at floor items so theta sits inside the floor band.
+  const floorItems = [...pool].sort((a, b) => a.b - b.b).slice(0, 5);
+  let st = initRouting(cfg);
+  for (const item of floorItems) {
+    st = applyResponse(st, item, resp(item.id, false));
+  }
+  assert.ok(st.theta <= Math.min(...pool.map((i) => i.b)) + 0.75, "precondition: at-floor estimate");
+  const { item, stopReason } = nextItem(pool, st, cfg);
+  if (st.responses.length >= cfg.minItems) {
+    assert.equal(item, null);
+    assert.equal(stopReason, "ceiling");
+  } else {
+    assert.ok(item, "below minItems the ceiling rule must not fire yet");
+  }
 });
 
 test("a correct answer resets the miss streak", () => {

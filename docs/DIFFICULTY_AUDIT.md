@@ -306,3 +306,102 @@ ray-sampled the isometric renderer's occlusion). Findings and dispositions:
 Full-battery browser walk (18 sections, wrong-answer run): all new renderers
 mount, the matching page records per-definition responses, multi-select
 puzzle submission works, results composite includes Gs.
+
+---
+
+## §9 2026-08-21 scale-floor revision (random responding → IQ ~50)
+
+### 9.1 The defect
+
+User-reported and reproduced by seeded full-battery simulation through the real
+session state machine: a completely random examinee averaged **IQ 72.5**
+(θ ≈ −1.83, 30 seeds, range 70–75). Worse, a genuine θ = −2 examinee averaged
+**IQ 84.6** — the entire bottom third of the scale was compressed upward by
+8–15 points. Three compounding causes:
+
+1. **Unit-prior shrinkage in reporting.** Reported subtest estimates used EAP
+   with an N(0,1) prior. A chance-level pattern's likelihood supports
+   θ ≈ −3.3 and below, but with the short runs that discontinue produces the
+   prior outweighed the evidence and dragged estimates up to ≈ −1.8.
+2. **Starved descent.** The ceiling-discontinue rule (`ceilingMisses`
+   consecutive misses) fired long before routing walked down to items near the
+   bank floor. The discriminating evidence — failing even the easiest items —
+   was never collected; estimates rested on failures of mid-band items.
+3. **Shallow bank floors.** Several banks bottomed out at b −1.4..−1.8
+   (definitions −1.44, visualPuzzles/charPairing −1.5, paperFolding −1.6,
+   mentalRotation/blockCounting/pairedAssociates −1.7/−1.8), leaving no items
+   with which to locate performance below IQ ~70.
+
+### 9.2 Fixes applied
+
+**Engine** (`src/core/irt.ts`, `src/core/routing.ts`, `src/core/scoring.ts`):
+
+- **Wide reporting prior.** `estimateAbility` takes `{ priorSd }`; routing
+  keeps the population-scale N(0,1) prior (shrinkage is stabilising there),
+  while `scoreSubtest` reports with `REPORT_PRIOR_SD = 2`. The prior stays
+  centered at 0, so mid-range anchoring is intact; quadrature extended to
+  [−7, +7] so deep posteriors are not truncated.
+- **Floor-gated ceiling rule.** `nextItem` stops on a miss streak only when
+  `state.theta <= poolFloor + FLOOR_BAND` (0.75). Above the floor band, a
+  streak means "keep descending" — reversal-style testing as in SB5/WAIS.
+  maxItems still bounds every run.
+
+**Banks** (+11 items, 358 → 369; every key machine-re-derived by the banks'
+existing test contracts):
+
+| bank | new basals | floor |
+|---|---|---|
+| mentalRotation | mr-015..017 (90° disparities, L/T/Z family) | −1.8 → −3.2 |
+| paperFolding | pf-015/016 (single-fold corner punches) | −1.6 → −2.9 |
+| numberSeries | nsr-017/018 (+2 step, counting) | −2.8 → −3.5 |
+| quantComparison | qcp-019/020 (single-operation comparisons) | −2.2 → −2.8 |
+| blockCounting | blc-016/017 (flat height-1 slabs) | −1.8 → −2.8 |
+
+Deliberately NOT deepened: definitions (would break the frozen 1926-format
+33/66 page for ~1–2 composite points; broad-level pooling already dilutes its
+drag), visualPuzzles (c = 1/20 already lands guessers at θ̂ ≈ −3.1),
+charPairing / pairedAssociates / span banks (c = 0 recall formats already
+report ≤ −3.2 for chance-level data).
+
+**Validity screening** (`src/core/validity.ts`) — honest scoring weakens lz:
+once a guesser's estimate sits where their pattern is consistent, person-fit z
+loses power exactly when it used to "detect" them. Added:
+
+- **Difficulty-gradient signal (theta-free).** Point-biserial r(item b,
+  correctness): strongly negative for every engaged examinee at any ability
+  level (measured −0.13 to −0.45), ≈ 0 for guessing (−0.05 to −0.09).
+  Flat gradient + fit z ≤ −1.5 → invalid; flat alone → questionable.
+- **Per-subtest person fit.** lz now evaluates each subtest's responses
+  against that subtest's own reporting-grade estimate instead of the pooled
+  composite — removes tail bias that flagged genuine θ = +2 examinees.
+- **Straight-lining restricted to ≥3-option items.** Binary (Yes/No) formats
+  produce long honest same-answer runs, and adaptive order reorders keys into
+  streaks; position concentration there is uninformative.
+- `QUESTIONABLE_FIT_Z` relaxed −2.0 → −2.5: authored b-prices amplify misfit
+  at the floor for genuinely low examinees.
+- `screenSession(subtests, responses)` no longer takes the composite theta
+  (per-subtest estimates are computed internally).
+
+### 9.3 Post-fix measurements (seeded simulation, engaged pace)
+
+| true θ | mean reported IQ (n=12–40 seeds) | validity verdict |
+|---|---|---|
+| random | **52.4** (49–56) | 39/40 invalid, 1 questionable |
+| −2.5 | 66.3 | valid |
+| −2 | 70.6 | valid |
+| −1 | 84.2 | valid |
+| 0 | 98.2 | valid |
+| +1 | 111.5 | valid |
+| +2 | 125.9 | valid |
+
+Position-0 spammer: IQ 51, invalid (rapid + straight-line + gradient).
+Consistent θ=0 run: IQ 103. Wall-clock budget simulations still pass at every
+ability level (the descent adds items only where examinees answer quickly).
+
+Residual honesty notes: θ = −2.5 compresses to ~66 (banks cannot fully
+separate −2.5 from −3+ once c lifts MC floors); θ = +2 compresses to ~126
+(honest ceilings per §7.4). Both are stated scale limits, not defects;
+per the user's direction, no effort is spent extending measurement above
+IQ 145 — norming data must come first.
+
+Regression pinning all of this: `test/random-floor.test.ts`.

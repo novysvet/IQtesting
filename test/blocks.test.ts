@@ -102,15 +102,16 @@ test("bank metadata, b anchors, and pile uniqueness are frozen", () => {
   assert.deepEqual(blockCounting.routing, { maxItems: 12, minItems: 6, ceilingMisses: 4, targetSe: 0.5, entryTheta: 0 });
 
   const items = blockCounting.items;
-  assert.equal(items.length, 15, "bank must hold exactly 15 items");
+  assert.equal(items.length, 17, "bank must hold exactly 17 items");
   const ids = items.map((i) => i.id);
-  assert.equal(new Set(ids).size, 15, "item ids must be unique");
-  assert.deepEqual([...ids].sort(), Array.from({ length: 15 }, (_, i) => "blc-" + String(i + 1).padStart(3, "0")), "ids must be blc-001..blc-015");
+  assert.equal(new Set(ids).size, 17, "item ids must be unique");
+  assert.deepEqual([...ids].sort(), Array.from({ length: 17 }, (_, i) => "blc-" + String(i + 1).padStart(3, "0")), "ids must be blc-001..blc-017");
 
   const bs = items.map((i) => i.b);
-  assert.ok(Math.min(...bs) <= -1.8, "b floor must reach -1.8");
+  // Floor extended to -2.8 by the 2026-08-21 basal revision (audit §9).
+  assert.ok(Math.min(...bs) <= -2.8, "b floor must reach -2.8");
   assert.ok(Math.max(...bs) >= 1.9, "b ceiling must reach +1.9");
-  for (const b of bs) assert.ok(b >= -1.8 && b <= 1.9, "b=" + b + " outside the anchored -1.8..+1.9 span");
+  for (const b of bs) assert.ok(b >= -2.8 && b <= 1.9, "b=" + b + " outside the anchored -2.8..+1.9 span");
 
   const piles = new Set<string>();
   const footprints = new Set<string>();
@@ -126,7 +127,7 @@ test("bank metadata, b anchors, and pile uniqueness are frozen", () => {
     footprints.add(r.cols + "x" + r.rows);
     keyPositions.add(item.answer as number);
   }
-  assert.equal(piles.size, 15, "no two items may show the same pile");
+  assert.equal(piles.size, 17, "no two items may show the same pile");
   assert.ok(footprints.size >= 3, "need at least 3 distinct footprints, found " + [...footprints].join(", "));
   assert.equal(keyPositions.size, 5, "key positions must be spread across all 5 option slots");
 });
@@ -136,7 +137,7 @@ test("bank metadata, b anchors, and pile uniqueness are frozen", () => {
 // breaks the cycle; this pins it.
 test("key positions do not cycle with bank order", () => {
   const pos = blockCounting.items.map((i) => i.answer as number);
-  assert.equal(pos.length, 15);
+  assert.equal(pos.length, 17);
   const firstFive = pos.slice(0, 5).join(",");
   assert.notEqual(pos.slice(5, 10).join(","), firstFive, "key positions repeat with period 5 (first half)");
   assert.notEqual(pos.slice(10).join(","), firstFive, "key positions repeat with period 5 (second half)");

@@ -22,15 +22,17 @@ import type { Subtest } from "../core/types.ts";
  */
 
 // ---------------------------------------------------------------------------
-// Number Series (nsr-001..016)
+// Number Series (nsr-001..018)
 //
-// b span -2.8 .. +2.4, a 0.9-1.4 (low-b items 0.9-1.1, high-b 1.2-1.4),
+// b span -3.5 .. +2.4, a 0.9-1.4 (low-b items 0.9-1.1, high-b 1.2-1.4),
 // c = 1/5 (5 options). Re-anchored 2026-08 per docs/DIFFICULTY_AUDIT.md
 // §2.4: the former uniform 0.4-step ladder over-priced canonical-format
 // items (squares, cubes, Mersenne, x2), and the 1.0 -> 2.0 a-ramp was
 // unjustified. nsr-012 previously duplicated nsr-005's difference chain
 // (4,6,8,10) and nsr-013 (x3-2) was near-isomorphic to nsr-006 (x3+2) -
-// both replaced. Distractor policy: every distractor is a rule-error
+// both replaced. 2026-08-21 floor revision (audit §9): nsr-017/018 are
+// single-step basals so chance-level performance can be located below the
+// old -2.8 floor. Distractor policy: every distractor is a rule-error
 // outcome (wrong operation/multiplier, one step early or late, repeat
 // term, repeated or stale difference, reversed direction) and every
 // distractor sits more than 3 from the key, so a near-neighbor guess gains
@@ -49,6 +51,28 @@ export const numberSeries: Subtest = {
   budgetMin: 16,
   routing: { maxItems: 14, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
   items: [
+    {
+      id: "nsr-017", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
+      a: 0.9, b: -3.2, c: 0.2,
+      // rule: constant difference +2 (basal)
+      // distractors: 15 = 9+6 (doubled the step); 7 = repeated an early
+      //   term; 22 = 11x2 (doubled the key); 18 = 9x2 (doubled the last
+      //   term)
+      prompt: "1, 3, 5, 7, 9, ?",
+      options: ["15", "11", "7", "22", "18"],
+      answer: 1,
+    },
+    {
+      id: "nsr-018", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
+      a: 0.9, b: -3.5, c: 0.2,
+      // rule: constant difference +1, i.e. counting (basal)
+      // distractors: 14 = 7x2 (doubled the last term); 12 = 7+5 (added the
+      //   previous term); 4 = repeated an early term; 15 = 7+8 (added the
+      //   last two terms)
+      prompt: "3, 4, 5, 6, 7, ?",
+      options: ["14", "8", "12", "4", "15"],
+      answer: 1,
+    },
     {
       id: "nsr-001", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
       a: 0.9, b: -2.8, c: 0.2,
@@ -235,9 +259,9 @@ const QC_OPTIONS = [
 ];
 
 // ---------------------------------------------------------------------------
-// Quantitative Comparison (qcp-001..018)
+// Quantitative Comparison (qcp-001..020)
 //
-// b span -2.2 .. +1.6, a 0.9-1.4 (flattened, no lockstep ramp), c = 1/4
+// b span -2.8 .. +1.6, a 0.9-1.4 (flattened, no lockstep ramp), c = 1/4
 // (4 options). Re-anchored 2026-08 per docs/DIFFICULTY_AUDIT.md §2.5: the
 // authored top third was over-placed by 0.5-2.5 logits (the factorial and
 // permutation ceilings are knowledge checks, not reasoning ceilings).
@@ -246,7 +270,8 @@ const QC_OPTIONS = [
 // sqrt(50) > 7, no free variables). The instructions state that unbound
 // variables range over all reals, which makes the two
 // cannot-be-determined items (qcp-009, qcp-013) fair rather than
-// trick-based.
+// trick-based. 2026-08-21 floor revision (audit §9): qcp-019/020 are
+// single-operation basals below the old -2.2 floor.
 // ---------------------------------------------------------------------------
 
 export const quantComparison: Subtest = {
@@ -404,6 +429,22 @@ export const quantComparison: Subtest = {
       prompt: "Quantity A: The number of distinct three-letter arrangements using letters from ABCDE with no repeats\nQuantity B: 60",
       options: QC_OPTIONS,
       answer: 2,
+    },
+    {
+      id: "qcp-019", subtest: "quantComparison", broad: "Gq", narrow: "RQ",
+      a: 0.9, b: -2.8, c: 0.25,
+      // verified: 7 vs 6 (basal)
+      prompt: "Quantity A: 3 + 4\nQuantity B: 2 x 3",
+      options: QC_OPTIONS,
+      answer: 0,
+    },
+    {
+      id: "qcp-020", subtest: "quantComparison", broad: "Gq", narrow: "RQ",
+      a: 0.9, b: -2.5, c: 0.25,
+      // verified: 35 vs 75 (basal)
+      prompt: "Quantity A: 100 - 65\nQuantity B: 100 - 25",
+      options: QC_OPTIONS,
+      answer: 1,
     },
   ],
 };

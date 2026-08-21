@@ -1,6 +1,8 @@
 import type { Response, Subtest } from "./types.ts";
 import type { SessionState } from "./session.ts";
 import { scoreComposite } from "./scoring.ts";
+import { screenSession } from "./validity.ts";
+import type { ValidityReport } from "./validity.ts";
 
 /**
  * Norming telemetry: session identity, item-bank versioning, and the
@@ -71,6 +73,8 @@ export interface ExportDocument {
   }[];
   responses: ExportedResponse[];
   composite: { theta: number; se: number; standardScore: number } | null;
+  /** Response-validity screening — the norming pipeline excludes invalid sessions. */
+  validity: ValidityReport | null;
 }
 
 /** Build the complete norming record for a session (pure — no I/O). */
@@ -98,6 +102,7 @@ export function exportSession(state: SessionState): ExportDocument {
   });
 
   const scored = state.responses.length > 0 ? scoreComposite(state.subtests, state.responses) : null;
+  const validity = scored ? screenSession(state.subtests, state.responses) : null;
 
   return {
     format: "iqtesting-responses",
@@ -120,6 +125,7 @@ export function exportSession(state: SessionState): ExportDocument {
     }),
     responses,
     composite: scored ? { theta: Number(scored.theta.toFixed(4)), se: Number(scored.se.toFixed(4)), standardScore: scored.g.score } : null,
+    validity,
   };
 }
 

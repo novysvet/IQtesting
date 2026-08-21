@@ -3,6 +3,8 @@ import { BATTERY } from "./battery.ts";
 import { answerItem, answerMatching, beginBattery, expireSubtest, initSession, remainingMs, sectionRemainingMs, startSubtest, elapsedMs, BATTERY_BUDGET_MIN } from "./core/session.ts";
 import type { Item, ItemRender, Subtest } from "./core/types.ts";
 import { scoreComposite } from "./core/scoring.ts";
+import { screenSession, validitySummary } from "./core/validity.ts";
+import type { ValidityReport } from "./core/validity.ts";
 import { bankVersion, downloadJson, exportSession } from "./core/telemetry.ts";
 import { clearSession, defaultStorage, loadSession, saveSession } from "./core/persistence.ts";
 import { Figure, FoldDiagram, HoleGrid, MatrixFigure, RotationFigure, SeriesFigure, StructuredCell } from "./components/Figures.tsx";
@@ -211,6 +213,11 @@ function BreakScreen({ completed, onContinue }: { completed: number; onContinue:
 
 function Results({ session, onReset }: { session: ReturnType<typeof initSession>; onReset: () => void }) {
   const score = useMemo(() => scoreComposite(session.subtests, session.responses), [session]);
+  const validity: ValidityReport | null = useMemo(
+    () => session.responses.length > 0 ? screenSession(session.subtests, session.responses) : null,
+    [session],
+  );
+  const invalidScore = validity !== null && (validity.verdict === "invalid" || validity.verdict === "insufficient");
   const incomplete = session.stopReasons.some((reason) => reason === null);
   const timeLimited = session.stopReasons.filter((reason) => reason === "time-limit").length;
   const exportData = () => {
@@ -218,7 +225,10 @@ function Results({ session, onReset }: { session: ReturnType<typeof initSession>
     downloadJson("iqtesting-" + session.sessionId.slice(0, 8) + ".json", doc);
   };
   return <section className="results">
-    <div className="result-hero"><div><span className="label">{incomplete ? "Incomplete provisional composite" : "Provisional composite"}</span><div className="score num">{score.g.score}</div><p className="num">95% CI {score.g.ci95[0]}–{score.g.ci95[1]} · percentile {score.g.percentile}</p></div><div className="result-copy"><h1>Cognitive profile</h1><p>{session.responses.length} items administered across {score.subtests.length} attempted sections.{incomplete ? " The battery ended before all sections were completed." : ""}</p></div></div>
+    <div className="result-hero"><div><span className="label">{incomplete ? "Incomplete provisional composite" : "Provisional composite"}</span><div className={"score num" + (invalidScore ? " score-invalid" : "")}>{score.g.score}</div><p className="num">95% CI {score.g.ci95[0]}–{score.g.ci95[1]} · percentile {score.g.percentile}</p></div><div className="result-copy"><h1>Cognitive profile</h1><p>{session.responses.length} items administered across {score.subtests.length} attempted sections.{incomplete ? " The battery ended before all sections were completed." : ""}</p></div></div>
+    {validity && validity.verdict !== "valid" && <div className={invalidScore ? "invalid-warning" : "incomplete-warning"}><span className="label">Response-validity screening · {validity.verdict}</span><p>{invalidScore
+      ? "The response pattern is inconsistent with engaged test-taking (" + validitySummary(validity) + "). This composite must not be interpreted as an ability estimate — a random or disengaged administration lands near the scale floor (IQ ~50) and does not reflect measured reasoning."
+      : "Screening flagged this administration as " + validity.verdict + " (" + validitySummary(validity) + "). Interpret the composite with caution."}</p></div>}
     <div className="factor-grid">{score.broad.map((b) => <article key={b.broad}><div><span className="factor-code">{b.broad}</span><span>{ABILITY_NAMES[b.broad]}</span></div><strong className="num">{b.band.score}</strong><div className="factor-track"><i style={{ width: Math.max(2, Math.min(100, ((b.band.score - 55) / 90) * 100)) + "%" }} /></div><small className="num">CI {b.band.ci95[0]}–{b.band.ci95[1]} · P{b.band.percentile}</small></article>)}</div>
     {incomplete && <div className="incomplete-warning"><span className="label">Incomplete administration</span><p>The {Math.round(session.budgetMs / 60_000)}-minute limit was reached before the battery finished. The composite omits unadministered sections and must not be compared with a complete administration.</p></div>}
     {timeLimited > 0 && <div className="incomplete-warning"><span className="label">Section time limits reached</span><p>{timeLimited} section{timeLimited === 1 ? "" : "s"} ended at the authored limit. Unanswered items were omitted rather than scored as incorrect.</p></div>}

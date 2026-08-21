@@ -21,11 +21,13 @@ import type { Subtest } from "../core/types.ts";
  * wrong band (fold-mapping errors), and one count-off pattern (dropped fold
  * or dropped punch) kept for diagnosis.
  *
- * b spans -1.6 to +1.5 (authored estimates re-anchored 2026-08-20 from the
+ * b spans -2.9 to +1.5 (authored estimates re-anchored 2026-08-20 from the
  * pre-norming difficulty audit, docs/DIFFICULTY_AUDIT.md §2.6; 3-fold items
  * are stripe patterns and structurally capped, so the subtest ceiling is
- * honest at roughly IQ 120-125). Parameters remain AUTHORED ESTIMATES, not
- * calibrated.
+ * honest at roughly IQ 120-125). The 2026-08-21 floor revision added
+ * corner-punch single-fold basals (audit §9) so chance-level performance can
+ * be located below the old -1.6 floor. Parameters remain AUTHORED ESTIMATES,
+ * not calibrated.
  */
 export const paperFolding: Subtest = {
   id: "paperFolding",
@@ -37,6 +39,24 @@ export const paperFolding: Subtest = {
   budgetMin: 20,
   routing: { maxItems: 13, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
   items: [
+  {
+    id: "pf-015", subtest: "paperFolding", broad: "Gv", narrow: "Vz",
+    a: 0.9, b: -2.9, c: 0.2,
+    // folds V | punches [[0,0]] | derived [0,3] (basal corner punch)
+    prompt: "The sheet is folded as shown, then punched through all layers. Which pattern appears when it is unfolded?",
+    options: ['[1,2]', '[0,3]', '[4,7]', '[3]', '[0,1]'],
+    answer: 1,
+    render: { kind: "fold", steps: ["V"], result: '[[0,0]]' },
+  },
+  {
+    id: "pf-016", subtest: "paperFolding", broad: "Gv", narrow: "Vz",
+    a: 0.9, b: -2.6, c: 0.2,
+    // folds H | punches [[0,0]] | derived [0,12] (basal corner punch)
+    prompt: "The sheet is folded as shown, then punched through all layers. Which pattern appears when it is unfolded?",
+    options: ['[3,12]', '[0,4]', '[0,12]', '[12]', '[1,13]'],
+    answer: 2,
+    render: { kind: "fold", steps: ["H"], result: '[[0,0]]' },
+  },
   {
     id: "pf-001", subtest: "paperFolding", broad: "Gv", narrow: "Vz",
     a: 1, b: -1.6, c: 0.2,

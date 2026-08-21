@@ -50,10 +50,18 @@ claim the ceiling its FORMAT can actually deliver:
   (+2.4) and figure series (+2.3).
 - The 2026-08-20 expansion banks carry the spans recorded in
   docs/DIFFICULTY_AUDIT.md §8: arithmetic −2.5..+2.6, visualPuzzles
-  −1.5..+2.2, artificialLanguage −2.0..+2.4, blockCounting −1.8..+1.9,
+  −1.5..+2.2, artificialLanguage −2.0..+2.4, blockCounting −2.8..+1.9,
   definitions −1.4..+2.3 (corpus-capped: actual bank −1.44..+2.28). The Gs speed formats cap lowest
   (symbolSearch +1.2, charPairing +1.0): scanning speed does not generate
   high-b items, and their banks must not pretend otherwise.
+- **Floors matter as much as ceilings** (2026-08-21 floor revision, audit §9):
+  the adaptive descent must be able to collect evidence AT the bottom of the
+  scale, or chance-level performance cannot be located there and the scoring
+  layer has no honest place to put it. Banks whose formats allow genuinely
+  easy items carry basals down to b ≈ −3 or below (rotation −3.2, folding
+  −2.9, number series −3.5, quant comparison −2.8, block counting −2.8).
+  When authoring a new bank, ask first "what does the easiest possible item
+  in this format look like, and is it in the bank?"
 
 ## Answer-key correctness
 

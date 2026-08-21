@@ -18,6 +18,7 @@
   --signal:     #1B4DE4;  /* measurement blue - RESERVED */
   --signal-dim: #C7D4F8;  /* signal at low emphasis */
   --amber:      #B4700A;  /* time pressure only */
+  --alert:      #A3271E;  /* validity failure only - never decorative */
   --figure:     #22252A;  /* SVG stroke for test figures */
 
   /* ---- type ---- */

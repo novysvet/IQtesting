@@ -16,8 +16,12 @@ import type { Subtest } from "../core/types.ts";
  * odd candidate.
  *
  * Spec format: figureId:rotationDegrees:mirrored(0|1)
- * b spans -1.8 to +1.4 (2D line-figure rotation caps out near the IQ 120
- * line; genuinely higher measurement needs 3D or compound figures).
+ * b spans -3.2 to +1.4 (2D line-figure rotation caps out near the IQ 120
+ * line; genuinely higher measurement needs 3D or compound figures). The
+ * 2026-08-21 floor revision added basal items down to -3.2 so the adaptive
+ * descent can collect evidence AT the bottom of the scale — without them a
+ * chance-level examinee is censored at -1.8 and the composite inflates
+ * (docs/DIFFICULTY_AUDIT.md §9).
  * Parameters are AUTHORED ESTIMATES, not calibrated.
  */
 export const mentalRotation: Subtest = {
@@ -30,6 +34,33 @@ export const mentalRotation: Subtest = {
   budgetMin: 14,
   routing: { maxItems: 12, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
   items: [
+  {
+    id: "mr-015", subtest: "mentalRotation", broad: "Gv", narrow: "SR",
+    a: 0.9, b: -3.2, c: 0.25,
+    // basal: target L at 0deg; key L at 90; mirrors at 90/270; different figure T
+    prompt: "Which figure is the same shape as the target, only rotated?",
+    options: ["L:90:1", "L:90:0", "T:0:0", "L:270:1"],
+    answer: 1,
+    render: { kind: "rotation", target: "L:0:0", candidates: ["L:90:1", "L:90:0", "T:0:0", "L:270:1"] },
+  },
+  {
+    id: "mr-016", subtest: "mentalRotation", broad: "Gv", narrow: "SR",
+    a: 0.9, b: -2.8, c: 0.25,
+    // basal: target T at 0deg; key T at 90; mirrors at 180/90; different figure L
+    prompt: "Which figure is the same shape as the target, only rotated?",
+    options: ["T:180:1", "L:90:0", "T:90:1", "T:90:0"],
+    answer: 3,
+    render: { kind: "rotation", target: "T:0:0", candidates: ["T:180:1", "L:90:0", "T:90:1", "T:90:0"] },
+  },
+  {
+    id: "mr-017", subtest: "mentalRotation", broad: "Gv", narrow: "SR",
+    a: 1, b: -2.4, c: 0.25,
+    // basal: target Z at 0deg; key Z at 90 (C2-equivalent to 270); mirrors at 45/90; different figure P
+    prompt: "Which figure is the same shape as the target, only rotated?",
+    options: ["Z:90:0", "Z:45:1", "P:180:0", "Z:90:1"],
+    answer: 0,
+    render: { kind: "rotation", target: "Z:0:0", candidates: ["Z:90:0", "Z:45:1", "P:180:0", "Z:90:1"] },
+  },
   {
     id: "mr-001", subtest: "mentalRotation", broad: "Gv", narrow: "SR",
     a: 1, b: -1.8, c: 0.25,
