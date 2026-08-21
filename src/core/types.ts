@@ -116,11 +116,16 @@ export type ItemRender =
    */
   | { kind: "symsearch"; targets: string[]; search: string[] }
   /**
-   * Character Pairing / coding (Gs): a persistent glyph->digit key shown on
-   * every item, and a glyph row to transcribe. Recall answer = the digit
-   * string in row order.
+   * Symbol Selection (Gs): a persistent glyph->home-row-key legend shown on
+   * every item and a queue of nonsense glyphs. The examinee presses the key
+   * matching the CURRENT (highlighted) glyph; a correct press advances the
+   * queue, a wrong press is recorded as an error and the queue waits. The
+   * answer is the full sequence of pressed keys in order — any error breaks
+   * the exact match. Pure perceptual-motor speed: nothing is held in memory
+   * (the queue stays visible), unlike WAIS-style digit transcription which
+   * confounds Gs with Gwm.
    */
-  | { kind: "coding"; key: [string, string][]; sequence: string[] }
+  | { kind: "symqueue"; legend: [string, string][]; queue: string[] }
   /**
    * Block Counting (Gv): an isometric pile of unit cubes given as a
    * row-major height map over a cols x rows footprint (grounded, so every
@@ -128,6 +133,16 @@ export type ItemRender =
    * interior stacking.
    */
   | { kind: "blocks"; cols: number; rows: number; heights: number[] }
+  /**
+   * Analytical Reasoning (Gf/RG): a linear-ordering logic game. Entities are
+   * placed in positions 1..n under machine-readable constraint codes:
+   * `before:A:B`, `adj:A:B` (A immediately before B), `notadj:A:B`,
+   * `fixed:A:n` (1-based), `notpos:A:n`. `given` holds extra codes applied
+   * only to this question's condition ("If R is first..."). The human prompt
+   * duplicates the constraints as prose; the test suite solves the codes and
+   * verifies the keyed option against the full solution space.
+   */
+  | { kind: "logic"; entities: string[]; constraints: string[]; given?: string[] }
   /**
    * Visual Puzzles (Gv): a target silhouette on a cols x rows grid, plus
    * six candidate pieces as cell-index sets in TARGET orientation (pieces
@@ -159,6 +174,14 @@ export interface Subtest {
    * 1-based position in `items`. Routing config is unused for stopping.
    */
   matching?: { bank: string[] };
+  /**
+   * Unscored demonstration page for a whole-page matching subtest: a tiny
+   * defs/bank pair (e.g. three definitions, six words) administered through
+   * the same matching UI before the scored page. Never routed, scored,
+   * exported, or hashed into bankVersion. The section clock starts only
+   * when the real page opens.
+   */
+  matchingPractice?: { defs: string[]; bank: string[] };
 }
 
 export interface RoutingConfig {
@@ -175,7 +198,53 @@ export interface RoutingConfig {
   targetSe: number;
   /** Theta at which routing starts before any evidence. */
   entryTheta: number;
+  /**
+   * FIXED-FORM administration (calibration mode): a precomputed item order.
+   * When present, routing serves this exact sequence and disables the
+   * precision and ceiling stop rules — every examinee sees the same items in
+   * the same order, which is what IRT calibration and DIF analysis require.
+   * Adaptive mode leaves this undefined.
+   */
+  fixedOrder?: string[];
 }
+
+/** One routing decision, recorded for exposure/DIF analysis post hoc. */
+export interface RoutingDecision {
+  /** Battery-wide ordinal of the decision (1-based across all responses so far). */
+  step: number;
+  theta: number;
+  se: number;
+  /** Item offered, or null when routing stopped. */
+  itemId: string | null;
+  stopReason: string | null;
+}
+
+/**
+ * Self-reported demographics collected under consent before administration.
+ * Only ageBand is required; everything else is optional and may be blank.
+ * Travels inside the export record for stratification and DIF analysis.
+ */
+export interface Demographics {
+  ageBand: "18-24" | "25-34" | "35-44" | "45-54" | "55-64" | "65+";
+  sex?: string;
+  education?: string;
+  nativeLanguage?: string;
+  country?: string;
+  /** Familiarity with timed ability tests (self-report). */
+  testFamiliarity?: string;
+  /** Auto-captured device class (desktop / tablet / phone). */
+  device?: string;
+}
+
+/** Consent to use response data for norming research. */
+export interface ConsentRecord {
+  acceptedAt: number;
+  /** Version of the consent text shown. */
+  version: string;
+}
+
+/** Administration mode. Calibration = fixed linear forms per subtest. */
+export type BatteryForm = "adaptive" | "calibration";
 
 export interface Response {
   itemId: string;
@@ -198,4 +267,26 @@ export interface Response {
   rawAnswer?: number | string | null;
   /** Keyed option index for MC (null for recall) — enables position-bias audit. */
   answerIndex?: number | null;
+  /**
+   * Display position where the KEYED option appeared (1-based), when options
+   * are permuted per session. With unpermuted/binary formats this equals
+   * answerIndex + 1; null for recall items.
+   */
+  keyedPosition?: number | null;
+  /**
+   * CENSORING FLAG — the item was never answered: the section clock expired
+   * with it on screen. Scored neither correct nor folded into ability
+   * estimation; recorded so informative censoring is visible in calibration
+   * data instead of silently vanishing.
+   */
+  omitted?: boolean;
+  /**
+   * CENSORING FLAG — a memory-presentation interruption (tab hidden during
+   * exposure). Counts as incorrect for the record but is excluded from
+   * ability estimation, person fit, and the discontinue miss streak:
+   * the censoring is ability-uncorrelated.
+   */
+  interrupted?: boolean;
+  /** Milliseconds the item was NOT visible while it was open (tab away). */
+  awayMs?: number;
 }

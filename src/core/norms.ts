@@ -130,3 +130,38 @@ export function validateNorms(
   }
   return true;
 }
+
+/**
+ * Accept-or-reject a parsed norms document for the running bank. Malformed
+ * payloads reject cleanly (null), never throw — the results screen must
+ * always be able to fall back to the provisional normal-model band.
+ */
+export function selectNormTable(
+  parsed: unknown,
+  currentBankVersion?: string,
+): NormTable | null {
+  try {
+    return validateNorms(parsed, currentBankVersion) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Load the norm table shipped alongside the app (`norms.json` at the deploy
+ * base path). Returns null when it is absent, unreachable, or does not match
+ * the running bank — callers fall back to provisional scoring.
+ */
+export async function fetchNorms(
+  currentBankVersion: string,
+  baseUrl = "/",
+): Promise<NormTable | null> {
+  if (typeof fetch !== "function") return null;
+  try {
+    const res = await fetch(baseUrl.replace(/\/?$/, "/") + "norms.json");
+    if (!res.ok) return null;
+    return selectNormTable(await res.json(), currentBankVersion);
+  } catch {
+    return null;
+  }
+}

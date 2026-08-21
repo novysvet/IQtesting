@@ -188,4 +188,14 @@ export const definitions: Subtest = {
   routing: { maxItems: 33, minItems: 33, ceilingMisses: 99, targetSe: 0.01, entryTheta: 0 },
   items: buildDefinitionItems(),
   matching: { bank: buildBank() },
+  // Unscored demonstration page: three definitions against six words, the
+  // mechanic in miniature. The scored page opens only after it is submitted.
+  matchingPractice: {
+    defs: [
+      "To (1) is to put money into a bank.",
+      "(2) is the liquid that falls as rain.",
+      "That is (3) which has four sides of equal length.",
+    ],
+    bank: ["square", "deposit", "water", "copper", "bicycle", "winter"],
+  },
 };

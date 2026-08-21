@@ -24,6 +24,27 @@ export const figureSeries: Subtest = {
     "Each series changes by one or more rules. Work out the rules, then choose the figure that comes next.",
   budgetMin: 16,
   routing: { maxItems: 13, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: a two-term fill cycle, demonstrated in-stimulus.
+  practice: [
+  {
+    id: "prac-fs-01", subtest: "figureSeries", broad: "Gf", narrow: "I",
+    a: 1, b: -3, c: 0.2,
+    // rule: fill cycles none, half, solid
+    prompt: "Which figure comes next in the series?",
+    options: ["sq:1:hatch:0", "sq:1:none:0", "sq:1:solid:0", "sq:1:half:0", "sq:1:none:45"],
+    answer: 2,
+    render: { kind: "series", figures: ["sq:1:none:0", "sq:1:half:0"] },
+  },
+  {
+    id: "prac-fs-02", subtest: "figureSeries", broad: "Gf", narrow: "I",
+    a: 1, b: -3, c: 0.2,
+    // rule: count increases by one each step
+    prompt: "Which figure comes next in the series?",
+    options: ["star:5:none:0", "star:4:none:0", "star:4:solid:0", "cir:4:none:0", "star:3:none:0"],
+    answer: 1,
+    render: { kind: "series", figures: ["star:1:none:0", "star:2:none:0", "star:3:none:0"] },
+  },
+  ],
   items: [
   {
     id: "fs-001", subtest: "figureSeries", broad: "Gf", narrow: "I",

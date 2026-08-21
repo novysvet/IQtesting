@@ -50,12 +50,43 @@ rescue the score, which is already honest.
 
 ## 3. Data collection
 
+### 3.1 Infrastructure (added 2026-08-21)
+
+- **Consent + demographics** gate every fresh session: age ≥ 18 required,
+  research-use consent recorded with a text version, and an optional
+  demographics block (age band mandatory; sex, education, native language,
+  country, test familiarity, self-chosen participant code optional). All of
+  it travels inside every export record.
+- **Fixed calibration forms**: `?form=calibration` administers
+  deterministic difficulty-stratified linear forms per subtest (stop rules
+  disabled; bank hash stamped `calibration-v1`). Norming data should be
+  collected under this mode — identical forms across examinees are what IRT
+  calibration and DIF analysis require.
+- **Collection worker** (`worker/`): the results screen POSTs exports when
+  `VITE_SUBMIT_URL` is configured; the worker validates structurally,
+  rate-limits per IP, and rejects duplicate session ids. The manual JSON
+  download remains as fallback.
+- **Comprehension check**: the first scored section is gated by an
+  instruction-comprehension question; failures return to the instructions
+  and are counted in the export (`comprehensionAttempts`).
+- **Censoring flags**: `omitted` (section expired with the item on screen)
+  and `interrupted` (tab hidden during memory exposure) responses stay in
+  the record but are excluded from estimation, person fit, and the
+  discontinue streak; latencies carry `awayMs` so screening judges active
+  time.
+
+### 3.2 Procedure
+
 1. Examinees complete the battery normally. The results screen offers
+   **Submit response data** (when the endpoint is configured) and
    **Download response data (JSON)** — one `ExportDocument` per session
-   containing every response (raw answer, keyed position, latency, timeout,
-   ordinals), the composite estimate, and the validity verdict.
-2. Collect the JSON files into a directory, e.g. `data/exports/`.
-   One file per examinee; filenames are irrelevant to the pipeline.
+   containing every response (raw answer, keyed position, display position
+   of the key, latency, away time, timeout, omission/interruption flags,
+   ordinals), the routing decision log, the composite estimate, and the
+   validity verdict.
+2. Worker submissions land in KV automatically; manual downloads are
+   collected into a directory, e.g. `data/exports/`. One file per examinee;
+   filenames are irrelevant to the pipeline.
 
 Minimum viable sample: **N ≥ 100** screened sessions (`MIN_NORM_SAMPLE`).
 Below that the pipeline still runs but `validateNorms` refuses to let the

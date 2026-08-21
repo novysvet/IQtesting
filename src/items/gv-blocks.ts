@@ -213,5 +213,26 @@ export const blockCounting: Subtest = {
     "Each picture shows a pile of blocks viewed from slightly above. Some blocks are completely hidden by others. Count every block in the pile, including the ones you cannot see, and choose the total number.",
   budgetMin: 8,
   routing: { maxItems: 12, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: a flat 2x2 slab, nothing hidden — the format's floor case.
+  practice: [
+    {
+      id: "prac-blc-01", subtest: "blockCounting", broad: "Gv", narrow: "SR",
+      a: 0.9, b: -3, c: 0.2,
+      // flat 2x2 slab of height-1 cubes | total 4 | hidden 0
+      prompt: "How many blocks are in the pile, including blocks you cannot see?",
+      options: ["3", "5", "4", "2", "6"],
+      answer: 2,
+      render: { kind: "blocks", cols: 2, rows: 2, heights: [1, 1, 1, 1] },
+    },
+    {
+      id: "prac-blc-02", subtest: "blockCounting", broad: "Gv", narrow: "SR",
+      a: 0.9, b: -3, c: 0.2,
+      // one column of two | total 5 | the ground cube under the tall column is hidden
+      prompt: "How many blocks are in the pile, including blocks you cannot see?",
+      options: ["4", "6", "5", "3", "7"],
+      answer: 2,
+      render: { kind: "blocks", cols: 2, rows: 2, heights: [2, 1, 1, 1] },
+    },
+  ],
   items: rotateOptions(BLOCK_BANK),
 };

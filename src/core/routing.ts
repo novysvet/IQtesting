@@ -1,4 +1,4 @@
-import type { Item, Response, RoutingConfig } from "./types.ts";
+import type { Item, Response, RoutingConfig, RoutingDecision } from "./types.ts";
 import { estimateAbility, selectNextItem } from "./irt.ts";
 
 export interface RoutingState {
@@ -9,6 +9,8 @@ export interface RoutingState {
   consecutiveMisses: number;
   done: boolean;
   stopReason: StopReason | null;
+  /** Every offer/stop decision this route made (exposure + DIF telemetry). */
+  decisions: RoutingDecision[];
 }
 
 export type StopReason = "ceiling" | "precision" | "exhausted" | "max-items" | "time-limit";
@@ -22,13 +24,14 @@ export function initRouting(config: RoutingConfig): RoutingState {
     consecutiveMisses: 0,
     done: false,
     stopReason: null,
+    decisions: [],
   };
 }
 
 /**
  * Decide the next item, or null when the subtest should stop.
  *
- * Stop rules, checked in order:
+ * ADAPTIVE mode stop rules, checked in order:
  *  1. max-items   -- hard budget reached
  *  2. ceiling     -- N consecutive misses AND the descent has reached the
  *                    bank floor (SB5-style discontinue, floor-gated)
@@ -44,6 +47,11 @@ export function initRouting(config: RoutingConfig): RoutingState {
  * bank is the discriminating evidence that places an examinee at/below it.
  * Until state.theta is within FLOOR_BAND of the pool's minimum b, a miss
  * streak just means "keep descending". maxItems still bounds every run.
+ *
+ * FIXED-FORM mode (config.fixedOrder): serve the precomputed order and apply
+ * NO adaptive stop rules — every examinee sees the same items in the same
+ * order, which is what calibration and DIF analysis require. The form's
+ * length is the design; only exhaustion can end it early.
  */
 const FLOOR_BAND = 0.75;
 
@@ -62,7 +70,7 @@ export function nextItem(
 
   if (n >= config.maxItems) return { item: null, stopReason: "max-items" };
 
-  if (n >= config.minItems) {
+  if (!config.fixedOrder && n >= config.minItems) {
     if (
       state.consecutiveMisses >= config.ceilingMisses &&
       state.theta <= poolFloor(pool) + FLOOR_BAND
@@ -75,7 +83,21 @@ export function nextItem(
   }
 
   const used = new Set(state.administered.map((i) => i.id));
-  const item = selectNextItem(pool, state.theta, used);
+  let item: Item | null;
+  if (config.fixedOrder) {
+    const byId = new Map(pool.map((i) => [i.id, i]));
+    item = null;
+    for (const id of config.fixedOrder) {
+      if (used.has(id)) continue;
+      const candidate = byId.get(id);
+      if (candidate) {
+        item = candidate;
+        break;
+      }
+    }
+  } else {
+    item = selectNextItem(pool, state.theta, used);
+  }
   if (!item) return { item: null, stopReason: "exhausted" };
   return { item, stopReason: null };
 }
@@ -94,9 +116,17 @@ export function applyResponse(
     responses,
     theta: est.theta,
     se: est.se,
-    consecutiveMisses: response.correct ? 0 : state.consecutiveMisses + 1,
+    // An interruption (tab hidden during memory exposure) is ability-
+    // uncorrelated censoring: it must not feed the discontinue rule, or a
+    // distracted examinee is discontinued for reasons unrelated to ability.
+    consecutiveMisses: response.correct
+      ? 0
+      : response.interrupted
+        ? state.consecutiveMisses
+        : state.consecutiveMisses + 1,
     done: false,
     stopReason: null,
+    decisions: state.decisions,
   };
 }
 

@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   initSession, beginBattery, startSubtest, answerItem, expireSubtest, isCorrect,
-  normalise, isBreakPoint, remainingMs, sectionRemainingMs, totalBudgetMin, BATTERY_BUDGET_MIN,
+  normalise, remainingMs, sectionRemainingMs, totalBudgetMin, BATTERY_BUDGET_MIN,
+  resumeSavedSession,
 } from "../src/core/session.ts";
 import type { Item, Subtest } from "../src/core/types.ts";
 
@@ -80,8 +81,8 @@ test("a full two-subtest battery reaches results", () => {
       s = answerItem(s, 2, t);
     } else if (s.phase.kind === "instructions") {
       s = startSubtest(s, s.phase.subtestIndex, t);
-    } else if (s.phase.kind === "break") {
-      s = startSubtest(s, s.phase.subtestIndex + 1, t);
+    } else if (s.phase.kind === "checkpoint") {
+      s = { ...s, phase: { kind: "instructions", subtestIndex: s.phase.subtestIndex + 1 } };
     }
   }
   assert.equal(s.phase.kind, "results", "battery never reached results");
@@ -111,16 +112,78 @@ test("exhausting the battery budget forces results", () => {
   assert.equal(s.phase.kind, "results");
 });
 
-test("remainingMs never goes negative", () => {
+test("remainingMs never goes negative and freezes while no segment is open", () => {
   const s = beginBattery(initSession([subA]), 0);
-  assert.equal(remainingMs(s, 999 * 60000), 0);
+  // No scored segment open (instructions phase): the clock is frozen.
+  assert.equal(remainingMs(s, 999 * 60000), BATTERY_BUDGET_MIN * 60000);
   assert.equal(remainingMs(s, 0), BATTERY_BUDGET_MIN * 60000);
+  // Once a segment opens, active time counts down.
+  const started = startSubtest(s, 0, 0);
+  assert.equal(remainingMs(started, BATTERY_BUDGET_MIN * 60_000 + 5000), 0);
 });
 
-test("break points fall every third subtest but never last", () => {
-  assert.equal(isBreakPoint(2, 9), true);
-  assert.equal(isBreakPoint(0, 9), false);
-  assert.equal(isBreakPoint(8, 9), false, "no break after the final subtest");
+test("the battery clock runs only while sections are open (multi-sitting)", () => {
+  let s = beginBattery(initSession([subA, subB]), 0);
+  // Idle for an hour at instructions: nothing is consumed.
+  s = startSubtest(s, 0, 3_600_000);
+  assert.equal(remainingMs(s, 3_600_000), BATTERY_BUDGET_MIN * 60000, "segment must freeze the clock at open");
+  let t = 3_600_000;
+  let guard = 0;
+  while (s.phase.kind === "item" && s.phase.subtestIndex === 0 && guard++ < 50) {
+    t += 1000;
+    s = answerItem(s, 2, t);
+  }
+  // Section closed into a checkpoint: clock frozen again.
+  if (s.phase.kind === "checkpoint") {
+    const frozenAt = remainingMs(s, t + 86_400_000);
+    assert.equal(frozenAt, remainingMs(s, t), "checkpoint must freeze the battery clock");
+    // Next day: resume the next section; the budget resumes untouched.
+    s = { ...s, phase: { kind: "instructions", subtestIndex: s.phase.subtestIndex + 1 } };
+    s = startSubtest(s, 1, t + 86_400_000);
+    assert.ok(remainingMs(s, t + 86_400_000) > 0, "a resumed sitting must keep its remaining budget");
+  } else {
+    assert.ok(s.stopReasons[0] !== null, "subtest did not close");
+  }
+});
+
+test("resuming a save taken mid-section bills only work time, then voids the section", () => {
+  let s = beginBattery(initSession([subA, subB]), 0);
+  s = startSubtest(s, 0, 1000); // segment opens at t=1s
+  // Examinee answers one item at t=16s, then abandons the tab mid-item.
+  assert.equal(s.phase.kind, "item");
+  s = answerItem(s, 2, 16_000);
+  const savedAt = 20_000;
+  const daysLater = savedAt + 86_400_000;
+  // Restore: only the ~19s of real work is billed; the absence is free.
+  const resumed = resumeSavedSession(s, savedAt, daysLater);
+  assert.equal(resumed.segmentStart, daysLater);
+  assert.ok(
+    Math.abs(remainingMs(resumed, daysLater) - (BATTERY_BUDGET_MIN * 60_000 - 19_000)) <= 1,
+    "only pre-save work time may be billed",
+  );
+  // The abandoned SECTION clock was NOT re-based: it expired while away.
+  assert.equal(sectionRemainingMs(resumed, daysLater), 0, "the open section must show expired");
+  // The normal expiry path then voids exactly that one section into a checkpoint.
+  const closed = expireSubtest(resumed, daysLater + 1);
+  assert.equal(closed.stopReasons[0], "time-limit");
+  assert.equal(closed.phase.kind, "checkpoint");
+});
+
+test("every section boundary lands on a checkpoint", () => {
+  let s = beginBattery(initSession([subA, subB]), 0);
+  s = startSubtest(s, 0, 0);
+  let t = 0;
+  let guard = 0;
+  while (s.phase.kind === "item" && guard++ < 50) {
+    t += 1000;
+    s = answerItem(s, 2, t);
+  }
+  assert.equal(s.phase.kind, "checkpoint", "finishing a section must open a checkpoint");
+  assert.equal(s.segmentStart, null, "no scored segment may stay open across a checkpoint");
+  // Continue from the checkpoint into subtest B.
+  s = { ...s, phase: { kind: "instructions", subtestIndex: s.phase.subtestIndex + 1 } };
+  s = startSubtest(s, 1, t += 1000);
+  assert.equal(s.phase.kind, "item");
 });
 
 test("totalBudgetMin sums authored budgets", () => {
@@ -136,7 +199,7 @@ test("no item is ever served twice across a whole battery", () => {
     t += 1000;
     if (s.phase.kind === "item") s = answerItem(s, guard % 3 === 0 ? 2 : 0, t);
     else if (s.phase.kind === "instructions") s = startSubtest(s, s.phase.subtestIndex, t);
-    else if (s.phase.kind === "break") s = startSubtest(s, s.phase.subtestIndex + 1, t);
+    else if (s.phase.kind === "checkpoint") s = { ...s, phase: { kind: "instructions", subtestIndex: s.phase.subtestIndex + 1 } };
   }
   const ids = s.responses.map((r) => r.itemId);
   assert.equal(new Set(ids).size, ids.length, "an item was administered twice");
@@ -156,14 +219,38 @@ test("section expiry closes the route with a time-limit reason", () => {
   s = expireSubtest(s, 10 * 60000);
   assert.equal(s.stopReasons[0], "time-limit");
   assert.equal(s.sectionStartedAt, null);
-  assert.equal(s.phase.kind, "instructions");
+  assert.equal(s.phase.kind, "checkpoint");
 });
 
-test("a late answer is omitted and the section ends", () => {
+test("a late answer is recorded as omitted and the section ends", () => {
   const short = mkSub("short", [mcItem("late", "short", 0)], 1);
   let s = beginBattery(initSession([short, subB]), 0);
   s = startSubtest(s, 0, 0);
   s = answerItem(s, 2, 60001);
-  assert.equal(s.responses.length, 0);
+  // The in-flight item is censored, not silently dropped: it stays in the
+  // record flagged omitted, excluded from scoring.
+  assert.equal(s.responses.length, 1);
+  assert.equal(s.responses[0]!.omitted, true);
+  assert.equal(s.responses[0]!.correct, false);
   assert.equal(s.stopReasons[0], "time-limit");
+});
+
+test("section expiry records the on-screen item as omitted", () => {
+  let s = beginBattery(initSession([subA, subB]), 0);
+  s = startSubtest(s, 0, 0);
+  const before = s.responses.length;
+  s = expireSubtest(s, 10 * 60000);
+  assert.equal(s.responses.length, before + 1);
+  assert.equal(s.responses.at(-1)!.omitted, true);
+  assert.equal(s.stopReasons[0], "time-limit");
+});
+
+test("interrupted memory responses do not feed the discontinue streak", () => {
+  let s = beginBattery(initSession([subA]), 0);
+  s = startSubtest(s, 0, 0);
+  s = answerItem(s, "", 1000, true, { interrupted: true });
+  assert.equal(s.routing[0]!.consecutiveMisses, 0, "interruption must not count as a miss");
+  assert.equal(s.responses[0]!.interrupted, true);
+  s = answerItem(s, 0, 2000);
+  assert.equal(s.routing[0]!.consecutiveMisses, 1, "a real miss still counts");
 });

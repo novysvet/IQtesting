@@ -33,6 +33,29 @@ export const mentalRotation: Subtest = {
     "One candidate is the target turned to a new angle. The others are mirror images of the target or different shapes. Choose the candidate that shows the target itself, rotated.",
   budgetMin: 14,
   routing: { maxItems: 12, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample following the full distractor contract: two non-mirrored
+  // candidates (key + different figure), two mirrors of the target, one of
+  // them at the key's own angle.
+  practice: [
+  {
+    id: "prac-mr-01", subtest: "mentalRotation", broad: "Gv", narrow: "SR",
+    a: 0.9, b: -3, c: 0.25,
+    // target L at 0deg; key L at 90; mirror at the key's angle; second mirror at 270; different figure T
+    prompt: "Which figure is the same shape as the target, only rotated?",
+    options: ["L:90:1", "L:90:0", "T:90:0", "L:270:1"],
+    answer: 1,
+    render: { kind: "rotation", target: "L:0:0", candidates: ["L:90:1", "L:90:0", "T:90:0", "L:270:1"] },
+  },
+  {
+    id: "prac-mr-02", subtest: "mentalRotation", broad: "Gv", narrow: "SR",
+    a: 0.9, b: -3, c: 0.25,
+    // target P at 0deg; key P at 180; different figure F at the key's angle; mirrors at 180 and 270
+    prompt: "Which figure is the same shape as the target, only rotated?",
+    options: ["P:180:0", "F:180:0", "P:180:1", "P:270:1"],
+    answer: 0,
+    render: { kind: "rotation", target: "P:0:0", candidates: ["P:180:0", "F:180:0", "P:180:1", "P:270:1"] },
+  },
+  ],
   items: [
   {
     id: "mr-015", subtest: "mentalRotation", broad: "Gv", narrow: "SR",

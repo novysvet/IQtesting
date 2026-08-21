@@ -57,6 +57,24 @@ export const visualPuzzles: Subtest = {
     "Each puzzle shows a target silhouette and six pieces. Choose exactly three pieces that fit together to rebuild the silhouette. The pieces are already shown in the orientation in which they are used: slide them into place without turning or flipping any piece.",
   budgetMin: 9,
   routing: { maxItems: 12, minItems: 6, ceilingMisses: 4, targetSe: 0.5, entryTheta: 0 },
+  // Unscored sample reusing vpz-001's verified geometry (unique tiling under
+  // all in-grid translations) so practice never teaches a wrong rule.
+  practice: [
+  {
+    id: "prac-vpz-01", subtest: "visualPuzzles", broad: "Gv", narrow: "Vz",
+    a: 1.0, b: -2, c: 0.05, multi: 3,
+    prompt: PROMPT, options: PIECES, answer: "0,2,4",
+    render: { kind: "vpuzzle", cols: 4, rows: 4, target: [4, 5, 6, 7, 8, 9, 10, 11],
+      pieces: [[4, 5, 8], [0, 1, 5, 6], [6, 7, 11], [0, 1, 4, 5], [9, 10], [9, 12, 13, 14]] },
+  },
+  {
+    id: "prac-vpz-02", subtest: "visualPuzzles", broad: "Gv", narrow: "Vz",
+    a: 1.0, b: -2, c: 0.05, multi: 3,
+    prompt: PROMPT, options: PIECES, answer: "0,1,2",
+    render: { kind: "vpuzzle", cols: 4, rows: 4, target: [5, 6, 9, 10],
+      pieces: [[5], [6, 9], [10], [5, 6], [8, 9], [10, 13]] },
+  },
+  ],
   items: [
   {
     id: "vpz-001", subtest: "visualPuzzles", broad: "Gv", narrow: "Vz",

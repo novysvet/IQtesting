@@ -59,6 +59,23 @@ export const arithmetic: Subtest = {
     "Solve each problem in your head — no calculator and no paper. Type your answer as a plain whole number (of dollars, minutes, points, and so on), without any units.",
   budgetMin: 14,
   routing: { maxItems: 12, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: one-step join on single digits (2 + 2 = 4).
+  practice: [
+    {
+      id: "prac-arm-01", subtest: "arithmetic", broad: "Gq", narrow: "RQ",
+      a: 0.9, b: -3, c: 0,
+      prompt: "Tom has 2 apples and buys 2 more. How many apples does he have now?",
+      answer: "4",
+      render: { kind: "text" },
+    },
+    {
+      id: "prac-arm-02", subtest: "arithmetic", broad: "Gq", narrow: "RQ",
+      a: 0.9, b: -3, c: 0,
+      prompt: "Sara has 9 marbles and gives 4 to a friend. How many marbles does she have now?",
+      answer: "5",
+      render: { kind: "text" },
+    },
+  ],
   items: [
     {
       id: "arm-001", subtest: "arithmetic", broad: "Gq", narrow: "RQ",

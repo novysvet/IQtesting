@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { BATTERY } from "../src/battery.ts";
 import {
-  initSession, beginBattery, startSubtest, answerItem, answerMatching,
+  initSession, beginBattery, startSubtest, answerItem, answerPractice, answerMatching, answerMatchingDemo,
 } from "../src/core/session.ts";
 import { scoreComposite } from "../src/core/scoring.ts";
 import type { Item } from "../src/core/types.ts";
@@ -86,8 +86,10 @@ function runBattery(respond: Responder, seed: number): number {
     t += 15_000; // engaged pace: validity screening must not be what drives scores
     const phase = s.phase;
     if (phase.kind === "instructions") s = startSubtest(s, phase.subtestIndex, t);
-    else if (phase.kind === "break") s = startSubtest(s, phase.subtestIndex + 1, t);
+    else if (phase.kind === "checkpoint") s = { ...s, phase: { kind: "instructions", subtestIndex: phase.subtestIndex + 1 } };
+    else if (phase.kind === "practice") s = answerPractice(s, t);
     else if (phase.kind === "item") s = answerItem(s, respond(phase.item, rng), t);
+    else if (phase.kind === "matchingDemo") s = answerMatchingDemo(s, t);
     else if (phase.kind === "matching") {
       const subtest = s.subtests[phase.subtestIndex]!;
       const bank = subtest.matching?.bank ?? [];

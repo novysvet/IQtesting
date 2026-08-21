@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { BATTERY } from "../src/battery.ts";
-import { answerItem, beginBattery, initSession, startSubtest } from "../src/core/session.ts";
+import { answerItem, answerPractice, beginBattery, initSession, startSubtest } from "../src/core/session.ts";
 import { bankVersion, exportSession } from "../src/core/telemetry.ts";
 import { clearSession, loadSession, memoryStorage, saveSession } from "../src/core/persistence.ts";
 import { combineInverseVariance } from "../src/core/scoring.ts";
@@ -13,11 +13,17 @@ function driveSomeItems(subtests: Subtest[], count: number, nowBase: number) {
   let now = nowBase;
   state = startSubtest(state, 0, (now += 1_000));
   for (let i = 0; i < count; i++) {
+    // Walk any unscored practice samples first.
+    while (state.phase.kind === "practice") state = answerPractice(state, (now += 1_000));
     if (state.phase.kind !== "item") break;
     const item = state.phase.item;
     const isRecall = typeof item.answer === "string";
     state = answerItem(state, isRecall ? String(item.answer) : (item.answer as number), (now += 15_000));
-    if (state.phase.kind === "instructions" || state.phase.kind === "break") {
+    // Checkpoints close each section; step through to the next one.
+    if (state.phase.kind === "checkpoint") {
+      state = { ...state, phase: { kind: "instructions", subtestIndex: state.phase.subtestIndex + 1 } };
+    }
+    if (state.phase.kind === "instructions") {
       state = startSubtest(state, state.phase.subtestIndex, (now += 5_000));
     }
   }

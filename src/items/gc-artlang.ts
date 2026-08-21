@@ -818,6 +818,51 @@ function buildArtlangItems(): Item[] {
   });
 }
 
+/** Unscored practice items: a Language A lexicon lookup and one plural word. */
+function buildArtlangPractice(): Item[] {
+  const lookup: ArtlangItemSpec = {
+    id: "prac-aln-01", lang: "A", type: "lookup", direction: "al-en", a: 1.0, b: -3, answer: 3,
+    reading: { kind: "word", np: { noun: "selik", definite: false, plural: false } },
+    errors: [
+      { error: "wrongStem", as: "dabor" },
+      { error: "wrongStem", as: "nogar" },
+      { error: "wrongStem", as: "mavik" },
+      { error: "wrongStem", as: "tulir" },
+    ],
+  };
+  const plural: ArtlangItemSpec = {
+    id: "prac-aln-02", lang: "A", type: "word", direction: "en-al", a: 1.0, b: -3, answer: 2,
+    reading: { kind: "word", np: { noun: "selik", definite: false, plural: true } },
+    errors: [
+      { error: "drop", what: "plural" },
+      { error: "wrongAffix", use: "past" },
+      { error: "wrongAffix", use: "possessive" },
+      { error: "add", what: "article" },
+    ],
+  };
+  return [lookup, plural].map((spec, i) => {
+    const distractors = spec.errors.map((err) => distractorFor(spec, err));
+    const options: string[] = [];
+    let next = 0;
+    for (let position = 0; position < 5; position += 1) {
+      options.push(position === spec.answer ? keyFor(spec) : distractors[next++]!);
+    }
+    return {
+      id: spec.id,
+      subtest: "artificialLanguage",
+      broad: "Gc",
+      narrow: "LD",
+      a: spec.a,
+      b: spec.b,
+      c: 0.2,
+      prompt: "Unscored sample " + (i + 1) + " of 2.\n" + promptFor(spec),
+      options,
+      answer: spec.answer,
+      render: { kind: "text" },
+    };
+  });
+}
+
 /**
  * The Artificial Language subtest. 18 items across three mini-languages;
  * adaptive routing samples the pool with a floor at pure lexicon lookup and
@@ -832,5 +877,9 @@ export const artificialLanguage: Subtest = {
     "A constructed language is presented with its vocabulary and worked examples. Infer its grammar and translate.",
   budgetMin: 12,
   routing: { maxItems: 14, minItems: 7, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: a pure lexicon lookup in Language A (selik = bird),
+  // built through the same prompt/key/distractor machinery as the bank so it
+  // demonstrates the material layout exactly.
+  practice: buildArtlangPractice(),
   items: buildArtlangItems(),
 };

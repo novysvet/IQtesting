@@ -272,6 +272,25 @@ export const verbalAnalogies: Subtest = {
   instructions: "Identify the relationship in the first word pair, then choose the word that completes the second pair in the same way.",
   budgetMin: 11,
   routing: { maxItems: 17, minItems: 8, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: a single-opposite relation on primary-vocabulary words.
+  practice: [
+    {
+      id: "prac-van-01", subtest: "verbalAnalogies", broad: "Gc", narrow: "LD",
+      a: 1.35, b: -3, c: 0.2,
+      prompt: "Hot is to cold as up is to ___",
+      options: ["down", "high", "over", "top", "above"],
+      answer: 0,
+      render: { kind: "text" },
+    },
+    {
+      id: "prac-van-02", subtest: "verbalAnalogies", broad: "Gc", narrow: "LD",
+      a: 1.35, b: -3, c: 0.2,
+      prompt: "Kitten is to cat as puppy is to ___",
+      options: ["dog", "bark", "leash", "bone", "run"],
+      answer: 0,
+      render: { kind: "text" },
+    },
+  ],
   items: buildItems("van", "verbalAnalogies", "LD", analogyData),
 };
 
@@ -287,5 +306,24 @@ export const generalInformation: Subtest = {
   instructions: "Choose the best answer to each question. Questions sample learned knowledge across science, history, language, and the humanities.",
   budgetMin: 11,
   routing: { maxItems: 15, minItems: 7, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: elementary general knowledge, no domain exposure needed.
+  practice: [
+    {
+      id: "prac-gin-01", subtest: "generalInformation", broad: "Gc", narrow: "K0",
+      a: 1.35, b: -3, c: 0.2,
+      prompt: "How many days are there in a week?",
+      options: ["Five", "Six", "Seven", "Eight", "Ten"],
+      answer: 2,
+      render: { kind: "text" },
+    },
+    {
+      id: "prac-gin-02", subtest: "generalInformation", broad: "Gc", narrow: "K0",
+      a: 1.35, b: -3, c: 0.2,
+      prompt: "How many minutes are there in one hour?",
+      options: ["Thirty", "Forty-five", "Sixty", "Ninety", "One hundred"],
+      answer: 2,
+      render: { kind: "text" },
+    },
+  ],
   items: buildItems("gin", "generalInformation", "K0", informationData),
 };

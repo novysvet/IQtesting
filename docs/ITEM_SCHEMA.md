@@ -52,7 +52,7 @@ claim the ceiling its FORMAT can actually deliver:
   docs/DIFFICULTY_AUDIT.md §8: arithmetic −2.5..+2.6, visualPuzzles
   −1.5..+2.2, artificialLanguage −2.0..+2.4, blockCounting −2.8..+1.9,
   definitions −1.4..+2.3 (corpus-capped: actual bank −1.44..+2.28). The Gs speed formats cap lowest
-  (symbolSearch +1.2, charPairing +1.0): scanning speed does not generate
+  (symbolSearch +1.2, symbolSelection +1.0): scanning speed does not generate
   high-b items, and their banks must not pretend otherwise.
 - **Floors matter as much as ceilings** (2026-08-21 floor revision, audit §9):
   the adaptive descent must be able to collect evidence AT the bottom of the
@@ -108,7 +108,7 @@ Ambiguous items are worse than easy items. Cut anything you cannot defend.
   (target figure rotated) and a confusable DIFFERENT figure rotated (F/E/P
   family for harder items), plus at least two mirrors of the target, one at
   the key's own angle.
-- GLYPH GRAMMAR (shared): glyphs across matrices, series, and the Gs stimuli
+- GLYPH GRAMMAR (shared): glyphs across matrices, series, and Symbol Search
   are spec strings `shape:count:fill:rot` (e.g. `"tri:1:solid:45"`).
   Shapes: `tri`, `sq`, `cir`, `dia`, `hex`, `arw`, `cross`, `star`.
   Fills: `none`, `half`, `solid`, `hatch`. `rot` is clockwise degrees;
@@ -122,12 +122,35 @@ Ambiguous items are worse than easy items. Cut anything you cannot defend.
   row? Options are exactly `["No","Yes"]` (c = 0.5); the key follows from
   set membership and must be re-derived in the bank's test. Rendered by
   `SymSearchFigure` (`src/components/SpeedFigures.tsx`).
-- CHARACTER PAIRING (Gs): `render: { kind: "coding", key, sequence }` —
-  `key` is the SAME nine glyph→digit pairs for every item in the subtest,
-  displayed above the item like the printed key on a coding sheet;
-  `sequence` is the glyph row to transcribe. Constructed response, c = 0:
-  the answer is the mapped digit string in row order (e.g. `"4917"`).
-  Rendered by `CodingFigure` (`src/components/SpeedFigures.tsx`).
+- SYMBOL SELECTION (Gs): `render: { kind: "symqueue", legend, queue }` — a
+  persistent legend binding eight nonsense glyphs (`src/components/
+  glyphCatalog.ts`, ids g01..g08 with declared confusion classes) to the
+  home-row keys A S D F H J K L, plus a queue of glyphs. The examinee presses
+  the key of the CURRENT (highlighted) glyph; wrong presses are recorded but
+  do not advance. The answer is the exact pressed-key string (any error
+  breaks it; c = 0). This replaced WAIS-style Character Pairing, whose typed
+  digit transcription confounded Gs with Gwm. Rendered/played by
+  `SymQueueRun` (`src/components/SymQueue.tsx`).
+- ANALYTICAL REASONING (Gf/RG): `render: { kind: "logic", entities,
+  constraints, given? }` — linear-ordering logic games. Constraint codes:
+  `before:A:B`, `adj:A:B`, `notadj:A:B`, `fixed:A:n` (1-based), `notpos:A:n`;
+  `given` holds conditional-stem codes ("If R is first..."). The prompt
+  duplicates every code as prose via `constraintBullet`; three question
+  forms (complete-order / must-be-true / could-be-true) are verified against
+  the full permutation space by `test/analytical.test.ts`. Pre-1994 GRE
+  Analytical Ability lineage; fills the previously unsampled RG narrow
+  ability.
+- ANTONYMS (Gc/VL): stems are lexiconData key words; `b = 4 - zipf(stem)`
+  with the zipf taken from `lexiconData` and cross-checked between banks by
+  `test/antonyms.test.ts` (corpus-capped span ≈ −1.44..+2.28). One keyed
+  opposite plus four associates; the "rarest option" exploit cannot apply
+  because selection is by opposition, not rarity.
+- SENTENCE COMPLETION (Gc/LD): authored sentences with one blank; b anchors
+  to keyed-word rarity AND frame density (contrast/causal/elaboration
+  scaffolding), so this bank is deliberately NOT corpus-calibrated — a lone
+  blank-word zipf misprices jointly determined difficulty. Contract:
+  five distinct lowercase options, no option inside its own sentence,
+  double-entered keys in `test/sentence-completion.test.ts`.
 - BLOCK COUNTING (Gv): `render: { kind: "blocks", cols, rows, heights }` —
   `heights` is a row-major height map over a cols×rows footprint. Piles are
   grounded (every column sits on the floor), so the key is the sum of
@@ -183,8 +206,10 @@ both speeded with 3-minute budgets:
 
 - Symbol Search (`symbolSearch`): membership decisions over glyph arrays —
   does either target occur in the search row? Yes/No, c = 0.5.
-- Character Pairing (`charPairing`): transcription through the persistent
-  nine-pair glyph→digit key; typed digit string, c = 0.
+- Symbol Selection (`symbolSelection`): choice-reaction over a visible queue
+  of nonsense glyphs against a persistent glyph→home-row legend; pressed-key
+  string, c = 0. Replaced Character Pairing, whose typed digit transcription
+  loaded working memory and confounded Gs with Gwm.
 
 Composite g-weight is 0.7 (`G_WEIGHTS` in `src/core/scoring.ts`) — moderate,
 level with Gv, below Gf/Gc/Gq, above Glr. Difficulty in a speeded format is
@@ -196,12 +221,48 @@ pad its banks upward.
 ## Norming telemetry
 
 Sessions carry a `sessionId` and a `bankVersion` content hash (every id,
-parameter, option, and key). Every recorded response keeps the raw answer,
-the keyed option position, and both ordinals; `exportSession` in
-`src/core/telemetry.ts` produces the JSON calibration record; sessions
-autosave to localStorage and restore only onto an identical bank version.
-Calibration data must never be produced by a bank whose version is not
-stamped on the record.
+parameter, option, and key; the administration form is stamped as a hash
+variant, so adaptive and calibration data never mix). Every recorded response
+keeps the raw answer, the keyed option position, the DISPLAY position of the
+key (`keyedPosition` — options are permuted per session via a seeded
+Fisher-Yates over `sessionId + itemId`; binary formats are never permuted),
+both ordinals, latency, away time, timeout, and the censoring flags
+(`omitted`, `interrupted`). Each subtest's export carries its routing
+decision log (theta/se at every offer or stop) for exposure and DIF
+analysis. `exportSession` in `src/core/telemetry.ts` produces the JSON
+calibration record plus an `administration` block (user agent, viewport,
+screen, DPR, language, timezone, device class); sessions autosave to
+localStorage and restore only onto an identical bank version. Calibration
+data must never be produced by a bank whose version is not stamped on the
+record.
+
+## Practice items
+
+Every subtest opens with a small practice section OUTSIDE `items`:
+
+- Adaptive subtests carry `practice: Item[]` — at least TWO unscored sample
+  items (session phase `"practice"`). Practice items obey the full schema and
+  carry machine-verifiable keys (test/practice.test.ts re-derives them per
+  format), but they are never routed, scored, exported as responses, or
+  hashed into `bankVersion` — editing one cannot invalidate stored sessions.
+- Whole-page matching formats carry a `matchingPractice: { defs, bank }`
+  demonstration page instead (three definitions against six words in the
+  shipped bank), administered through the same matching UI before the scored
+  page; the section clock starts only when the real page opens. Ids are
+  namespaced `prac-<prefix>-NN`.
+
+## Multi-sitting clock
+
+The battery budget is ACTIVE scored-administration time
+(`BATTERY_BUDGET_MIN`, asserted equal to the sum of authored per-subtest
+budgets). A segment opens with the first scored item (or matching page) of a
+section and closes at the section boundary; between segments the clock is
+frozen. Every section ends in a `checkpoint` phase exposing provisional
+per-section and composite scores, from which the examinee continues or stops.
+Restores re-base the open segment via `resumeSavedSession`: only work time up
+to the last autosave is billed, while the SECTION clock is deliberately not
+re-based — an abandoned mid-section administration voids exactly that one
+section through the normal omission path.
 
 ## Corpus-calibrated difficulty (Precision Lexicon)
 
@@ -230,38 +291,45 @@ definable pool's honest range), and the bank's test re-derives every `b`
 from the stored zipfs. The register-band and attestation rules above apply
 to the word bank (`matching.bank`) in place of `options`.
 
-## Subtest inventory (18 subtests, 226 minutes)
+## Subtest inventory (21 subtests, 260 active minutes)
 
-Per-subtest budgets sum to exactly `BATTERY_BUDGET_MIN = 226`
+Per-subtest budgets sum to exactly `BATTERY_BUDGET_MIN = 260`
 (`src/core/session.ts`; asserted in `test/budget-simulation.test.ts`).
 Administration order lives in `src/battery.ts` (fixed, alternates
-modalities); the table groups by broad factor — all seven broad abilities
-declared in `src/core/types.ts` are now sampled. NEW marks 2026-08-20
-expansion rows; `definitions` replaces `precisionLexicon` (Gc/VL, 11 min,
-retired) to break format monotony with a whole-page matching
-administration.
+modalities — no two adjacent sections share a broad factor); the table
+groups by broad factor — all seven broad abilities declared in
+`src/core/types.ts` are sampled, including RG via analyticalReasoning.
+NEW marks 2026-08-20 expansion rows; NEWER marks the 2026-08-21 redesign
+wave. `definitions` replaces `precisionLexicon` (Gc/VL, retired).
 
 | id | name | broad | narrow | budget (min) | status |
 |---|---|---|---|---|---|
 | matrixReasoning | Matrix Reasoning | Gf | I | 21 | — |
 | figureSeries | Figure Series | Gf | I | 16 | — |
+| analyticalReasoning | Analytical Reasoning | Gf | RG | 14 | NEWER |
 | verbalAnalogies | Verbal Analogies | Gc | LD | 11 | — |
 | generalInformation | General Information | Gc | K0 | 11 | — |
-| definitions | Definitions | Gc | VL | 8 | NEW (replaces precisionLexicon) |
+| definitions | Definitions | Gc | VL | 8 | (replaces precisionLexicon) |
+| antonyms | Antonyms | Gc | VL | 10 | NEWER |
+| sentenceCompletion | Sentence Completion | Gc | LD | 10 | NEWER |
 | artificialLanguage | Artificial Language | Gc | LD | 12 | NEW |
 | paperFolding | Paper Folding | Gv | Vz | 20 | — |
 | mentalRotation | Mental Rotation | Gv | SR | 14 | — |
 | visualPuzzles | Visual Puzzles | Gv | Vz | 9 | NEW |
 | blockCounting | Block Counting | Gv | SR | 8 | NEW |
 | digitSpan | Digit Span | Gwm | MS | 12 | — |
-| letterNumberSeq | Letter-Number Sequencing | Gwm | WM | 14 | — |
+| letterNumberSeq | Letter–Number Sequencing | Gwm | WM | 14 | — |
 | numberSeries | Number Series | Gq | RQ | 16 | — |
 | quantComparison | Quantitative Comparison | Gq | RQ | 19 | — |
 | arithmetic | Mental Arithmetic | Gq | RQ | 14 | NEW |
 | symbolSearch | Symbol Search | Gs | P | 3 | NEW |
-| charPairing | Character Pairing | Gs | P | 3 | NEW |
+| symbolSelection | Symbol Selection | Gs | P | 3 | NEWER (replaces charPairing) |
 | pairedAssociates | Paired Associates | Glr | MA | 15 | — |
 
 Carried-over subtests keep their post-audit parameters (§7 of
 docs/DIFFICULTY_AUDIT.md); the NEW banks' spans, caveats, and per-bank
-machine-verification duties are recorded in §8 of the same file.
+machine-verification duties are recorded in §8 of the same file. The NEWER
+redesigns are documented here: Symbol Selection separates Gs from Gwm,
+Analytical Reasoning samples RG with solver-verified keys, and the two new
+Gc banks extend the pre-1994 SAT/GRE verbal lineage alongside the existing
+formats.
