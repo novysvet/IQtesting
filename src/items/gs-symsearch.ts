@@ -519,5 +519,34 @@ export const symbolSearch: Subtest = {
     "Two target symbols are shown on the left of each row. Scan the search group on the right and decide whether either target symbol also appears anywhere in it. Choose Yes if either target is present, No if neither is. Work quickly - each item has a time limit.",
   budgetMin: 3,
   routing: { maxItems: 24, minItems: 10, ceilingMisses: 6, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: a Yes item with no per-item time cap — the decision and
+  // its key are understood before the clock starts.
+  practice: [
+    {
+      id: "prac-ssr-01", subtest: "symbolSearch", broad: "Gs", narrow: "P",
+      a: 1.1, b: -2.5, c: 0.5,
+      prompt: "Is either target symbol present in the search group?",
+      options: SS_OPTIONS,
+      answer: 1,
+      render: {
+        kind: "symsearch",
+        targets: ["cir:1:none:0", "sq:1:solid:0"],
+        search: ["hex:1:none:0", "sq:1:solid:0", "star:1:none:0", "dia:1:half:0", "cross:1:none:0"],
+      },
+    },
+    {
+      id: "prac-ssr-02", subtest: "symbolSearch", broad: "Gs", narrow: "P",
+      a: 1.1, b: -2.5, c: 0.5,
+      prompt: "Is either target symbol present in the search group?",
+      options: SS_OPTIONS,
+      answer: 0,
+      render: {
+        kind: "symsearch",
+        targets: ["tri:1:solid:0", "cir:1:hatch:0"],
+        // tri:none is a fill near-miss of the absent-but-similar target twin.
+        search: ["sq:1:none:0", "dia:1:solid:0", "tri:1:none:0", "hex:1:half:0", "star:1:none:0"],
+      },
+    },
+  ],
   items: bankOrder(SEARCH_BANK),
 };

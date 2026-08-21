@@ -41,6 +41,28 @@ export const matrixReasoning: Subtest = {
     "Each matrix follows one or more rules. Work out the rules, then choose the figure that completes the bottom-right cell.",
   budgetMin: 21,
   routing: { maxItems: 16, minItems: 7, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: the simplest count-progression rule, so instruction
+  // miscomprehension never masquerades as low ability on scored items.
+  practice: [
+  {
+    id: "prac-mx-01", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
+    a: 1, b: -3, c: 0.2,
+    // rule: count increases 1,2,3 across rows
+    prompt: "Which figure completes the matrix?",
+    options: ["tri:2:none:0", "tri:3:none:0", "sq:3:none:0", "cir:3:none:0", "tri:4:none:0"],
+    answer: 1,
+    render: { kind: "matrix", rows: 3, cols: 3, cells: ["cir:1:none:0", "cir:2:none:0", "cir:3:none:0", "sq:1:none:0", "sq:2:none:0", "sq:3:none:0", "tri:1:none:0", "tri:2:none:0", null] },
+  },
+  {
+    id: "prac-mx-02", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
+    a: 1, b: -3, c: 0.2,
+    // rule: rotation advances 0 -> 45 -> 90 degrees across each row
+    prompt: "Which figure completes the matrix?",
+    options: ["tri:135:none:0", "tri:90:half:0", "tri:90:none:0", "sq:90:none:0", "tri:45:none:0"],
+    answer: 2,
+    render: { kind: "matrix", rows: 3, cols: 3, cells: ["cir:1:none:0", "cir:1:none:45", "cir:1:none:90", "sq:1:none:0", "sq:1:none:45", "sq:1:none:90", "tri:1:none:0", "tri:1:none:45", null] },
+  },
+  ],
   items: [
   {
     id: "mx-001", subtest: "matrixReasoning", broad: "Gf", narrow: "I",

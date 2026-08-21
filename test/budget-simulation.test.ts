@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { BATTERY } from "../src/battery.ts";
 import { initRouting, nextItem, applyResponse } from "../src/core/routing.ts";
 import { estimateAbility, pCorrect } from "../src/core/irt.ts";
-import { BATTERY_BUDGET_MIN, isBreakPoint, totalBudgetMin } from "../src/core/session.ts";
+import { BATTERY_BUDGET_MIN, totalBudgetMin } from "../src/core/session.ts";
 
 /** Per-item time by render kind (seconds), for the wall-clock simulation. */
 function itemSeconds(kind: string | undefined, subtestId: string): number {
@@ -12,7 +12,7 @@ function itemSeconds(kind: string | undefined, subtestId: string): number {
     case "matrix": case "fold": case "rotation": return 75;
     case "span": case "pairs": return 55;
     case "symsearch": return 8;   // speeded scanning
-    case "coding": return 12;    // key lookup + transcription
+    case "symqueue": return 7;    // speeded key selection per queue
     case "blocks": return 35;    // isometric counting
     case "vpuzzle": return 40;   // assembly under exact-3 selection
     default: return 48;
@@ -44,8 +44,10 @@ function simulate(theta: number, quantile: number) {
       seconds += itemSeconds(item.render?.kind, item.subtest);
     }
   }
-  const breaks = BATTERY.slice(0, -1).filter((_, i) => isBreakPoint(i, BATTERY.length)).length;
-  seconds += breaks * 120;
+  // A checkpoint glance after every section except the last (~30 s to read
+  // the standings). Longer multi-sitting stops are clock-frozen: free.
+  const breaks = Math.max(0, BATTERY.length - 1);
+  seconds += breaks * 30;
   return { minutes: seconds / 60, administered };
 }
 

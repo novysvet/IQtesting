@@ -52,7 +52,7 @@ test("answerMatching scores each definition against the number typed next to its
   // Correct: 1 -> alpha (type 1 at index 0), 3 -> gamma (type 3 at index 3).
   // Wrong: 2 -> beta, but 2 typed next to decoy.
   const out = answerMatching(begun([mkMatching(), mkFollowing()]), [1, 0, 2, 3, 0, 0], 200_000);
-  assert.equal(out.phase.kind, "instructions"); // advances past the section
+  assert.equal(out.phase.kind, "checkpoint"); // advances past the section
   assert.equal(out.responses.length, 3);
   assert.deepEqual(out.responses.map((r) => r.correct), [true, false, true]);
   // beta was left blank: no raw answer, flagged as not attempted.

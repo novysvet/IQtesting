@@ -1,13 +1,14 @@
 # CHC Cognitive Battery (IQtesting)
 
 A browser-administered adaptive cognitive battery built around the
-Cattell–Horn–Carroll model: 18 subtests sampling seven broad abilities
-(Gf, Gc, Gv, Gwm, Gq, Gs, Glr) over a 369-item pool, scored with 3PL IRT,
+Cattell–Horn–Carroll model: 21 subtests sampling seven broad abilities
+(Gf, Gc, Gv, Gwm, Gq, Gs, Glr) over a 438-item pool, scored with 3PL IRT,
 EAP estimation, and maximum-information routing.
 
 ## Contents
 
 - [Running](#running)
+- [Multi-sitting administration](#multi-sitting-administration)
 - [Administration modes](#administration-modes)
 - [Data collection](#data-collection-norming-pipeline)
 - [Censoring policy](#censoring-policy)
@@ -25,6 +26,20 @@ pnpm test         # node --test over test/*.test.ts
 pnpm typecheck    # tsc -b --noEmit
 pnpm build        # production bundle in dist/ (Pages base /IQtesting/)
 ```
+
+## Multi-sitting administration
+
+The battery is built to be taken test by test. The 260-minute budget is
+ACTIVE scored time only: it accrues while a section is open and freezes
+during instructions, practice samples, checkpoints, and any pause between
+sittings. Every completed section lands on a **checkpoint** showing that
+section's IQ, the standings for every finished section, and the provisional
+FSIQ — with the choice to continue or save and finish later. Returning in
+the same browser resumes at the next section, however much later.
+
+Stopping is only supported at checkpoints. Abandoning mid-section voids that
+one section (the in-flight item is censored as omitted); the rest of the
+battery keeps its full remaining budget.
 
 ## Administration modes
 
@@ -74,11 +89,13 @@ so validity screening judges active time, not wall-clock time.
 
 ## Testing
 
-220 tests pin the engine: key re-derivation for every bank (fold simulation,
+242 tests pin the engine: key re-derivation for every bank (fold simulation,
 matrix rules, series rules, rotation structure, tiling uniqueness, artlang
-grammars), scale-floor behaviour under random responding, routing stop rules,
-fixed-form administration, option-permutation balance, practice contracts,
-export enrichment, persistence, norms gating, and the endpoint validator.
+grammars, logic-game solution spaces, corpus-calibrated zipfs), scale-floor
+behaviour under random responding, routing stop rules, fixed-form
+administration, option-permutation balance, practice contracts, multi-sitting
+clock semantics, export enrichment, persistence, norms gating, and the
+endpoint validator.
 
 ## License
 

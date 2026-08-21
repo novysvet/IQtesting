@@ -101,7 +101,13 @@ export function estimateAbility(
   options: EstimateOptions = {},
 ): AbilityEstimate {
   const byId = new Map(items.map((i) => [i.id, i]));
-  const scored = responses.filter((r) => byId.has(r.itemId));
+  // Omitted (never answered) and interrupted (tab-hidden during memory
+  // presentation) responses are censoring, not ability evidence — they carry
+  // no information about theta and would bias the estimate. They stay in the
+  // response record for the calibration export.
+  const scored = responses.filter(
+    (r) => byId.has(r.itemId) && !r.omitted && !r.interrupted,
+  );
 
   if (scored.length === 0) {
     return { theta: 0, se: options.priorSd && options.priorSd !== 1 ? options.priorSd : 1, n: 0 };

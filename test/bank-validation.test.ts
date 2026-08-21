@@ -6,8 +6,8 @@ import type { Item } from "../src/core/types.ts";
 const items = BATTERY.flatMap((s) => s.items);
 
 test("battery contains the complete authored pool", () => {
-  assert.equal(BATTERY.length, 18);
-  assert.equal(items.length, 369);
+  assert.equal(BATTERY.length, 21);
+  assert.equal(items.length, 438);
 });
 
 test("all item and subtest identifiers are unique", () => {
@@ -80,7 +80,10 @@ const HONEST_SPANS: Record<string, { floor: number; ceiling: number }> = {
   quantComparison: { floor: -2.8, ceiling: 1.5 },
   artificialLanguage: { floor: -2.0, ceiling: 2.4 },
   blockCounting: { floor: -2.8, ceiling: 1.9 },
-  charPairing: { floor: -1.5, ceiling: 1.0 },
+  symbolSelection: { floor: -2.0, ceiling: 1.0 },
+  analyticalReasoning: { floor: -1.5, ceiling: 2.5 },
+  antonyms: { floor: -1.44, ceiling: 2.28 },
+  sentenceCompletion: { floor: -2.0, ceiling: 2.4 },
   pairedAssociates: { floor: -1.5, ceiling: 0.9 },
 };
 
@@ -103,7 +106,9 @@ test("every subtest reaches its audit-honest basal and ceiling", () => {
 
 test("Gc keys resolve to the authored correct answer after deterministic shuffling", () => {
   const gc = BATTERY.filter((s) => s.broad === "Gc").flatMap((s) => s.items);
-  assert.equal(gc.length, 117);
+  // definitions(33, matching recall) + verbalAnalogies(36) + generalInformation(30)
+  // + artificialLanguage(18) + antonyms(37) + sentenceCompletion(20).
+  assert.equal(gc.length, 174);
   for (const item of gc) {
     // Matching items (definitions) are recall: the key is the word itself.
     const answer = typeof item.answer === "string" ? item.answer : item.options?.[item.answer];

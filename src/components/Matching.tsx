@@ -1,22 +1,34 @@
 import { useEffect, useRef, useState } from "react";
-import type { Subtest } from "../core/types.ts";
 
 /**
  * Whole-page matching subtest (1926-SAT definitions format): every
  * definition is presented at once; the examinee types a definition number
  * next to each bank word. Submitting (or the section clock hitting zero)
- * records all items at once via session.answerMatching.
+ * records all items at once via session.answerMatching. The same screen also
+ * serves the unscored demonstration page (Subtest.matchingPractice) with
+ * primitive defs/bank props and a Continue action.
  */
 export function MatchingScreen({
-  subtest,
+  title,
+  meta,
+  defs,
+  bank,
   remainingMs,
+  practice = false,
   onAnswer,
 }: {
-  subtest: Subtest;
+  /** Page heading, e.g. the subtest name. */
+  title: string;
+  /** Meta line, e.g. "33 definitions · 66 words". */
+  meta: string;
+  /** Definition prompts in page order; the number to type is index+1. */
+  defs: string[];
+  /** Bank words in display order. */
+  bank: string[];
   remainingMs: number;
+  practice?: boolean;
   onAnswer: (assignments: number[], timedOut: boolean) => void;
 }) {
-  const bank = subtest.matching?.bank ?? [];
   const [raw, setRaw] = useState<string[]>(() => bank.map(() => ""));
   const submittedRef = useRef(false);
   const rawRef = useRef(raw);
@@ -30,10 +42,10 @@ export function MatchingScreen({
   // The page owns its expiry so typed work is submitted, not discarded.
   // Child effects run before the parent's expiry effect in the same commit.
   useEffect(() => {
-    if (remainingMs > 0 || submittedRef.current) return;
+    if (practice || remainingMs > 0 || submittedRef.current) return;
     submittedRef.current = true;
     onAnswer(parse(), true);
-  }, [remainingMs, onAnswer]);
+  }, [remainingMs, onAnswer, practice]);
 
   const submit = () => {
     if (submittedRef.current) return;
@@ -41,16 +53,16 @@ export function MatchingScreen({
     onAnswer(parse(), false);
   };
 
-  const assigned = new Set(parse().filter((n) => n >= 1 && n <= subtest.items.length));
+  const assigned = new Set(parse().filter((n) => n >= 1 && n <= defs.length));
 
   return <section className="match-page">
-    <div className="item-meta"><span className="label">{subtest.name}</span>
-      <span className="num">{subtest.items.length} definitions · {bank.length} words</span></div>
+    <div className="item-meta"><span className="label">{title}</span>
+      <span className="num">{meta}</span></div>
     <div className="match-work">
       <div className="match-defs" aria-label="definitions">
-        {subtest.items.map((item, i) => (
-          <p key={item.id} className={"match-def " + (assigned.has(i + 1) ? "dfn-done" : "")}>
-            {item.prompt}
+        {defs.map((prompt, i) => (
+          <p key={i} className={"match-def " + (assigned.has(i + 1) ? "dfn-done" : "")}>
+            {prompt}
           </p>
         ))}
       </div>
@@ -82,8 +94,8 @@ export function MatchingScreen({
       </div>
     </div>
     <div className="item-actions">
-      <span>A number may only be used once. Unmatched definitions are scored incorrect.</span>
-      <button className="primary" onClick={submit}>Record answers <span aria-hidden="true">→</span></button>
+      <span>{practice ? "This demonstration is not scored or recorded. " : ""}A number may only be used once.{practice ? "" : " Unmatched definitions are scored incorrect."}</span>
+      <button className="primary" onClick={submit}>{practice ? "Continue" : <>Record answers <span aria-hidden="true">→</span></>}</button>
     </div>
   </section>;
 }

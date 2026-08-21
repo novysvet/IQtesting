@@ -38,6 +38,28 @@ export const paperFolding: Subtest = {
     "Follow each blue arrow: vertical folds move the right half over to the left, and horizontal folds move the bottom half upward. Holes are then punched through every layer of the folded stack. Choose the pattern seen after unfolding.",
   budgetMin: 20,
   routing: { maxItems: 13, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: one fold, one punch — the minimum executable case of
+  // the convention (derived [5,9] by the same simulation the bank test uses).
+  practice: [
+  {
+    id: "prac-pf-01", subtest: "paperFolding", broad: "Gv", narrow: "Vz",
+    a: 0.9, b: -3, c: 0.2,
+    // folds H | punches [[1,1]] | derived [5,9]
+    prompt: "The sheet is folded as shown, then punched through all layers. Which pattern appears when it is unfolded?",
+    options: ['[6,10]', '[5]', '[5,9]', '[1,13]', '[4,7]'],
+    answer: 2,
+    render: { kind: "fold", steps: ["H"], result: '[[1,1]]' },
+  },
+  {
+    id: "prac-pf-02", subtest: "paperFolding", broad: "Gv", narrow: "Vz",
+    a: 0.9, b: -3, c: 0.2,
+    // folds V | punches [[0,1]] | derived [1,2]
+    prompt: "The sheet is folded as shown, then punched through all layers. Which pattern appears when it is unfolded?",
+    options: ['[1,2]', '[0,3]', '[1]', '[5,10]', '[2,7]'],
+    answer: 0,
+    render: { kind: "fold", steps: ["V"], result: '[[0,1]]' },
+  },
+  ],
   items: [
   {
     id: "pf-015", subtest: "paperFolding", broad: "Gv", narrow: "Vz",

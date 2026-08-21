@@ -50,6 +50,25 @@ export const numberSeries: Subtest = {
     "Each row of numbers follows a rule. Work out the rule and choose the number that comes next.",
   budgetMin: 16,
   routing: { maxItems: 14, minItems: 6, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: counting by twos — the format's floor case.
+  practice: [
+    {
+      id: "prac-nsr-01", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
+      a: 0.9, b: -3.5, c: 0.2,
+      // rule: constant difference +2
+      prompt: "2, 4, 6, 8, ?",
+      options: ["16", "10", "5", "20", "14"],
+      answer: 1,
+    },
+    {
+      id: "prac-nsr-02", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
+      a: 0.9, b: -3.5, c: 0.2,
+      // rule: constant difference +10
+      prompt: "5, 15, 25, 35, ?",
+      options: ["40", "50", "45", "55", "60"],
+      answer: 2,
+    },
+  ],
   items: [
     {
       id: "nsr-017", subtest: "numberSeries", broad: "Gq", narrow: "RQ",
@@ -283,6 +302,23 @@ export const quantComparison: Subtest = {
     "Compare the two quantities. Choose whether A is greater, B is greater, they are equal, or there is not enough information to decide. Unless a quantity is fixed by the statement, a variable may take any real value — positive, negative, or zero.",
   budgetMin: 19,
   routing: { maxItems: 15, minItems: 7, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: one-step comparison, verified 6 vs 5.
+  practice: [
+    {
+      id: "prac-qcp-01", subtest: "quantComparison", broad: "Gq", narrow: "RQ",
+      a: 0.9, b: -3, c: 0.25,
+      prompt: "Quantity A: 3 + 3\nQuantity B: 5",
+      options: QC_OPTIONS,
+      answer: 0,
+    },
+    {
+      id: "prac-qcp-02", subtest: "quantComparison", broad: "Gq", narrow: "RQ",
+      a: 0.9, b: -3, c: 0.25,
+      prompt: "Quantity A: 2 × 6\nQuantity B: 4 + 8",
+      options: QC_OPTIONS,
+      answer: 2,
+    },
+  ],
   items: [
     {
       id: "qcp-001", subtest: "quantComparison", broad: "Gq", narrow: "RQ",

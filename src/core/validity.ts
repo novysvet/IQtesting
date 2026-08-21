@@ -132,7 +132,12 @@ export function screenSession(
 ): ValidityReport {
   const byId = new Map<string, Item>();
   for (const s of subtests) for (const i of s.items) byId.set(i.id, i);
-  const scored = responses.filter((r) => byId.has(r.itemId));
+  // Omitted (never answered) and interrupted (tab hidden during memory
+  // exposure) responses are censoring, not behaviour: they carry neither
+  // engagement nor ability signal, so screening judges only real answers.
+  const scored = responses.filter(
+    (r) => byId.has(r.itemId) && !r.omitted && !r.interrupted,
+  );
 
   const report: ValidityReport = {
     verdict: "valid",
@@ -186,6 +191,9 @@ export function screenSession(
   }
 
   // --- Rapid responding -----------------------------------------------------
+  // Latency is adjusted for time the item was not actually visible (tab
+  // away): away time would otherwise mask exactly the rapid-responding this
+  // signal exists to catch.
   let rapidEligible = 0;
   let rapidCount = 0;
   let timeouts = 0;
@@ -194,7 +202,8 @@ export function screenSession(
     const item = byId.get(r.itemId)!;
     if (r.timedOut || item.timeLimitSec) continue;
     rapidEligible++;
-    if (r.latencyMs < RAPID_POWER_MS || r.latencyMs < MOTOR_FLOOR_MS) rapidCount++;
+    const activeLatency = Math.max(0, r.latencyMs - (r.awayMs ?? 0));
+    if (activeLatency < RAPID_POWER_MS || r.latencyMs < MOTOR_FLOOR_MS) rapidCount++;
   }
   report.timeoutFraction = Number((timeouts / scored.length).toFixed(3));
   if (rapidEligible >= 5) {

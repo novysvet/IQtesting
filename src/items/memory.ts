@@ -33,6 +33,24 @@ export const digitSpan: Subtest = {
     "Digits appear one at a time, then disappear. Type them back in the order asked. Some items ask for reverse order.",
   budgetMin: 12,
   routing: { maxItems: 14, minItems: 7, ceilingMisses: 3, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: a two-digit forward span so the presentation/recall
+  // cycle is understood before scored items begin.
+  practice: [
+    {
+      id: "prac-dsp-01", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      a: 1.0, b: -3, c: 0,
+      prompt: "Type the digits in the order shown.",
+      answer: "73",
+      render: { kind: "span", sequence: ["7", "3"], recall: "forward" },
+    },
+    {
+      id: "prac-dsp-02", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      a: 1.0, b: -3, c: 0,
+      prompt: "Type the digits in reverse order.",
+      answer: "94",
+      render: { kind: "span", sequence: ["4", "9"], recall: "backward" },
+    },
+  ],
   items: [
     {
       id: "dsp-001", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
@@ -207,6 +225,23 @@ export const letterNumberSeq: Subtest = {
     "A mix of digits and letters appears one at a time. Type the digits in ascending order first, then the letters in alphabetical order.",
   budgetMin: 14,
   routing: { maxItems: 12, minItems: 6, ceilingMisses: 3, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: one digit + one letter, the minimal sorted-recall case.
+  practice: [
+    {
+      id: "prac-lns-01", subtest: "letterNumberSeq", broad: "Gwm", narrow: "WM",
+      a: 1.2, b: -3, c: 0,
+      prompt: "Digits in ascending order, then letters in alphabetical order.",
+      answer: "3B",
+      render: { kind: "span", sequence: ["B", "3"], recall: "sorted" },
+    },
+    {
+      id: "prac-lns-02", subtest: "letterNumberSeq", broad: "Gwm", narrow: "WM",
+      a: 1.2, b: -3, c: 0,
+      prompt: "Digits in ascending order, then letters in alphabetical order.",
+      answer: "27D",
+      render: { kind: "span", sequence: ["D", "7", "2"], recall: "sorted" },
+    },
+  ],
   items: [
     {
       id: "lns-001", subtest: "letterNumberSeq", broad: "Gwm", narrow: "WM",
@@ -335,6 +370,23 @@ export const pairedAssociates: Subtest = {
     "Study the word pairs while they are shown. When one word of a pair appears, type the word it was paired with.",
   budgetMin: 15,
   routing: { maxItems: 12, minItems: 6, ceilingMisses: 3, targetSe: 0.50, entryTheta: 0 },
+  // Unscored sample: two pairs, one probe — the format's minimum case.
+  practice: [
+    {
+      id: "prac-pas-01", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
+      a: 1.0, b: -3, c: 0,
+      prompt: "Which word was paired with MAP?",
+      answer: "ROAD",
+      render: { kind: "pairs", pairs: [["MAP", "ROAD"], ["CUP", "SAUCER"]] },
+    },
+    {
+      id: "prac-pas-02", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
+      a: 1.0, b: -3, c: 0,
+      prompt: "Which word was paired with CLOUD?",
+      answer: "PILLOW",
+      render: { kind: "pairs", pairs: [["TRAIN", "LANTERN"], ["CLOUD", "PILLOW"], ["RIVER", "MARBLE"]] },
+    },
+  ],
   items: [
     {
       id: "pas-001", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
