@@ -87,6 +87,8 @@ const recurrenceWeightedSum = (a1: number, a2: number): Gen => (n) => {
 };
 
 const NSR_RULES: Record<string, Gen> = {
+  "nsr-017": constantDifference(1, 2), // +2 (basal)
+  "nsr-018": constantDifference(3, 1), // +1, counting (basal)
   "nsr-001": constantDifference(2, 3), // +3
   "nsr-002": constantDifference(5, 7), // +7
   "nsr-003": constantRatio(3, 2), // x2
@@ -114,8 +116,8 @@ function shownTerms(prompt: string): number[] {
     .map((s) => Number(s.trim()));
 }
 
-test("every number-series key re-derives from its encoded rule (nsr-001..016)", () => {
-  assert.equal(numberSeries.items.length, 16);
+test("every number-series key re-derives from its encoded rule (nsr-001..018)", () => {
+  assert.equal(numberSeries.items.length, 18);
   for (const item of numberSeries.items) {
     const gen = NSR_RULES[item.id];
     assert.ok(gen, item.id + " has no encoded rule in the test");
@@ -236,6 +238,8 @@ const QCP_CONST: Record<string, [() => number, () => number]> = {
   "qcp-016": [() => 1 / 2 + 1 / 3 + 1 / 7, () => 1],
   "qcp-017": [() => 7 ** 7, () => factorial(7)],
   "qcp-018": [() => 5 * 4 * 3, () => 60],
+  "qcp-019": [() => 3 + 4, () => 2 * 3],
+  "qcp-020": [() => 100 - 65, () => 100 - 25],
 };
 
 // Items with a free (qcp-009) or constrained (qcp-013) variable: each
@@ -248,8 +252,8 @@ const QCP_VARIABLE: Record<string, number[][]> = {
   "qcp-013": [4, -4].map((y) => [y, 4]),
 };
 
-test("every quant-comparison key holds when both quantities are recomputed (qcp-001..018)", () => {
-  assert.equal(quantComparison.items.length, 18);
+test("every quant-comparison key holds when both quantities are recomputed (qcp-001..020)", () => {
+  assert.equal(quantComparison.items.length, 20);
   for (const item of quantComparison.items) {
     assert.equal(item.options!.length, 4, item.id + " must have 4 options (c = 1/4)");
     assert.equal(item.c, 0.25, item.id + " c must be 1/4");
@@ -303,6 +307,8 @@ const QCP_STRUCTURE: Record<string, string> = {
   "qcp-016": "fraction-sum-vs-one",
   "qcp-017": "power-vs-factorial",
   "qcp-018": "permutation-count",
+  "qcp-019": "sum-vs-product",
+  "qcp-020": "remainder-subtraction",
 };
 
 test("no two adjacent quant-comparison items share surface structure and key (twin regression)", () => {

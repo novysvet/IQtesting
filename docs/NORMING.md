@@ -1,0 +1,127 @@
+# Norming Protocol — From Authored Priors to Sample-Referenced Scores
+
+**Status:** pipeline built, awaiting data. Every parameter in the bank remains an
+authored estimate; every percentile currently reported comes from
+`normalCdf(theta)` under an assumed N(0,1) population. This document is the
+operating procedure for replacing that assumption with collected data.
+
+---
+
+## 1. The problem being solved
+
+Two failure modes contaminate a norming sample, and both now have mechanical
+defenses:
+
+1. **Random responders.** An all-random examinee earns a provisional composite
+   near IQ 75 — the EAP prior shrinks chance-level performance up from the
+   floor, and nothing distinguished "random clicking" from "genuinely low
+   ability". Absorbed into a norm sample, such sessions deflate the mean and
+   corrupt every percentile derived from it.
+   **Defense:** `src/core/validity.ts` screens every session on three
+   independent signatures (§2). Invalid sessions are flagged on the results
+   screen (the score is struck through and declared uninterpretable) and the
+   verdict travels inside the export record.
+
+2. **Bank drift.** A norm table describes one exact item bank. After any item
+   edit the table is silently wrong.
+   **Defense:** every session and every norm table carries a `bankVersion`
+   content hash (`src/core/telemetry.ts`). The pipeline drops foreign-bank
+   sessions; `validateNorms` rejects tables that do not match the running bank.
+
+## 2. Validity screening (`src/core/validity.ts`)
+
+| Index | Signal | Thresholds |
+|---|---|---|
+| Person-fit z (lz-style, per subtest) | observed correct vs model-expected correct, each subtest evaluated at its OWN reporting-grade estimate (wide prior), pooled by Σp(1−p). Evaluating against the composite theta biases z at both tails; per-subtest evaluation is the standard multi-scale form. | invalid ≤ −3.0 · questionable ≤ −2.5 |
+| Difficulty gradient (theta-free) | point-biserial r(item b, correctness). Every engaged examinee, at any ability level, passes easy items and fails hard ones (r ≈ −0.13..−0.45 measured); guessing is difficulty-blind (r ≈ 0 ± 0.08). This signal carries guesser detection now that scoring reports chance-level performance honestly — at an honest low theta a guesser's pattern LOOKS consistent and lz alone weakens. Computed from n ≥ 60 with ≥ 5 correct and ≥ 15 wrong. | invalid when r > −0.12 AND fit z ≤ −1.5 · questionable when r > −0.12 |
+| Rapid responding | share of power-item (no per-item cap) responses under 2000 ms | invalid when ≥ 50% AND fit z ≤ −1.5 · questionable ≥ 40% |
+| Straight-lining | longest run of one chosen option index / modal share — computed ONLY over items with ≥ 3 options: binary formats produce long honest runs, and adaptive order reorders keys into streaks (keys are de-cycled, so genuine multi-option patterns wander) | invalid run ≥ 10 · questionable run ≥ 7 or modal ≥ 50% |
+| Insufficient | fewer than 20 scored responses | never normed |
+
+Verdicts: `valid` → `questionable` → `invalid`, plus `insufficient`.
+All thresholds are exported constants — change them in one place, tests follow.
+
+Scale-floor note (2026-08-21): reported scores use the wide reporting prior
+(`REPORT_PRIOR_SD`, `src/core/irt.ts`) and the ceiling-discontinue rule is
+floor-gated (`src/core/routing.ts`), so chance-level performance reports near
+IQ 50 instead of the mid-70s the old estimator produced (audit §9). Validity
+screening exists to keep such sessions OUT OF THE NORMING SAMPLE — not to
+rescue the score, which is already honest.
+
+## 3. Data collection
+
+1. Examinees complete the battery normally. The results screen offers
+   **Download response data (JSON)** — one `ExportDocument` per session
+   containing every response (raw answer, keyed position, latency, timeout,
+   ordinals), the composite estimate, and the validity verdict.
+2. Collect the JSON files into a directory, e.g. `data/exports/`.
+   One file per examinee; filenames are irrelevant to the pipeline.
+
+Minimum viable sample: **N ≥ 100** screened sessions (`MIN_NORM_SAMPLE`).
+Below that the pipeline still runs but `validateNorms` refuses to let the
+table back reported scores.
+
+## 4. Running the pipeline
+
+```
+node --experimental-strip-types tools/norming.ts data/exports --out data/norms.json
+```
+
+Options: `--include-questionable` keeps questionable sessions in the sample
+(default: excluded). The tool:
+
+1. Loads exports, skipping malformed/foreign-format files (all skips counted).
+2. Drops sessions whose `bankVersion` ≠ current bank.
+3. **Re-screens validity independently** — the embedded verdict is never
+   trusted; a tampered export cannot smuggle a bot into the sample.
+4. Computes per-item statistics over surviving sessions:
+   - p-value (proportion correct),
+   - corrected point-biserial (item-rest r),
+   - mean latency, timeout rate,
+   - flags: `too-easy(p≥.95)`, `at-or-below-guessing(p≤c+.05)`,
+     `weak-discrimination(r<.10, n≥30)`, `high-timeout(>.3)`.
+5. Writes two artifacts:
+   - `norms.json` — the `NormTable`: sorted composite thetas of the screened
+     sample plus provenance (bank hash, N, exclusions, collection window).
+   - `norms-report.md` — distribution percentiles, flagged items, exclusion log.
+
+## 5. Consuming the table (`src/core/norms.ts`)
+
+Once `norms.json` exists with N ≥ 100:
+
+- `empiricalPercentile(thetaSample, theta)` — midrank empirical CDF.
+- `probit(p)` — inverse normal for IQ-equivalent conversion.
+- `normedBand(theta, se, norms, currentBankVersion)` — full band:
+  percentile from the SAMPLE's own distribution, IQ equivalent as
+  `100 + 15·probit(percentile)`, CI endpoints mapped through the same
+  empirical curve (skew-honest, not assumed symmetric).
+- `validateNorms(norms, currentBankVersion)` — structural + provenance gate;
+  wrong bank, unsorted sample, or N < 100 returns false and callers must fall
+  back to the provisional normal-model band.
+
+Wiring point: results rendering swaps `score.g.percentile` for
+`normedBand(...)?.percentile ?? score.g.percentile` whenever a valid table for
+the running bank is available. Until then nothing changes on screen.
+
+## 6. What this does NOT do (yet)
+
+- **No IRT calibration.** Item a/b/c parameters are untouched. The pipeline
+  produces the diagnostics (p, r, flags) that tell you WHICH items to
+  re-anchor first; re-estimation from response matrices is the next stage and
+  should only run once N ≥ several hundred.
+- **No demographic stratification.** The first table references its own
+  convenience sample. Report it as such until recruitment is representative.
+- **No per-subtest norm tables.** Only the composite distribution is distilled;
+  subtest-level raw-score norms are an extension once the sample justifies it.
+
+## 7. Sequence summary
+
+```
+collect exports ──► tools/norming.ts ──► norms.json + report
+                        │                       │
+                 validity re-screen      validateNorms(bank match, N≥100)
+                        │                       │
+                        ▼                       ▼
+                flag/repair items ◄─── normedBand() in scoring
+                (DIFFICULTY_AUDIT §6)       (sample-referenced scores)
+```

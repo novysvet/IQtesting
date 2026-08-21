@@ -30,14 +30,29 @@ export function initRouting(config: RoutingConfig): RoutingState {
  *
  * Stop rules, checked in order:
  *  1. max-items   -- hard budget reached
- *  2. ceiling     -- N consecutive misses (SB5-style discontinue)
+ *  2. ceiling     -- N consecutive misses AND the descent has reached the
+ *                    bank floor (SB5-style discontinue, floor-gated)
  *  3. precision   -- SE(theta) below target, once minItems satisfied
  *  4. exhausted   -- pool empty
  *
- * The ceiling rule is checked before the precision rule on purpose: a run of
- * misses means we have bracketed the ceiling, and continuing past it costs
- * testing time while adding demoralizing, low-information items.
+ * The ceiling rule is floor-gated on purpose. A bare miss-streak stop censors
+ * the low end: a random or very-low-ability examinee accumulates misses long
+ * before routing has walked down to items near the bank's easiest b, so the
+ * estimate rests on failures of mid-band items and the prior inflates it
+ * (the "random responder scores IQ 75" defect). Misses only bracket the
+ * ceiling once they happen AT the floor — failing the easiest items in the
+ * bank is the discriminating evidence that places an examinee at/below it.
+ * Until state.theta is within FLOOR_BAND of the pool's minimum b, a miss
+ * streak just means "keep descending". maxItems still bounds every run.
  */
+const FLOOR_BAND = 0.75;
+
+function poolFloor(pool: Item[]): number {
+  let floor = Infinity;
+  for (const item of pool) if (item.b < floor) floor = item.b;
+  return floor;
+}
+
 export function nextItem(
   pool: Item[],
   state: RoutingState,
@@ -48,7 +63,10 @@ export function nextItem(
   if (n >= config.maxItems) return { item: null, stopReason: "max-items" };
 
   if (n >= config.minItems) {
-    if (state.consecutiveMisses >= config.ceilingMisses) {
+    if (
+      state.consecutiveMisses >= config.ceilingMisses &&
+      state.theta <= poolFloor(pool) + FLOOR_BAND
+    ) {
       return { item: null, stopReason: "ceiling" };
     }
     if (state.se <= config.targetSe) {

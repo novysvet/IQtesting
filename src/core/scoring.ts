@@ -1,5 +1,5 @@
 import type { BroadAbility, Item, Response, Subtest } from "./types.ts";
-import { estimateAbility } from "./irt.ts";
+import { estimateAbility, REPORT_PRIOR_SD } from "./irt.ts";
 
 /**
  * SCALE CAVEAT (read before interpreting any number this module returns):
@@ -9,6 +9,13 @@ import { estimateAbility } from "./irt.ts";
  * on a representative sample. They were NOT -- they are authored estimates.
  * So these standard scores are internally consistent and correctly ordered,
  * but their absolute level is unvalidated. Report them as provisional.
+ *
+ * FLOOR SEMANTICS: subtest scores are estimated with the wide reporting
+ * prior (REPORT_PRIOR_SD) so that chance-level performance follows the
+ * likelihood down instead of shrinking toward the population mean. A pure
+ * random responder therefore reports near IQ 50 -- the scale floor -- not
+ * the mid-70s the old unit-prior estimator produced. Routing still uses the
+ * unit prior internally (irt.ts); only reported numbers use the wide one.
  */
 
 export const SCALE_MEAN = 100;
@@ -81,7 +88,8 @@ export interface SubtestScore {
 export function scoreSubtest(subtest: Subtest, responses: Response[]): SubtestScore {
   const ids = new Set(subtest.items.map((i) => i.id));
   const mine = responses.filter((r) => ids.has(r.itemId));
-  const est = estimateAbility(subtest.items, mine);
+  // Wide reporting prior: see the floor-semantics note in the SCALE CAVEAT.
+  const est = estimateAbility(subtest.items, mine, { priorSd: REPORT_PRIOR_SD });
   return {
     subtestId: subtest.id,
     name: subtest.name,

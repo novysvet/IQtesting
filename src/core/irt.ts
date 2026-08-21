@@ -25,23 +25,29 @@ export function itemInformation(item: Pick<Item, "a" | "b" | "c">, theta: number
   return item.a ** 2 * (num / den);
 }
 
-const QUAD_MIN = -4.5;
-const QUAD_MAX = 4.5;
-const QUAD_N = 181;
+/**
+ * Quadrature span. The wide range matters for the REPORTING estimator: a
+ * chance-level response pattern carries genuine likelihood mass down to
+ * theta ~ -5 once the guessing asymptote is modelled, and truncating the
+ * grid at -4.5 would silently re-inflate exactly the scores this battery
+ * refuses to inflate. Routing never explores these depths (its prior keeps
+ * estimates conservative), but reporting must be able to follow the
+ * likelihood there.
+ */
+const QUAD_MIN = -7;
+const QUAD_MAX = 7;
+const QUAD_N = 225;
 
 export interface QuadPoint {
   theta: number;
-  prior: number;
 }
 
-/** Gauss-Hermite-style fixed grid with a standard normal prior. */
+/** Fixed uniform grid over the theta range (prior applied at estimation time). */
 function quadrature(): QuadPoint[] {
   const pts: QuadPoint[] = [];
   const step = (QUAD_MAX - QUAD_MIN) / (QUAD_N - 1);
   for (let i = 0; i < QUAD_N; i++) {
-    const theta = QUAD_MIN + i * step;
-    const prior = Math.exp(-0.5 * theta * theta);
-    pts.push({ theta, prior });
+    pts.push({ theta: QUAD_MIN + i * step });
   }
   return pts;
 }
@@ -58,20 +64,51 @@ export interface AbilityEstimate {
 }
 
 /**
+ * Prior SD for the REPORTING estimator (see estimateAbility). Routing keeps
+ * the population-scale N(0,1) prior because shrinkage there is stabilising.
+ * For reporting, an N(0,1) prior is actively wrong at the bottom of the
+ * scale: a chance-level examinee's likelihood supports theta ~ -3.5 and
+ * below, but with the short adaptive runs a discontinue produces, the unit
+ * prior outweighs that evidence and drags the estimate up to ~ -1.8 — which
+ * reported IQ 72-75 for random responding. A wide prior lets the likelihood
+ * speak where it has actually collected evidence, while leaving mid-range
+ * estimates (where evidence is densest) essentially unchanged: the prior
+ * stays centered at 0, so the population anchoring of the scale is intact.
+ */
+export const REPORT_PRIOR_SD = 2;
+
+export interface EstimateOptions {
+  /** Prior standard deviation. Default 1 (population scale, routing-grade). */
+  priorSd?: number;
+}
+
+/**
  * EAP (expected a posteriori) ability estimation.
  *
  * EAP rather than maximum likelihood because ML is undefined for all-correct
  * or all-incorrect response patterns -- which happen constantly in an adaptive
  * battery with short subtests. EAP stays finite and shrinks toward the prior
  * mean, which is the honest answer when evidence is thin.
+ *
+ * `priorSd` trades shrinkage against stability: 1 for routing (estimates must
+ * stay sane from 3 responses), REPORT_PRIOR_SD for scoring (reported numbers
+ * must follow the evidence to the floor of the scale instead of shrinking a
+ * random responder up to IQ 75).
  */
-export function estimateAbility(items: Item[], responses: Response[]): AbilityEstimate {
+export function estimateAbility(
+  items: Item[],
+  responses: Response[],
+  options: EstimateOptions = {},
+): AbilityEstimate {
   const byId = new Map(items.map((i) => [i.id, i]));
   const scored = responses.filter((r) => byId.has(r.itemId));
 
   if (scored.length === 0) {
-    return { theta: 0, se: 1, n: 0 };
+    return { theta: 0, se: options.priorSd && options.priorSd !== 1 ? options.priorSd : 1, n: 0 };
   }
+
+  const priorSd = options.priorSd ?? 1;
+  const logPriorNorm = -0.5 * Math.log(2 * Math.PI) - Math.log(priorSd);
 
   let sumW = 0;
   let sumWTheta = 0;
@@ -86,7 +123,9 @@ export function estimateAbility(items: Item[], responses: Response[]): AbilityEs
       const clamped = Math.min(Math.max(p, 1e-12), 1 - 1e-12);
       logLik += r.correct ? Math.log(clamped) : Math.log(1 - clamped);
     }
-    const w = q.prior * Math.exp(logLik);
+    // Normal(prior) in log space; the constant keeps weights comparable
+    // across prior widths so downstream variance maths needs no rescaling.
+    const w = Math.exp(logLik + logPriorNorm - 0.5 * (q.theta * q.theta) / (priorSd * priorSd));
     sumW += w;
     sumWTheta += w * q.theta;
     sumWTheta2 += w * q.theta * q.theta;

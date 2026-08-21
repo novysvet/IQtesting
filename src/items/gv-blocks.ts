@@ -19,20 +19,41 @@ import type { Item, Subtest } from "../core/types.ts";
  * re-derives total/visible/hidden from every height map with the same
  * visibility model and is the executable statement of these conventions.
  *
- * Content difficulty is anchored b -1.8 .. +1.9 on three dimensions: total
- * cubes (10 -> 24), HIDDEN fraction (0 -> 3 inferred cubes, with stacked
+ * Content difficulty is anchored b -2.8 .. +1.9 on three dimensions: total
+ * cubes (6 -> 24), HIDDEN fraction (0 -> 3 inferred cubes, with stacked
  * height-3 interiors on the hardest items), and footprint irregularity
- * (full 3x3 slabs at the floor; notched 4x4 / 5x4 terraces at the ceiling).
- * The hardest five items each bury 3 cubes; 14 of 15 items bury at least 1.
+ * (flat 3x3 slabs at the floor; notched 4x4 / 5x4 terraces at the ceiling).
+ * The hardest five items each bury 3 cubes; 14 of 17 items bury at least 1.
  * Footprints used: 3x3, 4x3, 3x4, 4x4, 5x4 (five distinct, all sides 3..5).
+ * The 2026-08-21 floor revision (docs/DIFFICULTY_AUDIT.md §9) added flat-slab
+ * basals blc-016/017 below the old -1.8 floor so chance-level performance can
+ * be located near the scale floor.
  *
  * CALIBRATION STATUS: authored estimates, not fitted to response data —
  * classic hidden-block counting format (visualization load). Parameters
  * produce an internally ordered scale; absolute placement is provisional
  * until norming data exists.
  */
-/** Authored bank: 15 piles in difficulty order with authored option orders. */
+/** Authored bank: 17 piles in difficulty order with authored option orders. */
 const BLOCK_BANK: Item[] = [
+  {
+    id: "blc-016", subtest: "blockCounting", broad: "Gv", narrow: "SR",
+    a: 0.9, b: -2.8, c: 0.2,
+    // flat 3x2 slab of height-1 cubes | total 6 | hidden 0 (basal)
+    prompt: "How many blocks are in the pile, including blocks you cannot see?",
+    options: ["5", "7", "6", "4", "8"],
+    answer: 2,
+    render: { kind: "blocks", cols: 3, rows: 3, heights: [1, 1, 1, 1, 1, 1, 0, 0, 0] },
+  },
+  {
+    id: "blc-017", subtest: "blockCounting", broad: "Gv", narrow: "SR",
+    a: 0.9, b: -2.5, c: 0.2,
+    // flat H-shape of height-1 cubes | total 7 | hidden 0 (basal)
+    prompt: "How many blocks are in the pile, including blocks you cannot see?",
+    options: ["6", "8", "7", "5", "9"],
+    answer: 2,
+    render: { kind: "blocks", cols: 3, rows: 3, heights: [1, 1, 1, 0, 1, 0, 1, 1, 1] },
+  },
   {
     id: "blc-001", subtest: "blockCounting", broad: "Gv", narrow: "SR",
     a: 1.0, b: -1.8, c: 0.2,

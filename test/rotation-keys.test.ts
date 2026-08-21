@@ -98,8 +98,10 @@ test("difficulty ladder is monotone and re-anchored to the audit range", () => {
   for (let i = 1; i < bs.length; i++) {
     assert.ok(bs[i]! >= bs[i - 1]!, "mental rotation b ladder must be monotone");
   }
-  assert.ok(Math.min(...bs) <= -1.5 && Math.max(...bs) <= 1.5, "2D rotation bank must stay inside the honest ceiling");
-  assert.equal(mentalRotation.items.length, 14);
+  // Floor extended to -3.2 by the 2026-08-21 basal revision (audit §9): the
+  // adaptive descent must be able to collect evidence at the scale floor.
+  assert.ok(Math.min(...bs) <= -3.0 && Math.max(...bs) <= 1.5, "2D rotation bank must stay inside the honest ceiling");
+  assert.equal(mentalRotation.items.length, 17);
   assert.ok(mentalRotation.routing.maxItems <= mentalRotation.items.length);
 });
 
