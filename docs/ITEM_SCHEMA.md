@@ -17,17 +17,22 @@ before authoring. Non-negotiables:
   position. The 2026-08-20 difficulty audit (docs/DIFFICULTY_AUDIT.md) found
   every position-based ladder mispriced the upper half by 0.5-1.5 logits.
 - `c` (guessing floor): EXACTLY `1/options.length` for multiple choice —
-  `1/C(options.length, multi)` when `multi` is set (Symbol Search's
-  two-option format yields 0.5). `0` for constructed-response (span, recall,
-  numeric entry) and for matching items.
+  `1/C(options.length, multi)` when `multi` is set. `0` for constructed-response
+  (span, recall, numeric entry), for matching items, and for every
+  guess-penalty format (Symbol Scan's click-the-match trials carry no options
+  grid and ship c = 0 even though blind clicking could succeed ~1/(row+1) —
+  the penalty contract makes errors evidence, not noise).
 - `answer`: index into `options` for MC. For constructed-response, the exact
   expected string, uppercase, no spaces (e.g. `"4917"`, `"KNIFE"`). For
   multi-select, the chosen option indices ascending, comma-joined
   (e.g. `"0,3,4"`). For matching items, the key word (see Whole-page
-  matching below).
-- `options`: 4 or 5 entries for MC (6 for multi-select Visual Puzzles;
-  2 for Symbol Search's `["No","Yes"]`). All distractors must be plausible.
+  matching below). For Symbol Scan trials, the 0-based row index of the
+  embedded target, or `row.length` when neither target occurs.
+- `options`: 4 or 5 entries for MC (6 for multi-select Visual Puzzles). All
+  distractors must be plausible.
   No joke options, no "none of the above", no giveaway grammar mismatches.
+  Symbol Scan has none: the search row itself is the response space, played
+  by `SymScanRun`.
 - `multi` (multi-select count): when set, exactly this many options must be
   chosen; `answer` holds the chosen indices as above and `c` is
   1/C(options.length, multi). Comparison runs through `normalise`, so
@@ -122,12 +127,19 @@ Ambiguous items are worse than easy items. Cut anything you cannot defend.
   meant (all Gs stimuli). Figures stay spec strings — never inline SVG — so
   stimuli, keys, and pixels stay in one machine-checkable system;
   `src/components/Figures.tsx` is the single place specs become pixels.
-- SYMBOL SEARCH (Gs): `render: { kind: "symsearch", targets, search }` —
-  exactly two target glyphs and a longer search row, each entry a glyph
-  spec. The question is membership: does either target occur in the search
-  row? Options are exactly `["No","Yes"]` (c = 0.5); the key follows from
-  set membership and must be re-derived in the bank's test. Rendered by
-  `SymSearchFigure` (`src/components/SpeedFigures.tsx`).
+- SYMBOL SCAN (Gs): `render: { kind: "symscan", targets, row }` — exactly two
+  target glyphs above one search row of 5–8 glyphs, each entry a glyph spec.
+  The examinee presses THE row cell matching either target, or the NO-symbol
+  control when neither appears; there is no options grid and no Yes/No. The
+  key is the embedded target's 0-based row index, or `row.length` (the NO
+  sentinel) when neither target occurs; the timeout path submits −1, which
+  can never equal a key. Rows must never repeat a glyph (a duplicate would
+  create two valid click targets). The bank carries the guess-penalty
+  contract (c = 0, `Subtest.guessPenalty`, penalty stated in instructions)
+  and is administered as a clock-bound 2-minute block (minItems = maxItems).
+  Rendered/played by `SymScanRun` (`src/components/SpeedFigures.tsx`).
+  Replaced the retired binary Yes/No Symbol Search (see DIFFICULTY_AUDIT
+  §11).
 - SYMBOL SELECTION (Gs): `render: { kind: "symqueue", legend, queue }` — a
   persistent legend binding eight nonsense glyphs (`src/components/
   glyphCatalog.ts`, ids g01..g08 with declared confusion classes) to the
@@ -208,10 +220,14 @@ semantics are fixed by `answerMatching` in `src/core/session.ts`:
 
 The expansion adds the CHC broad factor Gs with narrow ability P (perceptual
 speed: scanning; symbol/digit pairing under time pressure). Two subtests,
-both speeded with 3-minute budgets:
+both speeded and both carrying the guess-penalty contract
+(`Subtest.guessPenalty`: c = 0, behavioural time cost, explicit disclosure):
 
-- Symbol Search (`symbolSearch`): membership decisions over glyph arrays —
-  does either target occur in the search row? Yes/No, c = 0.5.
+- Symbol Scan (`symbolSearch`): a clock-bound two-minute locate-and-click
+  block — press the search-row cell matching either of two targets, or NO
+  SYMBOL when neither appears. Key = row index or row.length; c = 0.
+  Replaced binary Yes/No Symbol Search, whose 0.5 guessing floor let rapid
+  gambling ride for free (DIFFICULTY_AUDIT §11).
 - Symbol Selection (`symbolSelection`): choice-reaction over a visible queue
   of nonsense glyphs against a persistent glyph→home-row legend; pressed-key
   string, c = 0. Replaced Character Pairing, whose typed digit transcription
@@ -219,10 +235,10 @@ both speeded with 3-minute budgets:
 
 Composite g-weight is 0.7 (`G_WEIGHTS` in `src/core/scoring.ts`) — moderate,
 level with Gv, below Gf/Gc/Gq, above Glr. Difficulty in a speeded format is
-set jointly by content and time: items may carry `timeLimitSec`, and the
-3-minute section budget bounds the run. Authored ceilings stay low
-(+1.2 / +1.0) — perceptual speed is a floor-to-mid-range factor; do not
-pad its banks upward.
+set jointly by content and time: items carry `timeLimitSec`, Symbol Scan's
+section budget IS its 2-minute block, and the section budget bounds every
+run. Authored ceilings stay low (+1.2 / +1.0) — perceptual speed is a
+floor-to-mid-range factor; do not pad its banks upward.
 
 ## Norming telemetry
 
@@ -333,7 +349,7 @@ wave. `definitions` replaces `precisionLexicon` (Gc/VL, retired).
 | numberSeries | Number Series | Gq | RQ | 16 | — |
 | quantComparison | Quantitative Comparison | Gq | RQ | 19 | — |
 | arithmetic | Mental Arithmetic | Gq | RQ | 14 | NEW |
-| symbolSearch | Symbol Search | Gs | P | 3 | NEW |
+| symbolSearch | Symbol Scan | Gs | P | 2 | REBUILT 2026-08-22 (locate-and-click; replaces Yes/No Symbol Search) |
 | symbolSelection | Symbol Selection | Gs | P | 3 | NEWER (replaces charPairing) |
 | pairedAssociates | Paired Associates | Glr | MA | 15 | — |
 

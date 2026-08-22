@@ -301,7 +301,10 @@ test("answer format, options, c and multi are frozen per spec", () => {
     assert.deepEqual(key, [...key].sort((a, b) => a - b), item.id + " key must be ascending");
     assert.ok(key.every((i) => Number.isInteger(i) && i >= 0 && i < 6), item.id + " key index out of range");
     assert.equal(item.multi, 3, item.id + " multi must be 3");
-    assert.equal(item.c, 0.05, item.id + " c must be exactly 1/C(6,3) = 0.05");
+    // Effective guessing floor (2026-08-22): nominal 1/C(6,3) = 0.05 assumes
+    // blind selection; partial knowledge over near-miss distractors makes
+    // elimination easier, so the bank ships c = 0.10 until calibration.
+    assert.equal(item.c, 0.10, item.id + " c must equal the effective floor 0.10");
     assert.deepEqual(item.options, LABELS, item.id + " options must be Piece A..Piece F");
     assert.equal(new Set(item.options).size, 6, item.id + " option labels must be unique");
   }

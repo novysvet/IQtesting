@@ -7,7 +7,9 @@ const items = BATTERY.flatMap((s) => s.items);
 
 test("battery contains the complete authored pool", () => {
   assert.equal(BATTERY.length, 21);
-  assert.equal(items.length, 440);
+  // 2026-08-22 literature pass: +4 matrix, +5 figure series, +8 analogies,
+  // +12 sentence completion over the previous 458.
+  assert.equal(items.length, 487);
 });
 
 test("all item and subtest identifiers are unique", () => {
@@ -27,9 +29,17 @@ test("every item satisfies the schema and guessing contract", () => {
     assert.ok(Number.isFinite(item.a) && item.a > 0, item.id + " invalid a");
     assert.ok(Number.isFinite(item.b), item.id + " invalid b");
     if (item.multi !== undefined) {
-      // Multi-select: exact-N choice, c = 1/C(nOptions, multi), string key.
+      // Multi-select: exact-N choice, string key. c defaults to the nominal
+      // 1/C(nOptions, multi); a bank may instead ship an EFFECTIVE floor
+      // above nominal (partial-knowledge elimination over near-miss
+      // distractors makes blind guessing easier than nominal — visual
+      // puzzles ship 0.10 vs nominal 0.05) but never below it.
       assert.ok(item.options && item.options.length >= item.multi, item.id + " multi > options");
-      assert.equal(item.c, 1 / comb(item.options!.length, item.multi), item.id + " c must equal 1/C(options, multi)");
+      const nominal = 1 / comb(item.options!.length, item.multi);
+      assert.ok(
+        item.c === nominal || (item.c > nominal && item.c <= 0.15),
+        item.id + " c must be 1/C(options, multi) or an effective floor in (nominal, 0.15]",
+      );
       assert.equal(typeof item.answer, "string", item.id + " multi key must be a string");
       const idx = (item.answer as string).split(",").map(Number);
       assert.equal(idx.length, item.multi, item.id + " key must list exactly multi indices");
@@ -44,6 +54,17 @@ test("every item satisfies the schema and guessing contract", () => {
       assert.equal(typeof item.answer, "number", item.id + " MC key is not numeric");
       assert.ok((item.answer as number) >= 0 && (item.answer as number) < item.options.length, item.id + " key out of range");
       assert.equal(new Set(item.options).size, item.options.length, item.id + " repeats an option");
+    } else if (item.render?.kind === "symscan") {
+      // Symbol Scan trials: the row itself is the response space (rendered by
+      // SymScanRun, no options grid), and the key is the 0-based row index of
+      // the embedded target or row.length (the NO-symbol sentinel). Guessing
+      // is penalised by contract, so c = 0 rather than 1/(row+1).
+      assert.equal(item.c, 0, item.id + " symscan must carry the guess penalty (c = 0)");
+      assert.equal(typeof item.answer, "number", item.id + " symscan key is not numeric");
+      assert.ok(
+        (item.answer as number) >= 0 && (item.answer as number) <= item.render.row.length,
+        item.id + " symscan key out of range",
+      );
     } else {
       assert.equal(item.c, 0, item.id + " recall item must have c=0");
       assert.equal(typeof item.answer, "string", item.id + " recall key is not text");
@@ -69,11 +90,14 @@ const HONEST_SPANS: Record<string, { floor: number; ceiling: number }> = {
   digitSpan: { floor: -2.0, ceiling: 2.5 },
   numberSeries: { floor: -3.5, ceiling: 2.3 },
   paperFolding: { floor: -2.9, ceiling: 1.4 },
-  verbalAnalogies: { floor: -2.0, ceiling: 1.4 },
+  // 2026-08-22 ceiling extension: items 37-44 (rare-vocabulary, multi-
+  // element rationales) carry information above the audit's +1.5 ceiling.
+  verbalAnalogies: { floor: -2.0, ceiling: 2.8 },
   arithmetic: { floor: -2.5, ceiling: 2.6 },
   mentalRotation: { floor: -3.2, ceiling: 1.3 },
   letterNumberSeq: { floor: -2.0, ceiling: 2.5 },
-  figureSeries: { floor: -2.0, ceiling: 2.2 },
+  // 2026-08-22 conditional/interacting-rule items fs-015..019.
+  figureSeries: { floor: -2.0, ceiling: 3.0 },
   symbolSearch: { floor: -2.0, ceiling: 1.2 },
   generalInformation: { floor: -2.0, ceiling: 3.0 },
   visualPuzzles: { floor: -1.5, ceiling: 2.2 },
@@ -82,9 +106,13 @@ const HONEST_SPANS: Record<string, { floor: number; ceiling: number }> = {
   blockCounting: { floor: -2.8, ceiling: 1.9 },
   symbolSelection: { floor: -2.0, ceiling: 1.0 },
   analyticalReasoning: { floor: -1.5, ceiling: 2.5 },
-  antonyms: { floor: -1.44, ceiling: 2.28 },
+  // 2026-08-22: pair-minimum pricing shifts the floor up one notch (the
+  // easiest keys were rarer than their stems).
+  antonyms: { floor: -1.3, ceiling: 2.28 },
   sentenceCompletion: { floor: -2.0, ceiling: 2.4 },
-  pairedAssociates: { floor: -1.5, ceiling: 1.4 },
+  // 2026-08-22 multi-probe redesign: two-cue all-or-none recall re-anchored
+  // every b up 0.6 over the single-probe audit anchors.
+  pairedAssociates: { floor: -1.0, ceiling: 1.4 },
 };
 
 test("every subtest reaches its audit-honest basal and ceiling", () => {
@@ -106,9 +134,10 @@ test("every subtest reaches its audit-honest basal and ceiling", () => {
 
 test("Gc keys resolve to the authored correct answer after deterministic shuffling", () => {
   const gc = BATTERY.filter((s) => s.broad === "Gc").flatMap((s) => s.items);
-  // definitions(33, matching recall) + verbalAnalogies(36) + generalInformation(30)
-  // + artificialLanguage(18) + antonyms(37) + sentenceCompletion(20).
-  assert.equal(gc.length, 174);
+  // definitions(33, matching recall) + verbalAnalogies(44) + generalInformation(30)
+  // + antonyms(37) + sentenceCompletion(32). artificialLanguage(18) moved to
+  // Gf in the 2026-08-22 literature pass (grammar induction from exemplars).
+  assert.equal(gc.length, 176);
   for (const item of gc) {
     // Matching items (definitions) are recall: the key is the word itself.
     const answer = typeof item.answer === "string" ? item.answer : item.options?.[item.answer];

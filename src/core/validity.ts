@@ -247,12 +247,14 @@ export function screenSession(
   }
 
   // --- Straight-lining (MC single-select chosen indices) --------------------
-  // Restricted to items with >= 3 options: on binary (Yes/No) formats,
-  // position "concentration" is uninformative — even honest responding
-  // produces long same-answer runs, and adaptive administration order
-  // reorders keys so engaged examinees routinely streak 5+ identical
+  // Restricted to formats with >= 3 distinct response targets: on binary
+  // (Yes/No) formats, position "concentration" is uninformative — even honest
+  // responding produces long same-answer runs, and adaptive administration
+  // order reorders keys so engaged examinees routinely streak 5+ identical
   // choices there. Disengagement on binary items is caught by the latency
-  // and gradient signals instead.
+  // and gradient signals instead. Symbol Scan trials count as row+1-choice
+  // items (the clickable cells plus NO): a fixed-cell spammer produces long
+  // constant-index runs exactly like an option-position spammer.
   let bestRun = 0;
   let curRun = 0;
   let prev: number | null = null;
@@ -273,7 +275,9 @@ export function screenSession(
     }
     const chosen = typeof r.rawAnswer === "number" ? r.rawAnswer : null;
     if (chosen === null || chosen < 0) continue; // recall strings, blanks, timeout sentinels
-    if ((item.options?.length ?? 0) < 3 || item.multi !== undefined) continue;
+    const choiceCount = item.options?.length
+      ?? (item.render?.kind === "symscan" ? item.render.row.length + 1 : 0);
+    if (choiceCount < 3 || item.multi !== undefined) continue;
     mcTotal++;
     counts.set(chosen, (counts.get(chosen) ?? 0) + 1);
     curRun = chosen === prev ? curRun + 1 : 1;

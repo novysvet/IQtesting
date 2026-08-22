@@ -176,3 +176,130 @@ test("interrupted responses do not feed the discontinue miss streak", () => {
   st = applyResponse(st, offer, resp(offer.id, true));
   assert.equal(st.consecutiveMisses, 0, "a hit must reset the streak");
 });
+
+// ---------------------------------------------------------------------------
+// Exposure control + PSER no-gain stop + content blocks (2026-08-22)
+// ---------------------------------------------------------------------------
+
+test("randomesque selection stays inside the top-k informative set", async () => {
+  const { selectNextItem, RANDOMESQUE_K, itemInformation } = await import("../src/core/irt.ts");
+  const used = new Set<string>();
+  const ranked = [...pool]
+    .map((item) => ({ item, info: itemInformation(item, 0) }))
+    .sort((x, y) => y.info - x.info)
+    .slice(0, RANDOMESQUE_K)
+    .map((e) => e.item.id);
+  const topK = new Set(ranked);
+  const seen = new Set<string>();
+  let seed = 1;
+  const rng = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  for (let draw = 0; draw < 200; draw++) {
+    const pick = selectNextItem(pool, 0, used, { rand: rng });
+    assert.ok(pick, "pool is fresh, a pick must exist");
+    assert.ok(topK.has(pick.id), "randomesque pick escaped the top-k set: " + pick.id);
+    seen.add(pick.id);
+  }
+  assert.ok(seen.size >= 2, "200 draws should exercise more than one candidate");
+});
+
+test("randomesque selection is reproducible for a fixed seed", async () => {
+  const { selectNextItem } = await import("../src/core/irt.ts");
+  const used = new Set<string>();
+  const mkRng = (s: number) => {
+    let a = s >>> 0;
+    return () => {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  };
+  const first = selectNextItem(pool, 0, used, { rand: mkRng(42) });
+  const second = selectNextItem(pool, 0, used, { rand: mkRng(42) });
+  assert.equal(first!.id, second!.id, "same seed must yield the same item");
+});
+
+test("no-gain stop ends a run that has collapsed below the bank floor", () => {
+  // Pool floor at b = 0 (MC, c = 0.2). An all-wrong examinee collapses the
+  // estimate to theta ~ -2.5, where every remaining item sits at the chance
+  // asymptote: p -> c, Fisher information -> 0, and no remaining item can
+  // buy NO_GAIN_VARIANCE of posterior variance. The PSER rule must end the
+  // run after minItems (the miss-streak rule is defused via ceilingMisses 99
+  // so ONLY the information criterion can stop it).
+  const shallow = Array.from({ length: 10 }, (_, k) => mk(`sh-${k}`, k * 0.16));
+  const cfgS: RoutingConfig = {
+    maxItems: 10, minItems: 4, ceilingMisses: 99, targetSe: 0.40, entryTheta: 0,
+  };
+  let st = initRouting(cfgS);
+  let served = 0;
+  let guard = 0;
+  let stop: string | null = null;
+  for (;;) {
+    const step = nextItem(shallow, st, cfgS);
+    if (!step.item) { stop = step.stopReason; break; }
+    served++;
+    st = applyResponse(st, step.item, resp(step.item.id, false));
+    if (guard++ > 30) throw new Error("no-gain simulation did not terminate");
+  }
+  assert.equal(stop, "no-gain");
+  assert.ok(served < cfgS.maxItems, "an information-dead run must not grind to maxItems");
+  assert.ok(st.se > cfgS.targetSe, "precondition: the target was genuinely unreachable");
+});
+
+test("content blocks keep a block open until exhausted", () => {
+  const blocked = [
+    { ...mk("bl-a1", 0), block: "A" },
+    { ...mk("bl-a2", 0.2), block: "A" },
+    { ...mk("bl-a3", -0.2), block: "A" },
+    { ...mk("bl-b1", 0), block: "B" },
+    { ...mk("bl-b2", 0.2), block: "B" },
+  ];
+  const cfgB: RoutingConfig = { ...cfg, minItems: 2, maxItems: 5, ceilingMisses: 99, targetSe: 0.30 };
+  let st = initRouting(cfgB);
+  const order: string[] = [];
+  let guard = 0;
+  for (;;) {
+    const step = nextItem(blocked, st, cfgB);
+    if (!step.item) break;
+    order.push(step.item.id);
+    st = applyResponse(st, step.item, resp(step.item.id, true));
+    if (guard++ > 10) throw new Error("blocked route did not terminate");
+  }
+  // Once a block opens, no foreign-block item may appear until it exhausts.
+  let open: string | null = null;
+  for (const id of order) {
+    const block = blocked.find((i) => i.id === id)!.block!;
+    if (open === null) open = block;
+    else if (block !== open) open = block; // previous block exhausted — allowed
+  }
+  // Stronger form: the first three items all come from one block.
+  const firstThree = new Set(order.slice(0, 3).map((id) => blocked.find((i) => i.id === id)!.block));
+  assert.equal(firstThree.size, 1, "the opened block must be drained before switching: " + order.join(","));
+});
+
+test("sessionId-driven randomesque is reproducible and varies across sessions", () => {
+  const run = (sessionId: string) => {
+    let st = initRouting(cfg);
+    const ids: string[] = [];
+    let guard = 0;
+    for (;;) {
+      const step = nextItem(pool, st, cfg, sessionId);
+      if (!step.item) break;
+      ids.push(step.item.id);
+      st = applyResponse(st, step.item, resp(step.item.id, guard % 2 === 0));
+      if (guard++ > 40) break;
+    }
+    return ids;
+  };
+  const s1 = run("session-one");
+  const s1again = run("session-one");
+  assert.deepEqual(s1, s1again, "same session id must reproduce the same route");
+  let differs = false;
+  for (const other of ["session-two", "session-three", "session-four", "session-five"]) {
+    if (run(other).join(",") !== s1.join(",")) differs = true;
+  }
+  assert.ok(differs, "different sessions should rarely receive identical routes");
+});

@@ -5,11 +5,13 @@ import { lexiconData } from "../src/items/gc.ts";
 
 /**
  * Antonyms (ant-001..037): keys are double-entered — this file holds an
- * INDEPENDENT stem->opposite table, and the keyed option is located in the
- * item's display order by lookup, never by trusting the bank's index.
- * Difficulty is corpus-calibrated: b must equal 4 - zipf(stem), with every
- * stored zipf cross-checked against lexiconData so both Gc/VL banks can
- * never silently disagree about a word's frequency.
+ * INDEPENDENT stem->opposite table and an INDEPENDENT key-zipf table, and
+ * the keyed option is located in the item's display order by lookup, never
+ * by trusting the bank's index. Difficulty uses the ETS pair-minimum index
+ * (Enright & Bejar RR-89-35): b = 4 - min(zipf(stem), zipf(key)). Stem zipfs
+ * are cross-checked against lexiconData; key zipfs against this table
+ * (values generated from the same wordfreq 'en' source via
+ * tools/lexicon_zipf.py).
  */
 
 const KEY_TABLE: Record<string, string> = {
@@ -24,6 +26,19 @@ const KEY_TABLE: Record<string, string> = {
   capricious: "steadfast", cogent: "unconvincing", elucidate: "obfuscate",
   disparage: "extol", ameliorate: "worsen", inchoate: "mature",
   supercilious: "humble", ineluctable: "avoidable", equivocate: "disclose",
+};
+
+/** Independent wordfreq 'en' zipf of each KEY (double entry vs the bank). */
+const KEY_ZIPF: Record<string, number> = {
+  insignificant: 3.53, late: 5.34, right: 5.96, hard: 5.53, frail: 3.28,
+  public: 5.57, simple: 5.08, filthy: 3.80, impoverished: 3.35, obscure: 3.85,
+  harmless: 3.79, expensive: 4.69, deafening: 2.98, subtle: 4.08,
+  replete: 2.91, protracted: 3.26, diffident: 2.10, cowardly: 3.42,
+  trivial: 3.66, miserly: 2.33, eager: 4.03, rude: 4.25, yielding: 3.40,
+  arrogant: 3.74, adept: 3.33, idealistic: 3.14, credulous: 2.29,
+  reckless: 3.82, steadfast: 3.14, unconvincing: 2.69, obfuscate: 2.28,
+  extol: 2.30, worsen: 3.06, mature: 4.28, humble: 4.11, avoidable: 2.97,
+  disclose: 3.84,
 };
 
 function stemOf(prompt: string): string {
@@ -52,16 +67,23 @@ test("ids are exactly ant-001..ant-037 plus two practice items; stems unique", (
   assert.equal(new Set(stems).size, stems.length, "a stem repeats");
 });
 
-test("every stem is an attested lexiconData key and its stored zipf matches", () => {
+test("every stem is an attested lexiconData key; b prices the PAIR minimum", () => {
   for (const item of antonyms.items) {
     const stem = stemOf(item.prompt);
     const row = lexiconData.find(([, w]) => w === stem);
     assert.ok(row, stem + " is not a lexiconData key word");
-    const attested = row![3]![0]!;
-    const expected = Math.round((4 - attested) * 100) / 100;
+    const stemZipf = row![3]![0]!;
+    const key = KEY_TABLE[stem]!;
+    const keyZipf = KEY_ZIPF[key];
+    assert.ok(keyZipf !== undefined, key + " missing from the independent key-zipf table");
+    // ETS pair-minimum index (Enright & Bejar RR-89-35): the RARER of the
+    // stem and the key sets difficulty — knowing "quiet -> DEAFENING"
+    // requires the zipf-2.98 key, so b must reflect 2.98, not the stem's 4.65.
+    const expected = Math.round((4 - Math.min(stemZipf, keyZipf)) * 100) / 100;
     assert.equal(
       item.b, expected,
-      stem + " b drifts from the corpus calibration (zipf " + attested + ")",
+      stem + "/" + key + " b drifts from the pair-minimum calibration (stem " +
+        stemZipf + ", key " + keyZipf + ")",
     );
   }
 });
@@ -83,9 +105,9 @@ test("keys re-derive from the independent table; options are clean single words"
   }
 });
 
-test("corpus-capped honest span: floor <= -1.44, ceiling >= +2.28; a/c contract", () => {
+test("corpus-capped honest span: floor <= -1.39, ceiling >= +2.28; a/c contract", () => {
   const bs = antonyms.items.map((i) => i.b);
-  assert.ok(Math.min(...bs) <= -1.44, "floor must reach -1.44 (the definable pool cap)");
+  assert.ok(Math.min(...bs) <= -1.39, "floor must reach -1.39 (the definable pool cap)");
   assert.ok(Math.max(...bs) >= +2.28, "ceiling must reach +2.28 (equivocate)");
   for (const item of antonyms.items) {
     assert.equal(item.c, 0.2, item.id + " c must equal 1/5");

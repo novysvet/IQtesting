@@ -165,6 +165,42 @@ const ruleXorCondRot: RowRule = (c1, c2) => {
   return marks(...ruleXor(c1, c2).marks.map((m) => ({ shape, fill, rot: 0, pos: map[m.pos] })));
 };
 
+// mx-019 (2026-08-22 ceiling pass): XOR, then every survivor advances a
+// QUARTER-TURN clockwise (QUARTER_CW — a 90-degree grid rotation, the same
+// transform family as mx-012/mx-017, not mx-014's one-ring-step neighbor
+// move). Shape/fill ride along with the surviving marks.
+const ruleXorRotCW: RowRule = (c1, c2) => {
+  return marks(...ruleXor(c1, c2).marks.map((m) => reshape(m, QUARTER_CW[m.pos])));
+};
+
+// mx-020: union of positions; fill and shape are each the value MISSING from
+// {none, half, solid} / {tri, sq, cir} relative to the row's first two cells
+// (distribution of three over two attributes plus a union — the distractors
+// each violate exactly one constraint).
+const ruleTripleDistribution: RowRule = (c1, c2) => {
+  const missing = <T,>(domain: readonly T[], a: T, b: T): T => {
+    const left = domain.filter((v) => v !== a && v !== b);
+    assert.equal(left.length, 1, "distribution rule needs exactly one missing domain value");
+    return left[0]!;
+  };
+  const shape = missing(["tri", "sq", "cir"] as const, c1.marks[0]!.shape, c2.marks[0]!.shape);
+  const fill = missing(["none", "half", "solid"] as const, c1.marks[0]!.fill, c2.marks[0]!.fill);
+  const positions = new Set([...byPos(c1).keys(), ...byPos(c2).keys()]);
+  return marks(...[...positions].map((pos) => ({ shape, fill, rot: 0, pos })));
+};
+
+// mx-022: even total mark count -> intersection with solid fill; odd ->
+// symmetric difference with no fill.
+const ruleParitySetOp: RowRule = (c1, c2) => {
+  if ((c1.marks.length + c2.marks.length) % 2 === 0) {
+    const p1 = byPos(c1);
+    const out: MatrixMark[] = [];
+    for (const [pos, m] of p1) if (byPos(c2).has(pos)) out.push(reshape(m, pos, "solid"));
+    return marks(...out);
+  }
+  return marks(...ruleXor(c1, c2).marks.map((m) => reshape(m, m.pos, "none")));
+};
+
 const RULES: Record<string, RowRule> = {
   "mx-007": ruleUnion,
   "mx-008": ruleXor,
@@ -176,6 +212,9 @@ const RULES: Record<string, RowRule> = {
   "mx-014": ruleInterleave,
   "mx-016": ruleFillMod4,
   "mx-017": ruleXorCondRot,
+  "mx-019": ruleXorRotCW,
+  "mx-020": ruleTripleDistribution,
+  "mx-022": ruleParitySetOp,
 };
 
 /**
@@ -235,10 +274,14 @@ function structuredItems(): StructuredItem[] {
   });
 }
 
-test("the structured matrix set is exactly mx-007 through mx-018", () => {
+test("the structured matrix set is exactly mx-007 through mx-022 minus the legacy item", () => {
   const items = structuredItems();
-  assert.equal(items.length, 12);
-  assert.deepEqual(items.map((i) => i.id), Array.from({ length: 12 }, (_, i) => "mx-" + String(i + 7).padStart(3, "0")));
+  // mx-021 is a legacy-spec second-order rotation item (string options), so
+  // the structured set is every mx id from 007 to 022 except mx-021.
+  const expected = Array.from({ length: 16 }, (_, i) => "mx-" + String(i + 7).padStart(3, "0"))
+    .filter((id) => id !== "mx-021");
+  assert.equal(items.length, expected.length);
+  assert.deepEqual(items.map((i) => i.id), expected);
 });
 
 test("every structured item is well-formed and keys exactly its derived completion", () => {
@@ -340,8 +383,45 @@ test("mx-001 keys its legacy count-ladder rule", () => {
   assert.equal(hits[0]!.i, item.answer as number, "mx-001 key is not the derived ladder continuation");
 });
 
-test("mx-015 is a Latin square over shape, fill, AND position in rows and columns", () => {
-  const item = structuredItems().find((i) => i.id === "mx-015");
+test("mx-021 keys its second-order rotation progression (step doubles)", () => {
+  // Legacy-spec ceiling item: within each row the rotation step DOUBLES
+  // (+d then +2d), and both example rows refute the first-order reading
+  // in-stimulus (their third cells overshoot a constant step). The chief
+  // distractor is the first-order continuation of row 3.
+  const item = matrixReasoning.items.find((i) => i.id === "mx-021");
+  assert.ok(item, "mx-021 missing from the bank");
+  const render = item.render;
+  if (render?.kind !== "matrix") throw new Error("mx-021 must render a matrix");
+  const rot = (cell: string) => Number(cell.split(":")[3]);
+  const cells = render.cells as (string | null)[];
+  for (const r of [0, 1, 2]) {
+    const a = rot(cells[3 * r] as string);
+    const b = rot(cells[3 * r + 1] as string);
+    const step = (b - a + 360) % 360;
+    if (r < 2) {
+      const c = rot(cells[3 * r + 2] as string);
+      assert.equal((c - b + 360) % 360, (2 * step) % 360, "row " + (r + 1) + " third cell violates the doubling rule");
+    }
+    // Shape/count/fill constant within the row.
+    for (const attr of [0, 1, 2]) {
+      assert.equal(
+        (cells[3 * r] as string).split(":")[attr],
+        (cells[3 * r + 1] as string).split(":")[attr],
+        "row " + (r + 1) + " varies attribute " + attr,
+      );
+    }
+  }
+  // Row 3: 270 -> 0 (step 90) -> doubling gives 180.
+  const key = "tri:1:none:180";
+  const hits = (item.options ?? []).map((o, i) => ({ o, i })).filter(({ o }) => o === key);
+  assert.equal(hits.length, 1, "mx-021 derived key matches " + hits.length + " options");
+  assert.equal(hits[0]!.i, item.answer as number, "mx-021 key is not the second-order continuation");
+  // The first-order continuation (270, 0, +90 -> 90) must be present as a
+  // distractor so the item actually discriminates the two readings.
+  assert.ok((item.options ?? []).includes("tri:1:none:90"), "mx-021 must bait the first-order rule");
+});
+
+test("mx-015 is a Latin square over shape, fill, AND position in rows and columns", () => {  const item = structuredItems().find((i) => i.id === "mx-015");
   assert.ok(item);
   const grid = [...item.cells.slice(0, 8), item.optionCells[item.answer]!] as CellSpecV2[];
   for (const attr of ["shape", "fill", "pos"] as const) {

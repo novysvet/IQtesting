@@ -56,7 +56,13 @@ test("practice items satisfy the schema and guessing contract", () => {
   for (const { item } of practiceItems) {
     assert.ok(item.prompt.trim().length > 0, item.id + " missing prompt");
     if (item.multi !== undefined) {
-      assert.equal(item.c, 1 / comb(item.options!.length, item.multi), item.id + " c must equal 1/C(options, multi)");
+      // Same contract as bank-validation: nominal 1/C or an authored
+      // effective floor above it (visual puzzles ship 0.10 vs 0.05 nominal).
+      const nominal = 1 / comb(item.options!.length, item.multi);
+      assert.ok(
+        item.c === nominal || (item.c > nominal && item.c <= 0.15),
+        item.id + " c must be 1/C(options, multi) or an effective floor",
+      );
       const idx = (item.answer as string).split(",").map(Number);
       assert.equal(idx.length, item.multi, item.id + " key size mismatch");
       for (const i of idx) assert.ok(i >= 0 && i < item.options!.length, item.id + " key out of range");
@@ -246,19 +252,23 @@ test("practice keys re-derive per format", () => {
       const derived = rule(r.figures);
       assert.equal(item.options![item.answer as number], derived, item.id + " key does not match rule derivation");
     } else if (subtest.id === "pairedAssociates") {
-      // Same derivation as the scored twins (memory-banks): the prompt's cue
-      // must resolve to exactly one pair whose target is the key.
+      // Same derivation as the scored twins (memory-banks): the prompt's TWO
+      // cues must resolve in order to the answer's two targets.
       mark("pairedAssociates");
       assert.equal(r?.kind, "pairs", item.id + " is not a pairs item");
       if (r?.kind !== "pairs") continue;
-      const cueMatch = /paired with (.+)\?$/.exec(item.prompt);
-      assert.ok(cueMatch, item.id + " prompt does not name a cue");
-      const cue = normalise(cueMatch[1]!);
-      const probed = r.pairs.filter(([c]) => normalise(c) === cue);
-      assert.equal(probed.length, 1, item.id + ": probed cue is missing or duplicated in the study list");
-      assert.equal(normalise(item.answer as string), normalise(probed[0]![1]), item.id + " key is not the probed cue's target");
-      const targets = r.pairs.filter(([, t]) => normalise(t) === normalise(item.answer as string));
-      assert.equal(targets.length, 1, item.id + ": the key is also another pair's target (ambiguous probe)");
+      const cueMatch = /paired with (.+?) and with (.+?)\?/.exec(item.prompt);
+      assert.ok(cueMatch, item.id + " prompt does not name two cues");
+      const cues = [normalise(cueMatch[1]!), normalise(cueMatch[2]!)];
+      const targets = (item.answer as string).split(",").map((t) => normalise(t.trim()));
+      assert.equal(targets.length, 2, item.id + " key must carry two targets");
+      for (let k = 0; k < 2; k++) {
+        const probed: Array<readonly [string, string]> = r.pairs.filter(
+          ([c]: readonly [string, string]) => normalise(c) === cues[k],
+        );
+        assert.equal(probed.length, 1, item.id + ": probed cue " + k + " is missing or duplicated in the study list");
+        assert.equal(normalise(probed[0]![1]), targets[k], item.id + ": cue " + k + " does not resolve to target " + k);
+      }
     } else if (subtest.id === "analyticalReasoning") {
       // Same derivation as the scored twins (analytical): verify against the
       // full permutation space per question form.
@@ -347,11 +357,12 @@ test("practice keys re-derive per format", () => {
         assert.equal(item.options![item.answer as number], derived, item.id + " key is not the derived plural " + derived);
         assert.notEqual(derived, stem, item.id + ": the plural must be morphologically marked");
       }
-    } else if (r?.kind === "symsearch") {
+    } else if (r?.kind === "symscan") {
       mark("symsearch");
-      // Key follows set membership exactly.
-      const expected = r.targets.some((t) => r.search.includes(t)) ? 1 : 0;
-      assert.equal(item.answer, expected, item.id + " symsearch key wrong");
+      // Key = row index of the embedded target, else row.length (NO symbol).
+      const hit = r.row.findIndex((g) => g === r.targets[0] || g === r.targets[1]);
+      const expected = hit === -1 ? r.row.length : hit;
+      assert.equal(item.answer, expected, item.id + " symscan key wrong");
     } else if (r?.kind === "symqueue") {
       mark("symqueue");
       // Key string re-derived from the persistent legend.

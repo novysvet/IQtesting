@@ -12,11 +12,11 @@ import { optionPermutation } from "./core/presentation.ts";
 import { fetchNorms, normedBand } from "./core/norms.ts";
 import type { NormTable } from "./core/norms.ts";
 import { Figure, FoldDiagram, HoleGrid, MatrixFigure, RotationFigure, SeriesFigure, StructuredCell } from "./components/Figures.tsx";
-import { SymSearchFigure } from "./components/SpeedFigures.tsx";
+import { SymScanRun } from "./components/SpeedFigures.tsx";
 import { SymQueueRun } from "./components/SymQueue.tsx";
 import { BlocksFigure, PuzzleTargetFigure, PuzzlePieceFigure } from "./components/SpatialFigures.tsx";
 import { MatchingScreen } from "./components/Matching.tsx";
-import { spanDurationMs, spanFrame } from "./core/memoryTiming.ts";
+import { pairsDurationMs, spanDurationMs, spanFrame } from "./core/memoryTiming.ts";
 
 /** Vite env access kept stringly-typed so plain tsc builds need no vite/client types. */
 function envVar(name: string): string | undefined {
@@ -75,12 +75,6 @@ function InstrumentHeader({ session, now }: { session: ReturnType<typeof initSes
   </header>;
 }
 
-/** Pairs exposure duration — one constant shared by the exposure timer and the
- * render, so the "STUDY INTERVAL COMPLETE" switch matches the onReady flip. */
-function pairsDurationMs(pairs: number): number {
-  return Math.max(6000, pairs * 1400);
-}
-
 function MemoryPresentation({ render, onReady, onInvalid }: { render: Extract<ItemRender, { kind: "span" | "pairs" }>; onReady: (ready: boolean) => void; onInvalid: () => void }) {
   const [elapsed, setElapsed] = useState(0);
   useEffect(() => {
@@ -108,7 +102,7 @@ function MemoryPresentation({ render, onReady, onInvalid }: { render: Extract<It
     const duration = pairsDurationMs(render.pairs.length);
     return elapsed < duration
       ? <div className="pair-study">{render.pairs.map(([a, b]) => <div key={a}><strong>{a}</strong><span>{b}</span></div>)}</div>
-      : <div className="memory-closed"><span>STUDY INTERVAL COMPLETE</span>Enter the requested associate.</div>;
+      : <div className="memory-closed"><span>STUDY INTERVAL COMPLETE</span>Enter the requested associates, in the order asked, separated by a comma.</div>;
   }
   const frame = spanFrame(elapsed, render.sequence.length);
   if (frame.kind === "ready") return <div className="span-stage span-ready"><span>READY</span><small>Watch the center. The first character will appear shortly.</small></div>;
@@ -124,7 +118,6 @@ function ItemVisual({ item, onMemoryReady, onMemoryInvalid }: { item: Item; onMe
   if (r.kind === "series") return <SeriesFigure figures={r.figures} />;
   if (r.kind === "fold") return <FoldDiagram steps={r.steps} punches={JSON.parse(r.result) as [number, number][]} />;
   if (r.kind === "rotation") return <div className="rotation-target"><span className="label">Target</span><RotationFigure spec={r.target} size={112} /></div>;
-  if (r.kind === "symsearch") return <SymSearchFigure targets={r.targets} search={r.search} />;
   if (r.kind === "blocks") return <BlocksFigure cols={r.cols} rows={r.rows} heights={r.heights} />;
   if (r.kind === "vpuzzle") return <div className="puzzle-wrap"><span className="label">Target</span><PuzzleTargetFigure cols={r.cols} rows={r.rows} cells={r.target} /></div>;
   if (r.kind === "span" || r.kind === "pairs") return <MemoryPresentation render={r} onReady={onMemoryReady} onInvalid={onMemoryInvalid} />;
@@ -223,16 +216,19 @@ function ItemScreen({ item, sectionName, itemNumber, sessionId, practice, onAnsw
   };
   const optionGridClass = "options" + (multi > 0 ? " options--six" : item.options?.length === 2 ? " options--pair" : item.options?.length === 6 ? " options--six" : "");
   const displayOptions = item.options ? (perm ? perm.map((i) => item.options![i]!) : item.options) : null;
-  // Symbol Selection owns its input: the queue submits itself on completion,
-  // so no answer UI and no record button are rendered for it.
+  // Symbol Selection and Symbol Scan own their input (a key queue and a
+  // click-the-match row respectively): each submits itself, so no answer UI
+  // and no record button are rendered for them.
   const symqueue = item.render?.kind === "symqueue" ? item.render : null;
+  const symscan = item.render?.kind === "symscan" ? item.render : null;
   return <section className="item-screen" key={item.id}>
     <div className="item-meta"><span className="label">{sectionName}</span><span className="num">{practice ? "SAMPLE" : "Item " + String(itemNumber).padStart(2, "0")}</span></div>
     <div className="item-work">
       <ItemVisual item={item} onMemoryReady={setMemoryReady} onMemoryInvalid={() => onAnswer("", true, { interrupted: true })} />
       {memoryReady && <h1 className="item-prompt" ref={promptRef} tabIndex={-1}>{item.prompt}</h1>}
       {memoryReady && symqueue && <SymQueueRun legend={symqueue.legend} queue={symqueue.queue} onSubmit={(raw) => onAnswer(raw, false, { awayMs: awayRef.current || undefined })} />}
-      {!symqueue && memoryReady && displayOptions && <div className={optionGridClass} role="group" aria-label="Answer choices">
+      {memoryReady && symscan && <SymScanRun targets={symscan.targets} row={symscan.row} timeLimitSec={item.timeLimitSec} onSubmit={(raw) => onAnswer(raw, false, { awayMs: awayRef.current || undefined })} />}
+      {!symqueue && !symscan && memoryReady && displayOptions && <div className={optionGridClass} role="group" aria-label="Answer choices">
         {displayOptions.map((option, i) => <button key={i} type="button"
           aria-pressed={multi > 0 ? picked.has(i) : selected === i}
           className={"option " + (multi > 0 ? picked.has(i) ? "is-selected" : "" : selected === i ? "is-selected" : "")}
@@ -240,9 +236,9 @@ function ItemScreen({ item, sectionName, itemNumber, sessionId, practice, onAnsw
           <span className="option-key num">{String.fromCharCode(65 + i)}</span><OptionContent item={item} option={option} index={perm ? perm[i]! : i} />
         </button>)}
       </div>}
-      {!symqueue && memoryReady && !displayOptions && <label className="recall-field"><span className="label">Your response</span><input autoFocus value={text} maxLength={256} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoComplete="off" spellCheck={false} /></label>}
+      {!symqueue && !symscan && memoryReady && !displayOptions && <label className="recall-field"><span className="label">Your response</span><input autoFocus value={text} maxLength={256} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") submit(); }} autoComplete="off" spellCheck={false} /></label>}
     </div>
-    <div className="item-actions"><span>{practice ? "This sample is not scored or recorded. " : ""}{multi > 0 ? "Select exactly " + multi + " pieces. " : ""}{symqueue ? "The queue submits itself when complete. " : practice ? "Continue" : "Answer once. You cannot return to this item."}</span>{!symqueue && <button className="primary" onClick={submit} disabled={!memoryReady || (constructed ? !text.trim() : multi > 0 ? picked.size !== multi : selected === null)}>{practice ? "Continue" : <>Record answer <span aria-hidden="true">→</span></>}</button>}</div>
+    <div className="item-actions"><span>{practice ? "This sample is not scored or recorded. " : ""}{multi > 0 ? "Select exactly " + multi + " pieces. " : ""}{symqueue ? "The queue submits itself when complete. " : ""}{symscan ? "Wrong presses are subtracted — do not guess. The trial submits itself. " : ""}{!symqueue && !symscan ? practice ? "Continue" : "Answer once. You cannot return to this item." : ""}</span>{!symqueue && !symscan && <button className="primary" onClick={submit} disabled={!memoryReady || (constructed ? !text.trim() : multi > 0 ? picked.size !== multi : selected === null)}>{practice ? "Continue" : <>Record answer <span aria-hidden="true">→</span></>}</button>}</div>
   </section>;
 }
 
@@ -438,7 +434,6 @@ function CheckpointScreen({ session, onContinue }: {
                 <small className="num">CI {s.band.ci95[0]}–{s.band.ci95[1]} · P{s.band.percentile}</small>
               </article>)}
             </div>
-            <p className="checkpoint-note label">Provisional research estimates — authored item parameters, not yet normed.</p>
             <div className="checkpoint-actions">
               <button className="primary" onClick={onContinue}>Next section <span aria-hidden="true">→</span></button>
               <button className="secondary" onClick={() => setStopping(true)}>Save &amp; finish later</button>
@@ -498,10 +493,11 @@ function Results({ session, onReset }: { session: ReturnType<typeof initSession>
         {BATTERY.map((subtest) => {
           const s = score.subtests.find((x) => x.subtestId === subtest.id);
           if (!s) return <article key={subtest.id} className="is-pending"><div><strong className="num">—</strong><span>{subtest.name}</span></div><small>not administered</small></article>;
+          const penalised = subtest.guessPenalty === true && s.errors > 0;
           return <article key={subtest.id}>
             <div><strong className="num">{s.band.score}</strong><span>{s.name}</span></div>
             <div className="factor-track"><i style={{ width: Math.max(2, Math.min(100, ((s.band.score - 55) / 90) * 100)) + "%" }} /></div>
-            <small className="num">{s.raw}/{s.itemsAdministered} correct · CI {s.band.ci95[0]}–{s.band.ci95[1]} · P{s.band.percentile}</small>
+            <small className="num">{s.raw}/{s.itemsAdministered} correct{penalised ? ` · ${s.errors} error${s.errors === 1 ? "" : "s"} penalised (net ${Math.max(0, s.raw - s.errors)})` : ""} · CI {s.band.ci95[0]}–{s.band.ci95[1]} · P{s.band.percentile}</small>
           </article>;
         })}
       </div>

@@ -524,3 +524,53 @@ post-fix each sits at or near its format's chance floor, and the new
 regression guards bound any residual concentration (quant comparison's C
 remains modal by one item, 6/20 vs 5/20 — documented, guarded, accepted).
 None of this validates the difficulty scale.
+
+## §11 2026-08-22 Symbol Search replacement (binary Yes/No → locate-and-click Symbol Scan)
+
+### 11.1 Why the binary format was retired
+
+The §10 regeneration had already pinned the single-slot scan exploit at its
+format-inherent floor (22–23/30), but the deeper defect was structural: a
+two-option decision cannot separate scanning speed from gambling tolerance.
+
+- **The guessing asymptote was the design.** c = 0.5 encoded that a coin
+  flip succeeds half the time, so "answer everything instantly" had near-zero
+  expected cost; the measure partly reflected gamble tolerance, not PSI.
+- **The response never located anything.** "Is either target present?" can
+  be answered from a fuzzy gestalt of the row without ever finding a glyph —
+  the motor confirmation that makes cancellation tasks measure perceptual
+  speed was missing.
+
+### 11.2 The replacement
+
+`symbolSearch` is now **Symbol Scan** (ssr-001..048, render kind `symscan`):
+two target glyphs above one row of 5–8 nonsense glyphs; the examinee presses
+THE row cell that matches either target, or the NO-symbol control when
+neither appears. The key is the matched cell's row index (row.length = NO
+sentinel; timeout submits −1, which can never equal a key).
+
+- **Administration is clock-bound:** budgetMin 2 (the section clock IS the
+  120-second block, cancellation-task style), per-trial caps of row+3
+  seconds convert stalls into scored timeouts, and minItems = maxItems = 40
+  disables every adaptive stop before the clock — a precision stop would
+  censor exactly the fastest examinees, the worst outcome for a speed test.
+- **Guess penalty (Subtest.guessPenalty, both Gs subtests):** c = 0 (errors
+  are evidence, not noise), wrong clicks flash and burn ~0.5 s, instructions
+  state the subtraction plainly, and the results dashboard reports the raw
+  tally net of penalised errors. Blind clicking succeeds ~1/(row+1) while
+  every error subtracts — expected value is negative by construction.
+- **Difficulty architecture** keeps the tiered near-miss engineering
+  (E/M/H by row length × salience), b span −2.0..+1.2, a hand-decoupled
+  (|corr(a,b)| < 0.9 guard retained), plus new guards: no duplicate glyphs
+  in a row (two valid targets would corrupt the key), slot balance, index
+  spread, and a modal-answer ceiling against fixed-position spam.
+- **Validity screening** now counts Symbol Scan trials as row+1-choice items
+  in the straight-lining signal (a fixed-cell spammer runs constant indices).
+
+### 11.3 Standing caveat
+
+All ssr a/b values remain authored estimates; the format change resets the
+bank's calibration status exactly as any new bank would. The retired
+binary bank's responses are not comparable to Symbol Scan responses (new
+bankVersion hash), so mixed-form norming data must be filtered by hash as
+the pipeline already requires.

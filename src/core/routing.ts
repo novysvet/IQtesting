@@ -1,5 +1,6 @@
 import type { Item, Response, RoutingConfig, RoutingDecision } from "./types.ts";
-import { estimateAbility, selectNextItem } from "./irt.ts";
+import { estimateAbility, itemInformation, pCorrect, selectNextItem } from "./irt.ts";
+import { hashSeed, seededRandom } from "./presentation.ts";
 
 export interface RoutingState {
   administered: Item[];
@@ -13,7 +14,23 @@ export interface RoutingState {
   decisions: RoutingDecision[];
 }
 
-export type StopReason = "ceiling" | "precision" | "exhausted" | "max-items" | "time-limit";
+export type StopReason = "ceiling" | "precision" | "no-gain" | "exhausted" | "max-items" | "time-limit";
+
+/**
+ * PSER no-gain threshold (Choi, Grady & Dodd 2010). The rule stops a run
+ * once the BEST remaining item is expected to shrink the posterior VARIANCE
+ * by less than this amount — predicted-standard-error-reduction stopping.
+ * PSER's simulated optimum sat between hypo = 0.015 (stop) and hyper = 0.025
+ * (continue) on PROMIS banks whose items carry peak information near 1.0;
+ * this battery's authored 3PL items peak near 0.3, and the threshold scales
+ * with item strength — one perfectly-targeted item buys only ~0.02 variance
+ * at SE 0.50 here, so the unrescaled threshold would preempt the precision
+ * target itself. 0.005 fires only once the best remaining item exceeds
+ * p(correct) ~ 0.95 at the estimate: a genuinely outgrown ceiling or floor,
+ * where a plain SE target the pool cannot deliver would otherwise grind to
+ * maxItems buying thousandths of a logit.
+ */
+const NO_GAIN_VARIANCE = 0.005;
 
 export function initRouting(config: RoutingConfig): RoutingState {
   return {
@@ -36,7 +53,12 @@ export function initRouting(config: RoutingConfig): RoutingState {
  *  2. ceiling     -- N consecutive misses AND the descent has reached the
  *                    bank floor (SB5-style discontinue, floor-gated)
  *  3. precision   -- SE(theta) below target, once minItems satisfied
- *  4. exhausted   -- pool empty
+ *  4. no-gain     -- PSER: even the best unused item cannot reduce the
+ *                    posterior variance by NO_GAIN_VARIANCE (fires when the
+ *                    bank ceiling/floor has been outgrown — an SE target the
+ *                    pool cannot deliver ends the run instead of grinding
+ *                    to maxItems for negligible information)
+ *  5. exhausted   -- pool empty
  *
  * The ceiling rule is floor-gated on purpose. A bare miss-streak stop censors
  * the low end: a random or very-low-ability examinee accumulates misses long
@@ -47,6 +69,19 @@ export function initRouting(config: RoutingConfig): RoutingState {
  * bank is the discriminating evidence that places an examinee at/below it.
  * Until state.theta is within FLOOR_BAND of the pool's minimum b, a miss
  * streak just means "keep descending". maxItems still bounds every run.
+ *
+ * EXPOSURE CONTROL: with a non-degenerate sessionId, selection is
+ * randomesque — one of the k=6 most informative unused items, chosen by a
+ * PRNG seeded from (sessionId, subtest, step) so every session is
+ * reproducible but two examinees of equal ability see different items
+ * (Kingsbury & Zara 1989; k=6 per Leroux & Dodd 2019). Without a sessionId
+ * (tests, simulations, calibration forms) selection stays deterministic
+ * maximum-information.
+ *
+ * CONTENT BLOCKS: when the last administered item carries Item.block and
+ * unused items of that block remain, selection is restricted to the block —
+ * grammar-style banks contaminate measurement when languages interleave
+ * mid-run (learnability transfers across blocks; IRT assumes stationarity).
  *
  * FIXED-FORM mode (config.fixedOrder): serve the precomputed order and apply
  * NO adaptive stop rules — every examinee sees the same items in the same
@@ -61,14 +96,53 @@ function poolFloor(pool: Item[]): number {
   return floor;
 }
 
+/**
+ * Expected reduction in posterior variance from administering the single
+ * most informative unused item (the PSER ExpRed statistic). Both response
+ * branches are re-estimated with the routing prior and mixed by P(correct)
+ * at the current theta.
+ */
+function expectedVarianceGain(pool: Item[], state: RoutingState, block: string | undefined): number {
+  const used = new Set(state.administered.map((i) => i.id));
+  let best: Item | null = null;
+  let bestInfo = -Infinity;
+  for (const item of pool) {
+    if (used.has(item.id)) continue;
+    if (block !== undefined && item.block !== block) continue;
+    const info = itemInformation(item, state.theta);
+    if (info > bestInfo) {
+      best = item;
+      bestInfo = info;
+    }
+  }
+  if (!best) return 0;
+  const p = pCorrect(best, state.theta);
+  const admin = [...state.administered, best];
+  const base = { latencyMs: 0, timedOut: false };
+  const estC = estimateAbility(admin, [...state.responses, { ...base, itemId: best.id, correct: true }]);
+  const estW = estimateAbility(admin, [...state.responses, { ...base, itemId: best.id, correct: false }]);
+  const varNow = state.se * state.se;
+  const varNext = p * estC.se * estC.se + (1 - p) * estW.se * estW.se;
+  return varNow - varNext;
+}
+
 export function nextItem(
   pool: Item[],
   state: RoutingState,
   config: RoutingConfig,
+  sessionId?: string,
 ): { item: Item | null; stopReason: StopReason | null } {
   const n = state.responses.length;
 
   if (n >= config.maxItems) return { item: null, stopReason: "max-items" };
+
+  const used = new Set(state.administered.map((i) => i.id));
+  // Content block: stay inside the open block while it has items left.
+  const last = state.administered[state.administered.length - 1];
+  const openBlock =
+    last?.block !== undefined && pool.some((i) => i.block === last.block && !used.has(i.id))
+      ? last.block
+      : undefined;
 
   if (!config.fixedOrder && n >= config.minItems) {
     if (
@@ -80,13 +154,17 @@ export function nextItem(
     if (state.se <= config.targetSe) {
       return { item: null, stopReason: "precision" };
     }
+    // An empty pool is exhaustion, not a no-gain stop — the distinction is
+    // calibration telemetry (bank too small vs bank ceiling outgrown).
+    const remaining = pool.length - used.size;
+    if (remaining > 0 && expectedVarianceGain(pool, state, openBlock) < NO_GAIN_VARIANCE) {
+      return { item: null, stopReason: "no-gain" };
+    }
   }
 
-  const used = new Set(state.administered.map((i) => i.id));
-  let item: Item | null;
+  let item: Item | null = null;
   if (config.fixedOrder) {
     const byId = new Map(pool.map((i) => [i.id, i]));
-    item = null;
     for (const id of config.fixedOrder) {
       if (used.has(id)) continue;
       const candidate = byId.get(id);
@@ -96,7 +174,13 @@ export function nextItem(
       }
     }
   } else {
-    item = selectNextItem(pool, state.theta, used);
+    // Reproducible per-step randomness: the seed folds in the session, the
+    // subtest's first item id (a stable bank identifier), and the step.
+    const rand =
+      sessionId && pool[0]
+        ? seededRandom(hashSeed(sessionId + "\u0000" + pool[0].subtest + "\u0000" + String(n)))
+        : undefined;
+    item = selectNextItem(pool, state.theta, used, { rand, block: openBlock });
   }
   if (!item) return { item: null, stopReason: "exhausted" };
   return { item, stopReason: null };

@@ -1,12 +1,13 @@
 import type { Item, Subtest } from "../core/types.ts";
 
 /**
- * Artificial Language (Gc / LD): three constructed mini-languages, each
- * presented as a word list plus worked example sentences that fully determine
- * its lexicon, morphology, and syntax. Items ask for translations of novel
- * words, phrases, and sentences in both directions. Every item prompt is
- * self-contained (the full materials block repeats per item because items are
- * administered independently, as in the paper original).
+ * Artificial Language (Gf / I — relabelled 2026-08-22, see the subtest
+ * comment below): three constructed mini-languages, each presented as a word
+ * list plus worked example sentences that fully determine its lexicon,
+ * morphology, and syntax. Items ask for translations of novel words,
+ * phrases, and sentences in both directions. Every item prompt is
+ * self-contained (the full materials block repeats per item because items
+ * are administered independently, as in the paper original).
  *
  * CALIBRATION STATUS: all a/b parameters are authored estimates, not fitted
  * to response data. Format lineage: the Artificial Language subtest of the
@@ -808,8 +809,12 @@ function buildArtlangItems(): Item[] {
     return {
       id: spec.id,
       subtest: "artificialLanguage",
-      broad: "Gc",
-      narrow: "LD",
+      broad: "Gf",
+      narrow: "I",
+      // Language block: routing keeps one language open until exhausted so
+      // grammar learnability does not transfer across languages mid-run
+      // (an IRT stationarity violation; see Item.block).
+      block: spec.lang,
       a: spec.a,
       b: spec.b,
       c: 0.2,
@@ -853,8 +858,12 @@ function buildArtlangPractice(): Item[] {
     return {
       id: spec.id,
       subtest: "artificialLanguage",
-      broad: "Gc",
-      narrow: "LD",
+      broad: "Gf",
+      narrow: "I",
+      // Language block: routing keeps one language open until exhausted so
+      // grammar learnability does not transfer across languages mid-run
+      // (an IRT stationarity violation; see Item.block).
+      block: spec.lang,
       a: spec.a,
       b: spec.b,
       c: 0.2,
@@ -870,12 +879,22 @@ function buildArtlangPractice(): Item[] {
  * The Artificial Language subtest. 18 items across three mini-languages;
  * adaptive routing samples the pool with a floor at pure lexicon lookup and
  * a ceiling at combined order + double-affix sentences.
+ *
+ * CONSTRUCT LABEL (2026-08-22 literature pass): Gf / I, not Gc / LD.
+ * Inferring a grammar from worked exemplars is rule INDUCTION — the same
+ * construct family as WJ-IV Analysis-Synthesis (a Gf measure built from
+ * symbol "equations" learned from solved examples) and Concept Formation.
+ * Nothing crystallized can be brought to bear beyond general
+ * language-learning skill: the lexicons are nonsense by construction.
+ * Items carry per-language block tags so routing never interleaves grammars
+ * mid-run (learnability transfer across languages violates IRT
+ * stationarity; see Item.block).
  */
 export const artificialLanguage: Subtest = {
   id: "artificialLanguage",
   name: "Artificial Language",
-  broad: "Gc",
-  narrow: ["LD"],
+  broad: "Gf",
+  narrow: ["I"],
   instructions:
     "A constructed language is presented with its vocabulary and worked examples. Infer its grammar and translate.",
   budgetMin: 12,

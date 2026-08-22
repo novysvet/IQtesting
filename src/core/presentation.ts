@@ -16,7 +16,7 @@
  */
 
 /** FNV-1a string hash -> 32-bit seed. */
-function hashSeed(input: string): number {
+export function hashSeed(input: string): number {
   let hash = 2166136261;
   for (let i = 0; i < input.length; i++) {
     hash ^= input.charCodeAt(i);
@@ -26,7 +26,7 @@ function hashSeed(input: string): number {
 }
 
 /** Deterministic mulberry32 PRNG (same generator as the simulation tests). */
-function seededRandom(seed: number): () => number {
+export function seededRandom(seed: number): () => number {
   let a = seed >>> 0;
   return () => {
     a |= 0;

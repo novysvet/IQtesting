@@ -471,5 +471,115 @@ export const matrixReasoning: Subtest = {
       ],
     },
   },
+  {
+    // Ceiling extension (2026-08-22 literature pass). Constructs follow the
+    // Carpenter/Just/Shell difficulty architecture: rule COMPOSITION and
+    // count, not surface complexity, carry the load (MaRs-IB: element count,
+    // rule count, and minimal-difference distractors jointly explain ~52% of
+    // difficulty variance; MD distractors alone add ~1.1 logits). Every
+    // distractor below is the key transformed by exactly one rule error.
+    id: "mx-019", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
+    a: 1.8, b: 2.65, c: 0.2,
+    // rule: XOR COMPOSITION. Take positions in cell 1 XOR cell 2, then rotate
+    //       every surviving position one quarter-turn clockwise. Shape and
+    //       fill stay the row's own. Unlike mx-016 no example row performs
+    //       the composed computation — the solver must chain two rule types
+    //       (mx-008's XOR, mx-012-class rotation) that were only ever shown
+    //       separately. Distractors: XOR unrotated, XOR rotated CCW, a
+    //       one-position near-miss, the union rotated CW.
+    prompt: "Which figure completes the matrix?",
+    options: ["A", "B", "C", "D", "E"],
+    answer: 1,
+    render: {
+      kind: "matrix", rows: 3, cols: 3,
+      cells: [
+        row("hex", "none", ["NW", "N", "E", "SW"]), row("hex", "none", ["N", "SW", "SE"]), row("hex", "none", ["NE", "S", "SW"]),
+        row("star", "half", ["W", "C", "SE"]), row("star", "half", ["NW", "W", "C"]), row("star", "half", ["NE", "SW"]),
+        row("cross", "none", ["N", "NE", "E", "S"]), row("cross", "none", ["NE", "S", "SW"]), null,
+      ],
+      optionCells: [
+        row("cross", "none", ["N", "E", "SW"]),
+        row("cross", "none", ["E", "S", "NW"]),
+        row("cross", "none", ["W", "N", "S"]),
+        row("cross", "none", ["E", "S", "NE"]),
+        row("cross", "none", ["E", "SE", "S", "W", "NW"]),
+      ],
+    },
+  },
+  {
+    id: "mx-020", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
+    a: 1.85, b: 2.85, c: 0.2,
+    // rule: TRIPLE DISTRIBUTION. Positions are the UNION of cells 1 and 2;
+    //       the fill is the one value from {none, half, solid} absent from
+    //       the row's first two cells (distribution of three, CJS's D3);
+    //       the shape is likewise the missing value from {tri, sq, cir}.
+    //       Three simultaneous constraints, each individually familiar, none
+    //       jointly rehearsed in the example rows. Every distractor violates
+    //       exactly one constraint (minimal-difference strategy).
+    prompt: "Which figure completes the matrix?",
+    options: ["A", "B", "C", "D", "E"],
+    answer: 1,
+    render: {
+      kind: "matrix", rows: 3, cols: 3,
+      cells: [
+        row("tri", "none", ["NW", "E"]), row("sq", "half", ["E", "S", "W"]), row("cir", "solid", ["NW", "E", "S", "W"]),
+        row("cir", "solid", ["C", "SE"]), row("tri", "none", ["SE", "NE", "C"]), row("sq", "half", ["C", "SE", "NE"]),
+        row("sq", "half", ["N", "SW", "C"]), row("cir", "none", ["SW", "C", "E"]), null,
+      ],
+      optionCells: [
+        row("tri", "none", ["N", "SW", "C", "E"]),
+        row("tri", "solid", ["N", "SW", "C", "E"]),
+        row("sq", "solid", ["N", "SW", "C", "E"]),
+        row("tri", "solid", ["SW", "C"]),
+        row("tri", "half", ["N", "SW", "C", "E"]),
+      ],
+    },
+  },
+  {
+    id: "mx-021", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
+    a: 1.8, b: 2.7, c: 0.2,
+    // rule: SECOND-ORDER ROTATION. Within each row the rotation step itself
+    //       doubles: +d, then +2d. Row 1 advances +45/+90; row 2 +90/+180;
+    //       row 3 must add +90 then +180 to 270. Both example rows refute the
+    //       first-order reading in-stimulus (their third cells overshoot a
+    //       constant step), and the chief distractor IS the first-order
+    //       continuation — the alternative-rule distractor that catches
+    //       solvers who stop at the simpler rule (Carpenter/Just/Shell:
+    //       pairwise quantitative progression is the classic hard rule; a
+    //       progression-of-progressions is the ceiling of that family).
+    prompt: "Which figure completes the matrix?",
+    options: ["tri:1:none:90", "tri:1:none:180", "tri:1:none:0", "tri:1:none:270", "tri:1:none:45"],
+    answer: 1,
+    render: { kind: "matrix", rows: 3, cols: 3, cells: ["arw:1:none:0", "arw:1:none:45", "arw:1:none:135", "star:1:none:20", "star:1:none:110", "star:1:none:290", "tri:1:none:270", "tri:1:none:0", null] },
+  },
+  {
+    id: "mx-022", subtest: "matrixReasoning", broad: "Gf", narrow: "I",
+    a: 2, b: 3.1, c: 0.2,
+    // rule: PARITY BRANCH OVER SET OPERATIONS. When cells 1 and 2 hold an
+    //       EVEN total number of marks, cell 3 is their INTERSECTION with
+    //       solid fill; when ODD, their SYMMETRIC DIFFERENCE with no fill.
+    //       Both branches are demonstrated (row 1 odd, row 2 even) but never
+    //       with these operands — mx-011 taught parity-branching with
+    //       union/copy, so the class transfers while the computation does
+    //       not. Co-ceiling with mx-017.
+    prompt: "Which figure completes the matrix?",
+    options: ["A", "B", "C", "D", "E"],
+    answer: 1,
+    render: {
+      kind: "matrix", rows: 3, cols: 3,
+      cells: [
+        row("hex", "none", ["NW", "N", "E"]), row("hex", "none", ["E", "S"]), row("hex", "none", ["NW", "N", "S"]),
+        row("star", "half", ["W", "C"]), row("star", "half", ["C", "SE"]), cell(mark("star", "solid", "C")),
+        row("cross", "none", ["N", "W", "SE"]), row("cross", "none", ["W", "SE", "C"]), null,
+      ],
+      optionCells: [
+        row("cross", "none", ["N", "C"]),
+        row("cross", "solid", ["W", "SE"]),
+        row("cross", "none", ["W", "SE"]),
+        row("cross", "solid", ["N", "W", "SE", "C"]),
+        row("cross", "solid", ["N", "SW"]),
+      ],
+    },
+  },
   ],
 };

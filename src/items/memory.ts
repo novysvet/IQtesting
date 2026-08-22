@@ -28,7 +28,11 @@ export const digitSpan: Subtest = {
   id: "digitSpan",
   name: "Digit Span",
   broad: "Gwm",
-  narrow: ["MS"],
+  // Forward items are MS (memory span); backward items carry WM at the
+  // item level -- forward and backward span are distinct constructs
+  // (Ramsay & Reynolds 1995 review; WAIS-V reports them separately) and
+  // merging them under one tag mislabels the backward half.
+  narrow: ["MS", "WM"],
   instructions:
     "Digits appear one at a time, then disappear. Type them back in the order asked. Some items ask for reverse order.",
   budgetMin: 12,
@@ -44,7 +48,7 @@ export const digitSpan: Subtest = {
       render: { kind: "span", sequence: ["7", "3"], recall: "forward" },
     },
     {
-      id: "prac-dsp-02", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      id: "prac-dsp-02", subtest: "digitSpan", broad: "Gwm", narrow: "WM",
       a: 1.0, b: -3, c: 0,
       prompt: "Type the digits in reverse order.",
       answer: "94",
@@ -81,7 +85,7 @@ export const digitSpan: Subtest = {
       render: { kind: "span", sequence: ["7", "2", "8", "4"], recall: "forward" },
     },
     {
-      id: "dsp-005", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      id: "dsp-005", subtest: "digitSpan", broad: "Gwm", narrow: "WM",
       a: 1.1, b: -1.7, c: 0,
       prompt: "Type the digits in reverse order.",
       answer: "915",
@@ -95,7 +99,7 @@ export const digitSpan: Subtest = {
       render: { kind: "span", sequence: ["6", "3", "8", "1", "5"], recall: "forward" },
     },
     {
-      id: "dsp-007", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      id: "dsp-007", subtest: "digitSpan", broad: "Gwm", narrow: "WM",
       a: 1.2, b: -1.0, c: 0,
       prompt: "Type the digits in reverse order.",
       answer: "7492",
@@ -116,7 +120,7 @@ export const digitSpan: Subtest = {
       render: { kind: "span", sequence: ["1", "8", "5", "2", "9", "6"], recall: "forward" },
     },
     {
-      id: "dsp-010", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      id: "dsp-010", subtest: "digitSpan", broad: "Gwm", narrow: "WM",
       a: 1.2, b: -0.3, c: 0,
       prompt: "Type the digits in reverse order.",
       answer: "62937",
@@ -130,7 +134,7 @@ export const digitSpan: Subtest = {
       render: { kind: "span", sequence: ["4", "9", "2", "7", "5", "1"], recall: "forward" },
     },
     {
-      id: "dsp-012", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      id: "dsp-012", subtest: "digitSpan", broad: "Gwm", narrow: "WM",
       a: 1.2, b: 0.4, c: 0,
       prompt: "Type the digits in reverse order.",
       answer: "739628",
@@ -144,7 +148,7 @@ export const digitSpan: Subtest = {
       render: { kind: "span", sequence: ["5", "9", "1", "6", "3", "8", "2"], recall: "forward" },
     },
     {
-      id: "dsp-014", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      id: "dsp-014", subtest: "digitSpan", broad: "Gwm", narrow: "WM",
       a: 1.2, b: 0.4, c: 0,
       prompt: "Type the digits in reverse order.",
       answer: "649173",
@@ -158,7 +162,7 @@ export const digitSpan: Subtest = {
       render: { kind: "span", sequence: ["6", "2", "9", "4", "8", "1", "5"], recall: "forward" },
     },
     {
-      id: "dsp-016", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      id: "dsp-016", subtest: "digitSpan", broad: "Gwm", narrow: "WM",
       a: 1.3, b: 1.1, c: 0,
       prompt: "Type the digits in reverse order.",
       answer: "3618259",
@@ -172,7 +176,7 @@ export const digitSpan: Subtest = {
       render: { kind: "span", sequence: ["2", "7", "4", "9", "1", "5", "8", "3"], recall: "forward" },
     },
     {
-      id: "dsp-018", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      id: "dsp-018", subtest: "digitSpan", broad: "Gwm", narrow: "WM",
       a: 1.3, b: 1.9, c: 0,
       prompt: "Type the digits in reverse order.",
       answer: "27396184",
@@ -186,7 +190,7 @@ export const digitSpan: Subtest = {
       render: { kind: "span", sequence: ["7", "1", "9", "3", "6", "2", "8", "5", "4"], recall: "forward" },
     },
     {
-      id: "dsp-020", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      id: "dsp-020", subtest: "digitSpan", broad: "Gwm", narrow: "WM",
       a: 1.3, b: 2.6, c: 0,
       prompt: "Type the digits in reverse order.",
       answer: "364817295",
@@ -200,7 +204,7 @@ export const digitSpan: Subtest = {
       render: { kind: "span", sequence: ["3", "8", "1", "7", "4", "9", "2", "6", "5", "0"], recall: "forward" },
     },
     {
-      id: "dsp-022", subtest: "digitSpan", broad: "Gwm", narrow: "MS",
+      id: "dsp-022", subtest: "digitSpan", broad: "Gwm", narrow: "WM",
       a: 1.3, b: 2.9, c: 0,
       prompt: "Type the digits in reverse order.",
       answer: "5062837194",
@@ -352,18 +356,25 @@ export const letterNumberSeq: Subtest = {
 };
 
 /**
- * Paired Associates — b re-anchored per docs/DIFFICULTY_AUDIT.md §2.10.
- * All pairs are shown simultaneously, then ONE pair is probed by typed cued
- * recall — far easier than the authored span-style 6.1-logit list-length
- * slope. Bank span now −1.7..+0.95 (was −2.4..+3.7) with a flattened at 1.0
- * (the 1.0→2.0 ramp was unjustified). Cross-list word repetitions (SADDLE,
- * MARSH, MEADOW, WHEEL, WINDOW, DOORPOST/DOOR — proactive-interference noise
- * not represented in any parameter) were replaced with fresh concrete nouns,
- * and the multi-word target in pas-011 ("RED ORE") became a single word.
+ * Paired Associates — 2026-08-22 redesign (design review: "probe 2-3 pairs
+ * per list"), following the standard neuropsych PAL architecture (CANTAB PAL
+ * probes every pair of a studied stage; WMS Paired Associates and BVMT-R
+ * test multiple pairs per list): each item studies ONE list, then probes TWO
+ * of its pairs by cued recall in a fixed cue order. One probe per list
+ * measured single-pair binding plus pair-selection luck; two probes make the
+ * response a list-level event and roughly halve the noise.
  *
- * Ceiling extension (2026-08-21 design review): pas-015/016 add 10- and
- * 11-pair lists at b +1.2/+1.4 with fresh unique nouns, so Glr evidence now
- * exists above +1 sigma instead of topping out at the single-probe floor.
+ * b re-anchored +0.6 over the single-probe audit anchors
+ * (docs/DIFFICULTY_AUDIT.md §2.10): all-or-none two-cue recall sits between
+ * perfectly correlated failures (+0) and independent recalls (+0.87 for
+ * a = 1). Bank span -1.1..+1.9. Study exposure is pinned in
+ * src/core/memoryTiming.ts (1400 ms/pair, 6 s floor). All words are concrete
+ * pictureable nouns (frequency-controlled by inspection): concreteness is
+ * what makes PA binding comparable across lists.
+ *
+ * Keys remain DERIVED, not typed: each probe pair is looked up in its study
+ * list by the test suite (test/memory-banks.test.ts re-resolves both cues
+ * and targets against the list).
  */
 export const pairedAssociates: Subtest = {
   id: "pairedAssociates",
@@ -371,137 +382,138 @@ export const pairedAssociates: Subtest = {
   broad: "Glr",
   narrow: ["MA"],
   instructions:
-    "Study the word pairs while they are shown. When one word of a pair appears, type the word it was paired with.",
+    "Study the word pairs while they are shown. When the study interval ends, two cues appear: type the word paired with each cue, in the order asked, separated by a comma.",
   budgetMin: 15,
   routing: { maxItems: 12, minItems: 6, ceilingMisses: 3, targetSe: 0.50, entryTheta: 0 },
-  // Unscored sample: two pairs, one probe — the format's minimum case.
+  // Unscored samples: both pairs probed — the two-cue format taught before
+  // scoring begins, first with the minimum list, then with a distractor pair.
   practice: [
     {
       id: "prac-pas-01", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
       a: 1.0, b: -3, c: 0,
-      prompt: "Which word was paired with MAP?",
-      answer: "ROAD",
+      prompt: "Which words were paired with MAP and with CUP? Give both, in this order, separated by a comma.",
+      answer: "ROAD, SAUCER",
       render: { kind: "pairs", pairs: [["MAP", "ROAD"], ["CUP", "SAUCER"]] },
     },
     {
       id: "prac-pas-02", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
       a: 1.0, b: -3, c: 0,
-      prompt: "Which word was paired with CLOUD?",
-      answer: "PILLOW",
+      prompt: "Which words were paired with TRAIN and with CLOUD? Give both, in this order, separated by a comma.",
+      answer: "LANTERN, PILLOW",
       render: { kind: "pairs", pairs: [["TRAIN", "LANTERN"], ["CLOUD", "PILLOW"], ["RIVER", "MARBLE"]] },
     },
   ],
   items: [
     {
       id: "pas-001", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: -1.7, c: 0,
-      prompt: "Which word was paired with DOOR?",
-      answer: "RIVER",
+      a: 1.0, b: -1.1, c: 0,
+      prompt: "Which words were paired with DOOR and with BOOK? Give both, in this order, separated by a comma.",
+      answer: "RIVER, CLOUD",
       render: { kind: "pairs", pairs: [["DOOR", "RIVER"], ["LAMP", "HORSE"], ["BOOK", "CLOUD"]] },
     },
     {
       id: "pas-002", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: -1.5, c: 0,
-      prompt: "Which word was paired with SHOE?",
-      answer: "MOUNTAIN",
+      a: 1.0, b: -0.9, c: 0,
+      prompt: "Which words were paired with CLOCK and with SHOE? Give both, in this order, separated by a comma.",
+      answer: "BREAD, MOUNTAIN",
       render: { kind: "pairs", pairs: [["CHAIR", "OCEAN"], ["CLOCK", "BREAD"], ["SHOE", "MOUNTAIN"]] },
     },
     {
       id: "pas-003", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: -1.2, c: 0,
-      prompt: "Which word was paired with KNIFE?",
-      answer: "BUTTON",
+      a: 1.0, b: -0.6, c: 0,
+      prompt: "Which words were paired with GLASS and with ROPE? Give both, in this order, separated by a comma.",
+      answer: "FOREST, CANDLE",
       render: { kind: "pairs", pairs: [["GLASS", "FOREST"], ["KNIFE", "BUTTON"], ["ROPE", "CANDLE"], ["BRICK", "FEATHER"]] },
     },
     {
       id: "pas-004", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: -1.0, c: 0,
-      prompt: "Which word was paired with TOWER?",
-      answer: "PENCIL",
+      a: 1.0, b: -0.4, c: 0,
+      prompt: "Which words were paired with MIRROR and with TOWER? Give both, in this order, separated by a comma.",
+      answer: "THUNDER, PENCIL",
       render: { kind: "pairs", pairs: [["WHEEL", "SUGAR"], ["MIRROR", "THUNDER"], ["SPOON", "GARDEN"], ["TOWER", "PENCIL"]] },
     },
     {
       id: "pas-005", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: -0.75, c: 0,
-      prompt: "Which word was paired with CARPET?",
-      answer: "ISLAND",
+      a: 1.0, b: -0.15, c: 0,
+      prompt: "Which words were paired with CARPET and with LADDER? Give both, in this order, separated by a comma.",
+      answer: "ISLAND, MARBLE",
       render: { kind: "pairs", pairs: [["BOTTLE", "MEADOW"], ["HAMMER", "VIOLIN"], ["CARPET", "ISLAND"], ["BASKET", "WINTER"], ["LADDER", "MARBLE"]] },
     },
     {
       id: "pas-006", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: -0.55, c: 0,
-      prompt: "Which word was paired with BARREL?",
-      answer: "COMET",
+      a: 1.0, b: 0.05, c: 0,
+      prompt: "Which words were paired with WINDOW and with MITTEN? Give both, in this order, separated by a comma.",
+      answer: "TIGER, PEPPER",
       render: { kind: "pairs", pairs: [["WINDOW", "TIGER"], ["PILLOW", "COPPER"], ["SADDLE", "HARBOR"], ["MITTEN", "PEPPER"], ["BARREL", "COMET"]] },
     },
     {
       id: "pas-007", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: -0.35, c: 0,
-      prompt: "Which word was paired with TUNNEL?",
-      answer: "ORCHID",
+      a: 1.0, b: 0.3, c: 0,
+      prompt: "Which words were paired with TUNNEL and with FURNACE? Give both, in this order, separated by a comma.",
+      answer: "ORCHID, LANTERN",
       render: { kind: "pairs", pairs: [["ANCHOR", "BISCUIT"], ["TUNNEL", "ORCHID"], ["KETTLE", "GRANITE"], ["RIBBON", "WALRUS"], ["FURNACE", "LANTERN"], ["CACTUS", "TROLLEY"]] },
     },
     {
       id: "pas-008", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: -0.15, c: 0,
-      prompt: "Which word was paired with GOBLET?",
-      answer: "SPARROW",
+      a: 1.0, b: 0.5, c: 0,
+      prompt: "Which words were paired with TRELLIS and with HARNESS? Give both, in this order, separated by a comma.",
+      answer: "MONSOON, QUARRY",
       render: { kind: "pairs", pairs: [["SATCHEL", "PLATEAU"], ["CYMBAL", "WALNUT"], ["TRELLIS", "MONSOON"], ["PISTON", "LICHEN"], ["GOBLET", "SPARROW"], ["HARNESS", "QUARRY"]] },
     },
     {
       id: "pas-009", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: 0.1, c: 0,
-      prompt: "Which word was paired with TEAPOT?",
-      answer: "BRAMBLE",
+      a: 1.0, b: 0.7, c: 0,
+      prompt: "Which words were paired with THIMBLE and with TEAPOT? Give both, in this order, separated by a comma.",
+      answer: "CANYON, BRAMBLE",
       render: { kind: "pairs", pairs: [["THIMBLE", "CANYON"], ["BELLOWS", "NECTAR"], ["STIRRUP", "GLACIER"], ["TEAPOT", "BRAMBLE"], ["COMPASS", "PASTURE"], ["BEAKER", "PELICAN"], ["AWNING", "SANDSTONE"]] },
     },
     {
       id: "pas-010", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: 0.3, c: 0,
-      prompt: "Which word was paired with PLUMB LINE?",
-      answer: "CINDER",
+      a: 1.0, b: 0.95, c: 0,
+      prompt: "Which words were paired with PITCHER and with CLEAVER? Give both, in this order, separated by a comma.",
+      answer: "HERON, AMBER",
       render: { kind: "pairs", pairs: [["SHEATH", "TUNDRA"], ["ROLLER", "OBSIDIAN"], ["PITCHER", "HERON"], ["PIN", "SAVANNA"], ["CLEAVER", "AMBER"], ["TROWEL", "ESTUARY"], ["PLUMB LINE", "CINDER"]] },
     },
     {
       id: "pas-011", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: 0.5, c: 0,
-      prompt: "Which word was paired with COLLAR?",
-      answer: "GARNET",
+      a: 1.0, b: 1.15, c: 0,
+      prompt: "Which words were paired with SPINDLE and with COLLAR? Give both, in this order, separated by a comma.",
+      answer: "QUARTZ, GARNET",
       render: { kind: "pairs", pairs: [["FRAME", "FJORD"], ["SPINDLE", "QUARTZ"], ["BRAZIER", "HERALD"], ["CRANK", "PUMICE"], ["JOINT", "LAGOON"], ["COLLAR", "GARNET"], ["HINGE", "STEPPE"], ["DRILL", "ALLOY"]] },
     },
     {
       id: "pas-012", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: 0.6, c: 0,
-      prompt: "Which word was paired with FENCE?",
-      answer: "SONGBIRD",
+      a: 1.0, b: 1.3, c: 0,
+      prompt: "Which words were paired with PEDAL and with GROOVE? Give both, in this order, separated by a comma.",
+      answer: "BASALT, OSPREY",
       render: { kind: "pairs", pairs: [["SHIELD", "TALLOW"], ["GRAMMAR", "ZINC"], ["FENCE", "SONGBIRD"], ["PEDAL", "BASALT"], ["FLAGSTONE", "DELTA"], ["CUP", "SHALE"], ["GROOVE", "OSPREY"], ["NOTCH", "GYPSUM"]] },
     },
     {
       id: "pas-013", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: 0.85, c: 0,
-      prompt: "Which word was paired with PORCH?",
-      answer: "LOAM",
+      a: 1.0, b: 1.45, c: 0,
+      prompt: "Which words were paired with MOLDING and with PORCH? Give both, in this order, separated by a comma.",
+      answer: "SEDGE, LOAM",
       render: { kind: "pairs", pairs: [["MOLDING", "SEDGE"], ["RAILING", "NITRE"], ["BRACKET", "KESTREL"], ["TOOTH", "SCHIST"], ["CAP", "BAYOU"], ["GARGOYLE", "FLINT"], ["LATCH", "CURLEW"], ["PORCH", "LOAM"], ["KEYSTONE", "MIRE"]] },
     },
     {
       id: "pas-014", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: 0.95, c: 0,
-      prompt: "Which word was paired with CROSSBAR?",
-      answer: "MARSH",
+      a: 1.0, b: 1.55, c: 0,
+      prompt: "Which words were paired with DRUM and with CROSSBAR? Give both, in this order, separated by a comma.",
+      answer: "GANNET, MARSH",
       render: { kind: "pairs", pairs: [["WEDGE", "MOUNTAIN LAKE"], ["ARCH", "BORAX"], ["DRUM", "GANNET"], ["DIVIDER", "GNEISS"], ["CROSSBAR", "MARSH"], ["BALCONY", "CHERT"], ["CEILING", "PLOVER"], ["CORNER", "SILT"], ["LINTEL", "SLOUGH"]] },
     },
     {
       id: "pas-015", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: 1.2, c: 0,
-      prompt: "Which word was paired with ANVIL?",
-      answer: "EMBER",
+      a: 1.0, b: 1.7, c: 0,
+      prompt: "Which words were paired with DAMPER and with PADDLE? Give both, in this order, separated by a comma.",
+      answer: "GABLE, RAMPART",
       render: { kind: "pairs", pairs: [["ANVIL", "EMBER"], ["BEACON", "FALCON"], ["CELLAR", "CHISEL"], ["DAMPER", "GABLE"], ["HAMMOCK", "INLET"], ["JUG", "KEG"], ["LOOM", "MORTAR"], ["NOZZLE", "OAR"], ["PADDLE", "RAMPART"], ["TROUGH", "URN"]] },
     },
     {
       id: "pas-016", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
-      a: 1.0, b: 1.4, c: 0,
-      prompt: "Which word was paired with TILLER?",
-      answer: "SCYTHE",
+      a: 1.0, b: 1.9, c: 0,
+      prompt: "Which words were paired with FLUKE and with TILLER? Give both, in this order, separated by a comma.",
+      answer: "GORGE, SCYTHE",
       render: { kind: "pairs", pairs: [["VANE", "YOKE"], ["ABACUS", "DUNE"], ["FLUKE", "GORGE"], ["HUSK", "IGLOO"], ["KITE", "MOSS"], ["PLOW", "REEF"], ["SIEVE", "THORN"], ["VAULT", "WHARF"], ["SPROCKET", "CRUCIBLE"], ["LEDGE", "GAVEL"], ["TILLER", "SCYTHE"]] },
     },
   ],

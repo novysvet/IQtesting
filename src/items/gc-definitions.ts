@@ -182,7 +182,8 @@ export const definitions: Subtest = {
   instructions:
     "Thirty-three definitions are given. From each definition the word defined has been omitted and a number substituted. " +
     "Beside each word in the list of sixty-six, enter the number of the definition it satisfies. " +
-    "Thirty-three of the words fit the definitions exactly; thirty-three do not.",
+    "Thirty-three of the words fit the definitions exactly; thirty-three do not. " +
+    "This section measures your own vocabulary and knowledge: answer without dictionaries, translators, search engines, or any other outside help.",
   budgetMin: 8,
   // Whole-page administration: routing never stops the run (see Subtest.matching).
   routing: { maxItems: 33, minItems: 33, ceilingMisses: 99, targetSe: 0.01, entryTheta: 0 },

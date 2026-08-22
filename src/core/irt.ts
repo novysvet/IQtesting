@@ -143,29 +143,70 @@ export function estimateAbility(
 }
 
 /**
- * Select the next item by maximum Fisher information at the current theta.
- * Ties break toward the item whose b is closest to theta, then by id for
- * determinism (important for reproducible sessions and tests).
+ * Randomesque group size (Kingsbury & Zara 1989). Selection ranks the pool by
+ * Fisher information and administers one of the top-k picked uniformly at
+ * random. Leroux & Dodd (2019) vary k=3 vs k=6 across pool sizes: k=6 holds
+ * maximum exposure roughly a third lower than k=3 with statistically
+ * identical RMSE/bias, so 6 is the default. Below ~2-3x test length a bank
+ * exposes most of itself no matter what (max exposure >= administered/bank),
+ * so the group simply shrinks with the remaining pool.
  */
-export function selectNextItem(pool: Item[], theta: number, usedIds: Set<string>): Item | null {
-  let best: Item | null = null;
-  let bestInfo = -Infinity;
+export const RANDOMESQUE_K = 6;
+
+export interface SelectionOptions {
+  /**
+   * RNG for randomesque exposure control. When absent, selection is the
+   * deterministic maximum-information item (calibration fixtures, simulations,
+   * and fixed forms need reproducibility, and so do the pinned unit tests).
+   */
+  rand?: () => number;
+  /**
+   * Restrict candidates to items carrying this block tag (content
+   * balancing — see Item.block). When set, only unused items whose block
+   * matches (or that carry no block) are considered... no: only matching
+   * blocks. Pass undefined for unrestricted selection.
+   */
+  block?: string;
+}
+
+/**
+ * Rank unused pool items by Fisher information at theta (ties: b closest to
+ * theta, then id — deterministic ordering matters because the randomesque
+ * pick indexes into this list).
+ */
+function rankByInformation(pool: Item[], theta: number, usedIds: Set<string>, block?: string): Item[] {
+  const candidates: { item: Item; info: number }[] = [];
   for (const item of pool) {
     if (usedIds.has(item.id)) continue;
-    const info = itemInformation(item, theta);
-    if (info > bestInfo + 1e-12) {
-      best = item;
-      bestInfo = info;
-      continue;
-    }
-    if (best && Math.abs(info - bestInfo) <= 1e-12) {
-      const dNew = Math.abs(item.b - theta);
-      const dOld = Math.abs(best.b - theta);
-      if (dNew < dOld || (dNew === dOld && item.id < best.id)) {
-        best = item;
-        bestInfo = info;
-      }
-    }
+    if (block !== undefined && item.block !== block) continue;
+    candidates.push({ item, info: itemInformation(item, theta) });
   }
-  return best;
+  candidates.sort((x, y) => {
+    if (y.info !== x.info) return y.info - x.info;
+    const dx = Math.abs(x.item.b - theta);
+    const dy = Math.abs(y.item.b - theta);
+    if (dx !== dy) return dx - dy;
+    return x.item.id < y.item.id ? -1 : 1;
+  });
+  return candidates.map((c) => c.item);
+}
+
+/**
+ * Select the next item by maximum Fisher information at the current theta,
+ * with randomesque exposure control when a RNG is supplied: administer one
+ * of the k most informative unused items chosen uniformly at random
+ * (Kingsbury & Zara 1989; k=6 per Leroux & Dodd 2019). Deterministic tie
+ * breaks (b distance, then id) keep the candidate ranking stable.
+ */
+export function selectNextItem(
+  pool: Item[],
+  theta: number,
+  usedIds: Set<string>,
+  options: SelectionOptions = {},
+): Item | null {
+  const ranked = rankByInformation(pool, theta, usedIds, options.block);
+  if (ranked.length === 0) return null;
+  if (!options.rand) return ranked[0]!;
+  const k = Math.min(RANDOMESQUE_K, ranked.length);
+  return ranked[Math.floor(options.rand() * k) % k]!;
 }

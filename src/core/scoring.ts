@@ -21,6 +21,24 @@ import { estimateAbility, REPORT_PRIOR_SD } from "./irt.ts";
 const SCALE_MEAN = 100;
 const SCALE_SD = 15;
 
+/**
+ * Testlet design effect for whole-page matching subtests (Kang et al. 2021;
+ * Wainer's testlet variance). The definitions page administers every item on
+ * ONE shared stimulus page, so item residuals correlate through the page
+ * (shared reading strategy, shared elimination process, one shared clock)
+ * and local independence overstates information by roughly the design
+ * effect 1 + (m - 1) * rho. The simple defensible fix per the testlet
+ * literature: keep items scored separately but inflate the subtest SE by
+ * sqrt of the design effect with a conventional rho of 0.20 (empirical
+ * testlet-effect variances cluster around 0.10-0.43); re-estimate rho from
+ * residual correlations once calibration data exists.
+ */
+const MATCHING_TESTLET_RHO = 0.2;
+
+export function matchingDesignEffect(itemCount: number): number {
+  return Math.sqrt(1 + Math.max(0, itemCount - 1) * MATCHING_TESTLET_RHO);
+}
+
 export function thetaToStandard(theta: number): number {
   return SCALE_MEAN + SCALE_SD * theta;
 }
@@ -80,6 +98,14 @@ interface SubtestScore {
   broad: BroadAbility;
   itemsAdministered: number;
   raw: number;
+  /**
+   * Scored wrong answers (censoring excluded). On guess-penalty subtests
+   * (Subtest.guessPenalty) this is the subtracted quantity the results
+   * dashboard reports alongside raw; it never feeds theta directly — there
+   * the penalty lives in c = 0, which makes each error maximally damaging
+   * evidence instead of chance noise.
+   */
+  errors: number;
   theta: number;
   se: number;
   band: ScoreBand;
@@ -90,15 +116,20 @@ function scoreSubtest(subtest: Subtest, responses: Response[]): SubtestScore {
   const mine = responses.filter((r) => ids.has(r.itemId));
   // Wide reporting prior: see the floor-semantics note in the SCALE CAVEAT.
   const est = estimateAbility(subtest.items, mine, { priorSd: REPORT_PRIOR_SD });
+  // Whole-page matching subtests are one testlet: their per-item SEs are
+  // overstated by local independence, so the design effect widens the
+  // interval honestly instead of claiming precision the page cannot deliver.
+  const se = subtest.matching ? est.se * matchingDesignEffect(subtest.items.length) : est.se;
   return {
     subtestId: subtest.id,
     name: subtest.name,
     broad: subtest.broad,
     itemsAdministered: mine.length,
     raw: mine.filter((r) => r.correct).length,
+    errors: mine.filter((r) => !r.correct && !r.omitted && !r.interrupted).length,
     theta: est.theta,
-    se: est.se,
-    band: band(est.theta, est.se),
+    se,
+    band: band(est.theta, se),
   };
 }
 

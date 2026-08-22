@@ -115,7 +115,7 @@ test("lns answers mix digits and letters and are stored in canonical order", () 
   }
 });
 
-test("pas words are unique across lists, targets are single words, and b climbs with list length", () => {
+test("pas words are unique across lists, both probed targets are single words, and b climbs with list length", () => {
   const ownerOf = new Map<string, string>();
   let firstLength = 0;
   let prevLength = 0;
@@ -126,17 +126,26 @@ test("pas words are unique across lists, targets are single words, and b climbs 
     if (!r || r.kind !== "pairs") continue;
     const answer = item.answer as string;
 
-    // Target must be a single word (multi-word answers grade inconsistently
+    // TWO probes per list (2026-08-22 redesign): the prompt names two cues
+    // and the answer is two single-word targets, comma-joined in cue order.
+    const cueMatch = /paired with (.+?) and with (.+?)\?/.exec(item.prompt);
+    assert.ok(cueMatch, item.id + ": prompt does not name two cues");
+    const cues = [normalise(cueMatch[1] ?? ""), normalise(cueMatch[2] ?? "")];
+    assert.notEqual(cues[0], cues[1], item.id + ": the same cue is probed twice");
+    const targets: string[] = answer.split(",").map((t) => t.trim());
+    assert.equal(targets.length, 2, item.id + ": answer must carry two targets");
+    // Targets must be single words (multi-word answers grade inconsistently
     // under space-stripping normalisation and measure typing, not memory).
-    assert.equal(answer, answer.trim(), item.id + ": target has stray whitespace");
-    assert.ok(!/\s/.test(answer), item.id + ": target must be a single word");
-
-    // The cue named in the prompt must be paired with the stored target.
-    const cueMatch = /paired with (.+)\?$/.exec(item.prompt);
-    assert.ok(cueMatch, item.id + ": prompt does not name a cue");
-    const cue = normalise(cueMatch[1] ?? "");
-    const probed = r.pairs.filter(([c, t]) => normalise(c) === cue && normalise(t) === normalise(answer));
-    assert.equal(probed.length, 1, item.id + ": probed cue->target pair is missing or duplicated");
+    for (const target of targets) {
+      assert.equal(target, target.trim(), item.id + ": target has stray whitespace");
+      assert.ok(!/\s/.test(target), item.id + ": target must be a single word");
+    }
+    for (let k = 0; k < 2; k++) {
+      const probed: Array<readonly [string, string]> = r.pairs.filter(
+        ([c, t]: readonly [string, string]) => normalise(c) === cues[k] && normalise(t) === normalise(targets[k]!),
+      );
+      assert.equal(probed.length, 1, item.id + ": probed cue " + k + "->target pair is missing or duplicated");
+    }
 
     // No cue or target (normalised) may appear in another item's study list,
     // and no word may repeat within a list: cross-list repeats create
@@ -155,7 +164,7 @@ test("pas words are unique across lists, targets are single words, and b climbs 
       }
     }
 
-    // List length grows 3..9 and b is strictly increasing with list length.
+    // List length grows 3..11 and b is strictly increasing with list length.
     assert.ok(r.pairs.length >= 3 && r.pairs.length <= 11, item.id + ": list length outside 3..11");
     assert.ok(r.pairs.length >= prevLength, item.id + ": list length shrank");
     assert.ok(item.b > prevB, item.id + ": b is not strictly increasing down the bank");
@@ -182,4 +191,16 @@ test("new length-10 ceiling items exist with the audit-anchored parameters", () 
     assert.equal(r.sequence.length, length, id + ": wrong sequence length");
     assert.equal(r.recall, recall, id + ": wrong recall direction");
   }
+});
+
+test("digit span direction tags: forward items are MS, backward items are WM", () => {
+  // Ramsay & Reynolds (1995): forward and backward span are distinct
+  // constructs; the item-level narrow tag keeps the backward half from
+  // inflating the MS interpretation in any narrow-ability reporting.
+  for (const item of digitSpan.items) {
+    if (!item.render || item.render.kind !== "span") continue;
+    const expected = item.render.recall === "backward" ? "WM" : "MS";
+    assert.equal(item.narrow, expected, item.id + " carries the wrong direction tag");
+  }
+  assert.deepEqual(digitSpan.narrow, ["MS", "WM"], "subtest must declare both narrow abilities");
 });

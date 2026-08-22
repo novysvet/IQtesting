@@ -10,8 +10,11 @@ import { generalInformation, lexiconData, verbalAnalogies } from "../src/items/g
  * distractor/definition edits cannot silently re-key items.
  */
 
-// Easiest -> hardest, datum indices 1-based, exactly as specified by the audit.
-const VAN_ORDER = [3, 1, 2, 4, 8, 7, 6, 11, 5, 9, 20, 10, 12, 14, 15, 17, 31, 33, 34, 16, 19, 18, 13, 29, 26, 30, 32, 36, 24, 21, 27, 23, 25, 35, 22, 28] as const;
+// Easiest -> hardest, datum indices 1-based: items 1-36 keep the audit order
+// exactly (docs/DIFFICULTY_AUDIT.md §2.11); items 37-44 are the 2026-08-22
+// ceiling extension interleaved at the top per the rarity/rationale pricing
+// documented in src/items/gc.ts.
+const VAN_ORDER = [3, 1, 2, 4, 8, 7, 6, 11, 5, 9, 20, 10, 12, 14, 15, 17, 31, 33, 34, 16, 19, 18, 13, 29, 26, 30, 32, 36, 24, 37, 21, 27, 23, 25, 35, 22, 38, 28, 39, 40, 41, 42, 43, 44] as const;
 const GIN_ORDER = [3, 1, 4, 2, 5, 6, 11, 7, 9, 10, 8, 24, 13, 12, 15, 16, 20, 14, 29, 17, 28, 18, 27, 25, 19, 23, 26, 22, 30, 21] as const;
 
 /** The 50 keyed words in bank order — locked so distractor/definition edits
@@ -37,9 +40,9 @@ function byAscendingB<T extends { b: number }>(items: readonly T[]): readonly T[
 }
 
 test("van and gin order tables are exact permutations of their bank sizes", () => {
-  assert.equal(verbalAnalogies.items.length, 36);
+  assert.equal(verbalAnalogies.items.length, 44);
   assert.equal(generalInformation.items.length, 30);
-  assert.ok(isPermutationOf(VAN_ORDER, 36), "VAN_ORDER must be a permutation of 1..36");
+  assert.ok(isPermutationOf(VAN_ORDER, 44), "VAN_ORDER must be a permutation of 1..44");
   assert.ok(isPermutationOf(GIN_ORDER, 30), "GIN_ORDER must be a permutation of 1..30");
 });
 
@@ -55,10 +58,10 @@ test("gin items realize the audited order: ascending b yields exactly GIN_ORDER"
   assert.deepEqual(ids, [...GIN_ORDER].map((n) => idFor("gin", n)));
 });
 
-test("van b values: min -2.5 at GLOVE:HAND, max +1.5 at PARHELION, strictly increasing in rank", () => {
+test("van b values: min -2.5 at GLOVE:HAND, max +2.8 at APOTHEOSIS, strictly increasing in rank", () => {
   const bs = verbalAnalogies.items.map((i) => i.b);
   assert.equal(Math.min(...bs), -2.5, "van span floor");
-  assert.equal(Math.max(...bs), 1.5, "van span ceiling");
+  assert.equal(Math.max(...bs), 2.8, "van span ceiling");
   const ranked = byAscendingB(verbalAnalogies.items);
   for (let i = 1; i < ranked.length; i++) {
     assert.ok(ranked[i]!.b > ranked[i - 1]!.b, "van b not strictly increasing at rank " + i);
@@ -67,10 +70,14 @@ test("van b values: min -2.5 at GLOVE:HAND, max +1.5 at PARHELION, strictly incr
   assert.ok(glove, "GLOVE:HAND item not found");
   assert.equal(glove.id, "van-003");
   assert.equal(glove.b, -2.5);
-  const parhelion = verbalAnalogies.items.find((i) => i.prompt.startsWith("PARHELION"));
-  assert.ok(parhelion, "PARHELION item not found");
-  assert.equal(parhelion.id, "van-028");
-  assert.equal(parhelion.b, 1.5);
+  const apotheosis = verbalAnalogies.items.find((i) => i.prompt.startsWith("APOTHEOSIS"));
+  assert.ok(apotheosis, "APOTHEOSIS item not found");
+  assert.equal(apotheosis.id, "van-044");
+  assert.equal(apotheosis.b, 2.8);
+  // The 2026-08-22 ceiling band carries the raised discrimination.
+  for (const item of verbalAnalogies.items) {
+    if (item.b >= 1.8) assert.equal(item.a, 1.5, item.id + " ceiling band must carry a 1.5");
+  }
 });
 
 test("gin b values: min -2.6 at Shakespeare (Hamlet), max +3.2 at Abelard (ceiling)", () => {

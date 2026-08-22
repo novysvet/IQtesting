@@ -85,8 +85,10 @@ export interface SessionState {
  * test/budget-simulation.test.ts); adaptive stopping means typical
  * administrations finish well inside it, and the checkpoint clock-freeze
  * means multi-sitting administrations never burn budget between sections.
+ * Symbol Scan's block runs on its own 2-minute section clock, which prices
+ * the battery at 259 minutes at authoring.
  */
-export const BATTERY_BUDGET_MIN = 260;
+export const BATTERY_BUDGET_MIN = 259;
 
 export interface SessionIdentity {
   sessionId?: string;
@@ -232,7 +234,7 @@ export function startSubtest(state: SessionState, index: number, now: number): S
     };
   }
   const routing = state.routing[index]!;
-  const { item, stopReason } = nextItem(subtest.items, routing, subtest.routing);
+  const { item, stopReason } = nextItem(subtest.items, routing, subtest.routing, state.sessionId);
   const logged = withDecision(routing, state.responses.length + 1, { item, stopReason });
   const nextRouting = [...state.routing];
   nextRouting[index] = logged;
@@ -262,7 +264,7 @@ export function answerPractice(state: SessionState, now: number): SessionState {
     };
   }
   const routing = state.routing[subtestIndex]!;
-  const { item, stopReason } = nextItem(subtest.items, routing, subtest.routing);
+  const { item, stopReason } = nextItem(subtest.items, routing, subtest.routing, state.sessionId);
   const logged = withDecision(routing, state.responses.length + 1, { item, stopReason });
   const nextRouting = [...state.routing];
   nextRouting[subtestIndex] = logged;
@@ -430,7 +432,7 @@ export function answerItem(
   // below budget leaves closeSubtest to end the battery on its own
   // out-of-time check when the section closes.
 
-  const { item: following, stopReason } = nextItem(subtest.items, routing, subtest.routing);
+  const { item: following, stopReason } = nextItem(subtest.items, routing, subtest.routing, state.sessionId);
   const nextRouting2 = [...advanced.routing];
   nextRouting2[subtestIndex] = withDecision(routing, advanced.responses.length + 1, { item: following, stopReason });
   const fullyAdvanced: SessionState = { ...advanced, routing: nextRouting2 };

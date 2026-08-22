@@ -31,6 +31,19 @@ const KEY_TABLE: [RegExp, string][] = [
   [/compromise resolution/, "endorse"],
   [/dreamed in footnotes/, "prodigious"],
   [/figure in the ledger/, "chimerical"],
+  // 2026-08-22 expansion (sc-021..032); the last four are two-blank frames.
+  [/experienced hikers lost their way/, "winding"],
+  [/repeated it in bolder language/, "correcting"],
+  [/not a word too many/, "economical"],
+  [/corrosion had .* its cables/, "weakened"],
+  [/delegated freely and took credit sparingly/, "secure"],
+  [/survives translation/, "indestructible"],
+  [/bought and sold to the highest bidder/, "steadfast"],
+  [/unpacked like a statute/, "dense"],
+  [/every scandal is recounted/, "candid;sensational"],
+  [/reviving grievances/, "settle;inflamed"],
+  [/none was wasted on general complaint/, "surgical;scattershot"],
+  [/provinces they no longer bothered to count/, "uneven;steady"],
 ];
 
 test("subtest metadata and routing match the frozen spec", () => {
@@ -44,12 +57,12 @@ test("subtest metadata and routing match the frozen spec", () => {
   });
 });
 
-test("ids are exactly sc-001..sc-020 plus two practice items; prompts unique", () => {
+test("ids are exactly sc-001..sc-032 plus two practice items; prompts unique", () => {
   assert.deepEqual(
     sentenceCompletion.items.map((i) => i.id),
-    Array.from({ length: 20 }, (_, k) => "sc-" + String(k + 1).padStart(3, "0")),
+    Array.from({ length: 32 }, (_, k) => "sc-" + String(k + 1).padStart(3, "0")),
   );
-  assert.equal(new Set(sentenceCompletion.items.map((i) => i.prompt)).size, 20);
+  assert.equal(new Set(sentenceCompletion.items.map((i) => i.prompt)).size, 32);
 });
 
 test("every item matches exactly one table entry and keys resolve to it", () => {
@@ -64,26 +77,35 @@ test("every item matches exactly one table entry and keys resolve to it", () => 
   assert.equal(seen.size, KEY_TABLE.length, "a table entry matched no item");
 });
 
-test("authoring contract: five distinct lowercase options, no stem leakage, blank present", () => {
+test("authoring contract: five distinct lowercase options, no stem leakage, blank count matches option shape", () => {
   for (const item of [...sentenceCompletion.items, ...(sentenceCompletion.practice ?? [])]) {
     assert.equal(item.options!.length, 5, item.id + " must offer five choices");
     assert.equal(new Set(item.options).size, 5, item.id + " repeats an option");
-    for (const o of item.options!) assert.match(o!, /^[a-z]+$/, item.id + " option not a single lowercase word");
-    const sentence = item.prompt.split("\n")[0]!;
-    assert.ok(sentence.includes("______"), item.id + " sentence has no blank");
+    // Options are single lowercase words, or (two-blank items) semicolon-
+    // joined pairs of lowercase words — both blanks must be satisfiable.
     for (const o of item.options!) {
-      assert.ok(!sentence.toLowerCase().includes(o!), item.id + " leaks option " + o + " in its own sentence");
+      assert.match(o!, /^[a-z]+(;[a-z]+)?$/, item.id + " option not lowercase word(s)");
+    }
+    const sentence = item.prompt.split("\n")[0]!;
+    const blanks = (sentence.match(/______/g) ?? []).length;
+    const wordsPerOption = item.options![0]!.split(";").length;
+    assert.ok(blanks >= 1, item.id + " sentence has no blank");
+    assert.equal(blanks, wordsPerOption, item.id + " blank count does not match option shape");
+    for (const o of item.options!) {
+      for (const word of o.split(";")) {
+        assert.ok(!sentence.toLowerCase().includes(word), item.id + " leaks option word " + word + " in its own sentence");
+      }
     }
   }
 });
 
-test("authored span -2.0..+2.4 with a/c contract", () => {
+test("authored span -2.0..+2.6 with a/c contract", () => {
   const bs = sentenceCompletion.items.map((i) => i.b);
   assert.ok(Math.min(...bs) <= -2.0, "floor must reach -2.0");
-  assert.ok(Math.max(...bs) >= +2.4, "ceiling must reach +2.4");
+  assert.ok(Math.max(...bs) >= +2.6, "ceiling must reach +2.6");
   for (const item of sentenceCompletion.items) {
     assert.equal(item.c, 0.2, item.id + " c must equal 1/5");
-    assert.ok(item.a >= 1.1 && item.a <= 1.4, item.id + " a outside band");
+    assert.ok(item.a >= 1.1 && item.a <= 1.5, item.id + " a outside band");
     assert.ok(item.b > item.a - 10); // sanity
   }
 });

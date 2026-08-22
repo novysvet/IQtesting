@@ -11,7 +11,7 @@ function itemSeconds(kind: string | undefined, subtestId: string): number {
   switch (kind) {
     case "matrix": case "fold": case "rotation": return 75;
     case "span": case "pairs": return 55;
-    case "symsearch": return 8;   // speeded scanning
+    case "symscan": return 5;     // locate-and-click trial (cap-censored tail is rare)
     case "symqueue": return 7;    // speeded key selection per queue
     case "blocks": return 35;    // isometric counting
     case "vpuzzle": return 40;   // assembly under exact-3 selection

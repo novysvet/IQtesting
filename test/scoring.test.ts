@@ -146,3 +146,38 @@ test("G_WEIGHTS matches the literature-informed table exactly", () => {
     Glr: 0.6,
   });
 });
+
+test("whole-page matching subtests report SE widened by the testlet design effect", async () => {
+  // 2026-08-22 literature pass: the definitions page administers all 33 items
+  // on ONE shared stimulus page, so local independence overstates precision.
+  // The reported SE must be the EAP SE times sqrt(1 + (m-1)*0.20) — for
+  // m = 33 that is sqrt(7.4) ≈ 2.72x. Kang et al. (2021): keeping items
+  // scored separately but inflating the bundle SE is the simple defensible
+  // testlet fix (bundle-polytomous scoring converges poorly at these sizes).
+  const definitions = BATTERY.find((s) => s.id === "definitions");
+  assert.ok(definitions?.matching, "definitions subtest missing");
+  const responses: Response[] = definitions.items.map((item, i) => ({
+    itemId: item.id, correct: i % 3 !== 0, latencyMs: 8000, timedOut: false,
+  }));
+  const { estimateAbility, REPORT_PRIOR_SD } = await import("../src/core/irt.ts");
+  const est = estimateAbility(definitions.items, responses, { priorSd: REPORT_PRIOR_SD });
+  const { matchingDesignEffect } = await import("../src/core/scoring.ts");
+  const score = scoreComposite([definitions], responses).subtests[0]!;
+  const factor = matchingDesignEffect(definitions.items.length);
+  assert.ok(Math.abs(factor - Math.sqrt(1 + 32 * 0.2)) < 1e-12, "design effect formula drifted");
+  assert.ok(
+    Math.abs(score.se - est.se * factor) < 1e-9,
+    "matching SE must be the EAP SE widened by the design effect",
+  );
+  assert.ok(score.se > est.se, "testlet SE inflation missing");
+  // Non-matching subtests are untouched.
+  const matrix = BATTERY.find((s) => s.id === "matrixReasoning")!;
+  const mResponses: Response[] = matrix.items.slice(0, 6).map((item) => ({
+    itemId: item.id, correct: true, latencyMs: 30000, timedOut: false,
+  }));
+  const mEst = estimateAbility(matrix.items.slice(0, 6), mResponses, { priorSd: REPORT_PRIOR_SD });
+  const mScore = scoreComposite(
+    [{ ...matrix, items: matrix.items.slice(0, 6) }], mResponses,
+  ).subtests[0]!;
+  assert.ok(Math.abs(mScore.se - mEst.se) < 1e-9, "non-matching subtests must not be inflated");
+});

@@ -41,6 +41,12 @@ test("revised figure series have demonstrated cycles and representable keys", ()
   assert.equal(keyedSpec("fs-012"), "arw:5:none:0");
   assert.equal(keyedSpec("fs-013"), "star:2:none:180");
   assert.equal(keyedSpec("fs-014"), "arw:1:none:90");
+  // 2026-08-22 conditional/interacting ceiling items.
+  assert.equal(keyedSpec("fs-015"), "arw:1:none:0");
+  assert.equal(keyedSpec("fs-016"), "star:1:solid:180");
+  assert.equal(keyedSpec("fs-017"), "tri:1:none:315");
+  assert.equal(keyedSpec("fs-018"), "star:8:none:45");
+  assert.equal(keyedSpec("fs-019"), "tri:1:half:90");
 
   for (const item of figureSeries.items) {
     const specs = [...(item.render?.kind === "series" ? item.render.figures : []), ...(item.options ?? [])];

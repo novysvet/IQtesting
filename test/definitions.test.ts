@@ -74,7 +74,9 @@ test("definitions subtest matches the frozen 1926-format specification", () => {
     definitions.instructions,
     "Thirty-three definitions are given. From each definition the word defined has been omitted and a number substituted. " +
       "Beside each word in the list of sixty-six, enter the number of the definition it satisfies. " +
-      "Thirty-three of the words fit the definitions exactly; thirty-three do not.",
+      "Thirty-three of the words fit the definitions exactly; thirty-three do not. " +
+      // 2026-08-22: honor pledge shared by the search-vulnerable Gc sections.
+      "This section measures your own vocabulary and knowledge: answer without dictionaries, translators, search engines, or any other outside help.",
   );
   for (const item of definitions.items) {
     assert.equal(item.subtest, "definitions");

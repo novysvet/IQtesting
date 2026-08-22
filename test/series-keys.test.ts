@@ -76,6 +76,54 @@ const RULES: Record<string, (figs: string[]) => string> = {
     const nextIncrement = increments[increments.length - 1]! + growth;
     return spec(p[0]!.shape, p[0]!.count, p[0]!.fill, mod360(p[p.length - 1]!.rot + nextIncrement));
   },
+  // 2026-08-22 ceiling pass: conditional/interacting rules. Each derives the
+  // next term by re-applying the stated attribute coupling.
+  "fs-015": (f) => {
+    // Fill alternates; rotation step is conditional on the CURRENT fill:
+    // +45 out of none, +135 out of solid.
+    const p = f.map(parse);
+    const last = p[p.length - 1]!;
+    const nextFill = last.fill === "none" ? "solid" : "none";
+    const step = last.fill === "none" ? 45 : 135;
+    return spec(last.shape, last.count, nextFill, mod360(last.rot + step));
+  },
+  "fs-016": (f) => {
+    // +135 per step; on wrap past 360 the fill flips.
+    const p = f.map(parse);
+    const last = p[p.length - 1]!;
+    const raw = last.rot + 135;
+    const wrapped = raw >= 360;
+    const nextFill = wrapped
+      ? (last.fill === "none" ? "solid" : "none")
+      : last.fill;
+    return spec(last.shape, last.count, nextFill, mod360(raw));
+  },
+  "fs-017": (f) => {
+    // Fill walks the 4-cycle; the step is +90 except on the wrap-to-none
+    // step, where it is +45.
+    const p = f.map(parse);
+    const fills = ["none", "half", "solid", "hatch"];
+    const last = p[p.length - 1]!;
+    const nextFill = fills[(fills.indexOf(last.fill) + 1) % 4]!;
+    const step = nextFill === "none" ? 45 : 90;
+    return spec(last.shape, last.count, nextFill, mod360(last.rot + step));
+  },
+  "fs-018": (f) => {
+    // Count doubles; rotation step = -45 x current count.
+    const p = f.map(parse);
+    const last = p[p.length - 1]!;
+    return spec(last.shape, last.count * 2, last.fill, mod360(last.rot - 45 * last.count));
+  },
+  "fs-019": (f) => {
+    // Mutual coupling: fill cycles none/half/solid; step is encoded by the
+    // current fill (+45 none, +135 half, +225 solid).
+    const p = f.map(parse);
+    const fills = ["none", "half", "solid"];
+    const last = p[p.length - 1]!;
+    const nextFill = fills[(fills.indexOf(last.fill) + 1) % 3]!;
+    const step = { none: 45, half: 135, solid: 225 }[last.fill]!;
+    return spec(last.shape, last.count, nextFill, mod360(last.rot + step));
+  },
 };
 
 test("every figure-series key re-derives from its stated rule", () => {

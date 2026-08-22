@@ -89,8 +89,12 @@ export const symbolSelection: Subtest = {
   name: "Symbol Selection",
   broad: "Gs",
   narrow: ["P", "R9"],
+  // Guess-penalty contract: any wrong press breaks the queue's exact match
+  // (c = 0, the item is voided) AND forces a correction that burns clock —
+  // so rapid gambling on keys is strictly worse than a beat of caution.
+  guessPenalty: true,
   instructions:
-    "Eight symbols map to the eight home-row keys, shown in the legend above every item. Symbols appear in a queue; the current symbol is enlarged. Press its key to advance - a wrong press records an error and the queue waits for the right key. Complete each queue as fast as you can without errors.",
+    "Eight symbols map to the eight home-row keys, shown in the legend above every item. Symbols appear in a queue; the current symbol is enlarged. Press its key to advance - complete each queue as fast as you can. Wrong presses are penalised, and this is not cosmetic: a single wrong press breaks the queue's exact match and voids the item, and every error costs the recovery time it forces. If you are not sure of a key, take a beat rather than guessing.",
   budgetMin: 3,
   routing: { maxItems: 18, minItems: 8, ceilingMisses: 6, targetSe: 0.50, entryTheta: 0 },
   // Unscored samples double as the tutorial: the first queue walks the

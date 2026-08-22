@@ -843,8 +843,11 @@ const itemsById = new Map(items.map((i) => [i.id, i]));
 test("subtest metadata and bank shape are exact", () => {
   assert.equal(artificialLanguage.id, "artificialLanguage");
   assert.equal(artificialLanguage.name, "Artificial Language");
-  assert.equal(artificialLanguage.broad, "Gc");
-  assert.deepEqual(artificialLanguage.narrow, ["LD"]);
+  // 2026-08-22 relabel: grammar induction from exemplars is Gf/I (the WJ-IV
+  // Analysis-Synthesis construct family), not Gc/LD — the lexicons are
+  // nonsense by construction, so nothing crystallized applies.
+  assert.equal(artificialLanguage.broad, "Gf");
+  assert.deepEqual(artificialLanguage.narrow, ["I"]);
   assert.equal(
     artificialLanguage.instructions,
     "A constructed language is presented with its vocabulary and worked examples. Infer its grammar and translate.",
@@ -855,8 +858,11 @@ test("subtest metadata and bank shape are exact", () => {
   assert.deepEqual(items.map((i) => i.id), Array.from({ length: 18 }, (_, i) => "aln-" + String(i + 1).padStart(3, "0")));
   for (const item of items) {
     assert.equal(item.subtest, "artificialLanguage");
-    assert.equal(item.broad, "Gc");
-    assert.equal(item.narrow, "LD");
+    assert.equal(item.broad, "Gf");
+    assert.equal(item.narrow, "I");
+    // Language blocking: every item names its grammar, so routing can keep
+    // one language open until exhausted.
+    assert.ok(item.block === "A" || item.block === "B" || item.block === "C", item.id + " missing language block tag");
     assert.deepEqual(item.render, { kind: "text" });
     assert.equal(item.options!.length, 5, item.id + " needs five options");
     assert.equal(item.c, 0.2, item.id + " c must be 1/5");

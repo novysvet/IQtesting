@@ -75,6 +75,15 @@ export interface Item {
   answer: number | string;
   /** Optional per-item time cap in seconds (used by speeded subtests). */
   timeLimitSec?: number;
+  /**
+   * CONTENT BLOCK tag. When several bank items share a stimulus grammar
+   * (e.g. one artificial language), adaptive selection normally interleaves
+   * blocks; mid-run block switching contaminates measurement because
+   * learnability transfers across blocks while IRT assumes stationarity.
+   * Routing constrains selection to the open block until it is exhausted
+   * (see routing.ts). Absent on all unblocked banks.
+   */
+  block?: string;
   /** Renderer hint for non-text items. */
   render?: ItemRender;
 }
@@ -111,11 +120,17 @@ export type ItemRender =
   | { kind: "span"; sequence: string[]; recall: "forward" | "backward" | "sorted" }
   | { kind: "pairs"; pairs: [string, string][] }
   /**
-   * Symbol Search (Gs): decide whether either target glyph occurs in the
-   * search row. Glyphs reuse the Figure spec "shape:count:fill:rot" with
-   * count 1. Options are ["No","Yes"]; the key follows from set membership.
+   * Symbol Scan (Gs): a locate-and-click processing-speed block. Two target
+   * glyphs sit above a search row; the examinee presses THE row cell that
+   * matches either target, or the dedicated NO-symbol control when neither
+   * appears. There is no Yes/No shortcut: identifying WHICH cell matches is
+   * the response, so blind guessing succeeds ~1/(row+1) of the time while
+   * errors are penalised (see Subtest.guessPenalty). Glyphs reuse the Figure
+   * spec "shape:1:fill:rot". `answer` is the 0-based row index of the
+   * embedded target, or row.length (one past the row) for NO-match trials;
+   * the timeout path submits -1, which can never equal a key.
    */
-  | { kind: "symsearch"; targets: string[]; search: string[] }
+  | { kind: "symscan"; targets: string[]; row: string[] }
   /**
    * Symbol Selection (Gs): a persistent glyph->home-row-key legend shown on
    * every item and a queue of nonsense glyphs. The examinee presses the key
@@ -165,6 +180,21 @@ export interface Subtest {
   items: Item[];
   /** Practice items shown before scoring begins; never scored. */
   practice?: Item[];
+  /**
+   * GUESS-PENALTY CONTRACT (speeded selection formats). When set, wrong
+   * responses cost the examinee on three levels, and the instructions MUST
+   * say so explicitly:
+   *   1. Inferential — the bank ships c = 0 even though blind guessing could
+   *      succeed by chance, so an error is counted as evidence AGAINST
+   *      ability rather than discounted as guessing noise;
+   *   2. Behavioural — the UI charges for errors in kind (lost time, forced
+   *      correction) instead of letting rapid clicking ride for free;
+   *   3. Reported — the results dashboard shows these subtests' raw tallies
+   *      net of their error count.
+   * The design goal is to make "answer everything, odds be damned" strictly
+   * worse than skipping: expected-value guessing must not pay.
+   */
+  guessPenalty?: boolean;
   /**
    * When present, the subtest is administered as ONE whole page instead of
    * an adaptive item run: every item is presented simultaneously (1926-SAT

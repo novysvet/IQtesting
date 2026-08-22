@@ -12,6 +12,16 @@ import type { Item, NarrowAbility, Subtest } from "../core/types.ts";
 type Datum = readonly [prompt: string, correct: string, distractors: readonly [string, string, string, string]];
 
 /**
+ * Honor pledge appended to the search-vulnerable Gc instructions
+ * (2026-08-22 literature pass). Unproctored web delivery defeats verbatim-
+ * searchable verbal formats specifically; instructed honor commitments
+ * measurably reduce unauthorized-help use (Mukherjee 2023), and the
+ * formula-scoring literature's central finding is that instructions move
+ * behavior more than scoring rules do.
+ */
+const HONOR_PLEDGE = " This section measures your own vocabulary and knowledge: answer without dictionaries, translators, search engines, or any other outside help.";
+
+/**
  * Expert ordinal review overrides obvious content/rank inversions while keeping
  * stable item ids. These are routing heuristics, not empirical calibrations.
  *
@@ -23,8 +33,13 @@ type Datum = readonly [prompt: string, correct: string, distractors: readonly [s
  */
 const DIFFICULTY_ORDER: Record<string, { order: readonly number[]; span: readonly [number, number] }> = {
   van: {
-    order: [3, 1, 2, 4, 8, 7, 6, 11, 5, 9, 20, 10, 12, 14, 15, 17, 31, 33, 34, 16, 19, 18, 13, 29, 26, 30, 32, 36, 24, 21, 27, 23, 25, 35, 22, 28],
-    span: [-2.5, 1.5],
+    // 2026-08-22 literature pass: items 37-44 extend the ceiling from +1.5 to
+    // +2.8 with rare-vocabulary, multi-element rationales (Enright & Bejar
+    // RR-89-35 difficulty drivers: word rarity, rationale element count,
+    // negation-flavored relations). The relative order of items 1-36 is the
+    // audit order, unchanged; the wider span re-interpolates every b.
+    order: [3, 1, 2, 4, 8, 7, 6, 11, 5, 9, 20, 10, 12, 14, 15, 17, 31, 33, 34, 16, 19, 18, 13, 29, 26, 30, 32, 36, 24, 37, 21, 27, 23, 25, 35, 22, 38, 28, 39, 40, 41, 42, 43, 44],
+    span: [-2.5, 2.8],
   },
   gin: {
     order: [3, 1, 4, 2, 5, 6, 11, 7, 9, 10, 8, 24, 13, 12, 15, 16, 20, 14, 29, 17, 28, 18, 27, 25, 19, 23, 26, 22, 30, 21],
@@ -49,17 +64,18 @@ function buildItems(prefix: string, subtest: string, narrow: NarrowAbility, data
     const options = [...distractors];
     options.splice(answer, 0, correct);
     const [lo, hi] = config.span;
+    const b = Number((lo + (rank / Math.max(1, data.length - 1)) * (hi - lo)).toFixed(2));
     return {
       id: prefix + "-" + String(index + 1).padStart(3, "0"),
       subtest,
       broad: "Gc",
       narrow,
-      // Constant a avoids pretending later vocabulary is more discriminating.
-      a: 1.35,
-      // b is interpolated across the audit-derived provisional span for this
-      // bank (see DIFFICULTY_ORDER above; docs/DIFFICULTY_AUDIT.md §2.11–2.12),
-      // not across the retired uniform −3..+4 ladder.
-      b: Number((lo + (rank / Math.max(1, data.length - 1)) * (hi - lo)).toFixed(2)),
+      // Constant a within the mid-band avoids pretending later vocabulary is
+      // more discriminating; above b 1.8 discrimination rises to 1.5 — with a
+      // capped b-range, high-a items at the hardest available difficulties
+      // are the only ceiling lever (I(theta) peaks scale with a^2).
+      a: b >= 1.8 ? 1.5 : 1.35,
+      b,
       c: 1 / options.length,
       prompt,
       options,
@@ -218,6 +234,18 @@ const analogyData: readonly Datum[] = [
   ["PROSOPOGRAPHY is to PERSONS as TOPOGRAPHY is to ____.", "places", ["maps", "landmarks", "surfaces", "regions"]],
   ["ONOMASTIC is to NAMES as DEONTIC is to ____.", "duty", ["truth", "beauty", "chance", "cause"]],
   ["PSITTACISM is to REPETITION as CACOGRAPHY is to ____.", "bad writing", ["fine speech", "false memory", "slow reading", "secret code"]],
+  // 2026-08-22 ceiling items (37-44). Difficulty drivers per ETS cognitive
+  // analyses: rare stem/key vocabulary (zipf < 3), multi-element rationales,
+  // and negation-flavored relations ("lacking in X", "unwilling to yield X").
+  // Distractors stay inside each stem's relation domain.
+  ["OLFACTORY is to SMELL as GUSTATORY is to ____.", "taste", ["touch", "hearing", "sight", "flavor"]],
+  ["ARCHITRAVE is to COLUMN as LINTEL is to ____.", "doorway", ["window", "arch", "wall", "roof"]],
+  ["STEVEDORE is to WHARF as FARRIER is to ____.", "horseshoes", ["stables", "hay", "bridles", "anvils"]],
+  ["LACONIC is to WORDS as ASCETIC is to ____.", "comforts", ["food", "money", "sleep", "possessions"]],
+  ["EVANESCENT is to DURATION as TENUOUS is to ____.", "density", ["weight", "length", "color", "depth"]],
+  ["INTRANSIGENT is to COMPROMISE as INDEFATIGABLE is to ____.", "fatigue", ["effort", "sleep", "work", "travel"]],
+  ["PERFIDIOUS is to LOYALTY as PUSILLANIMOUS is to ____.", "courage", ["patience", "strength", "honesty", "ambition"]],
+  ["APOTHEOSIS is to APEX as NADIR is to ____.", "bottom", ["zenith", "middle", "horizon", "slope"]],
 ];
 
 const informationData: readonly Datum[] = [
@@ -262,16 +290,19 @@ export const precisionLexicon: Subtest = {
 };
 
 /**
- * Verbal Analogies. b spans the audit-derived provisional range −2.5..+1.5
- * (docs/DIFFICULTY_AUDIT.md §2.11: predicted empirical ceiling ≈ +1.5 — the
- * former −3..+4 ladder's upper half was fiction). Difficulty order and the
- * same-domain distractor rewrites for van-031/033/034 (second-pair giveaways)
- * come from the same audit; parameters remain authored estimates pending
+ * Verbal Analogies. b spans -2.5..+2.8 (2026-08-22 literature pass: items
+ * 37-44 extend the audit's +1.5 ceiling with rare-vocabulary, multi-element
+ * rationales — the ETS difficulty drivers from Enright & Bejar RR-89-35 and
+ * the NITE componential analyses: pair rarity, rationale element count,
+ * negation-flavored relations). The relative order of items 1-36 is the
+ * audit order (docs/DIFFICULTY_AUDIT.md §2.11); same-domain distractor
+ * rewrites for van-031/033/034 come from the same audit. Discrimination
+ * rises to 1.5 above b 1.8. Parameters remain authored estimates pending
  * response data.
  */
 export const verbalAnalogies: Subtest = {
   id: "verbalAnalogies", name: "Verbal Analogies", broad: "Gc", narrow: ["LD"],
-  instructions: "Identify the relationship in the first word pair, then choose the word that completes the second pair in the same way.",
+  instructions: "Identify the relationship in the first word pair, then choose the word that completes the second pair in the same way." + HONOR_PLEDGE,
   budgetMin: 11,
   routing: { maxItems: 17, minItems: 8, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
   // Unscored sample: a single-opposite relation on primary-vocabulary words.
@@ -305,7 +336,7 @@ export const verbalAnalogies: Subtest = {
  */
 export const generalInformation: Subtest = {
   id: "generalInformation", name: "General Information", broad: "Gc", narrow: ["KO"],
-  instructions: "Choose the best answer to each question. Questions sample learned knowledge across science, history, language, and the humanities.",
+  instructions: "Choose the best answer to each question. Questions sample learned knowledge across science, history, language, and the humanities." + HONOR_PLEDGE,
   budgetMin: 11,
   routing: { maxItems: 15, minItems: 7, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
   // Unscored sample: elementary general knowledge, no domain exposure needed.

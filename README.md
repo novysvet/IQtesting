@@ -2,14 +2,19 @@
 
 A browser-administered adaptive cognitive battery built around the
 Cattell–Horn–Carroll model: 21 subtests sampling seven broad abilities
-(Gf, Gc, Gv, Gwm, Gq, Gs, Glr) over a 440-item pool (inventory in
+(Gf, Gc, Gv, Gwm, Gq, Gs, Glr) over a 487-item pool (inventory in
 `src/battery.ts`), scored with 3PL IRT, EAP estimation, and
-maximum-information routing.
+maximum-information routing with randomesque exposure control (k = 6).
 
 Construct notes: `artificialLanguage` follows the 1926-SAT verbal lineage
-but its worked-example grammar task is best interpreted as mixed Gf x Glr
-(novel-rule application) rather than pure crystallized knowledge; and
-`symbolSelection` samples Gs through choice reaction (P + R9). A
+but its worked-example grammar task is a Gf induction measure (the WJ-IV
+Analysis-Synthesis construct family) with Glr flavor, and is scored under
+Gf; `symbolSelection` samples Gs through choice reaction (P + R9); and
+`symbolSearch` is a two-minute locate-and-click block (Symbol Scan): press
+the glyph that matches one of two targets, or NO SYMBOL when neither
+appears — no Yes/No shortcut, so locating the match IS the response. Both
+Gs subtests carry an explicit guess penalty: errors subtract, are counted
+against the estimate (c = 0), and the instructions say so plainly. A
 corpus-calibrated 50-item `precisionLexicon` bank also exists in
 `src/items/gc.ts` as a calibrated reserve - it is not part of the
 administered battery.
@@ -40,7 +45,7 @@ pnpm build        # production bundle in dist/ (Pages base /IQtesting/)
 
 The battery is built to be taken test by test. The battery budget
 (`BATTERY_BUDGET_MIN` in `src/core/session.ts`, the sum of the per-subtest
-budgets in `src/battery.ts` — 260 minutes at authoring) is
+budgets in `src/battery.ts` — 259 minutes at authoring) is
 ACTIVE scored time only: it accrues while a section is open and freezes
 during instructions, practice samples, checkpoints, and any pause between
 sittings. Every completed section lands on a **checkpoint** showing that
@@ -111,21 +116,25 @@ screening judges active time, not wall-clock time.
 ## Documentation
 
 - `docs/DIFFICULTY_AUDIT.md` — the full audit history: per-item findings,
-  fixes applied, honest spans, scale-floor revision (§9).
+  fixes applied, honest spans, scale-floor revision (§9), Symbol Scan
+  replacement (§11).
+- `docs/DESIGN_REVIEW.md` — the per-subtest design review: construct fit,
+  exploits, and verdicts for all 21 tests.
 - `docs/ITEM_SCHEMA.md` — the item authoring contract and format conventions.
 - `docs/NORMING.md` — the operating procedure for replacing authored priors
   with collected data.
 
 ## Testing
 
-288 tests pin the engine: key re-derivation for every bank (fold simulation,
+295 tests pin the engine: key re-derivation for every bank (fold simulation,
 matrix rules, series rules, rotation structure, tiling uniqueness, artlang
-grammars, logic-game solution spaces, corpus-calibrated zipfs), scale-floor
-behaviour under random responding, routing stop rules, fixed-form
-administration, option-permutation balance, key-position de-cycling and
-exploit-resistance regressions, practice contracts, multi-sitting clock
-semantics, export enrichment, the bank-version content hash, validity
-screening, persistence, norms gating, and the endpoint validator.
+grammars, logic-game solution spaces, corpus-calibrated zipfs, symbol-scan
+locate-and-click keys), scale-floor behaviour under random responding,
+routing stop rules, fixed-form administration, option-permutation balance,
+key-position de-cycling and exploit-resistance regressions, practice
+contracts, multi-sitting clock semantics, export enrichment, the bank-version
+content hash, validity screening, persistence, norms gating, and the endpoint
+validator.
 
 ## License
 

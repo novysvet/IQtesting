@@ -23,7 +23,13 @@ import { analyticalReasoning } from "./items/gf-analytical.ts";
  * definitions (1926-SAT matching), quantComparison, verbalAnalogies,
  * sentenceCompletion, antonyms, and analyticalReasoning are the classic
  * formats; the 2026-08 redesign replaced WAIS-style Character Pairing with
- * the pure choice-reaction Symbol Selection task (Gs without Gwm load).
+ * the pure choice-reaction Symbol Selection task (Gs without Gwm load), and
+ * the 2026-08-22 revision replaced binary Yes/No Symbol Search with the
+ * locate-and-click timed Symbol Scan block (press the matching glyph or NO;
+ * both Gs tests carry an explicit guess penalty). Also 2026-08-22:
+ * artificialLanguage moved Gc -> Gf (grammar induction from exemplars, the
+ * WJ-IV Analysis-Synthesis construct family) with per-language routing
+ * blocks; adjacency stays modality-alternating (Gq - Gf - Gv here).
  */
 export const BATTERY: Subtest[] = [
   matrixReasoning,

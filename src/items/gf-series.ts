@@ -173,5 +173,73 @@ export const figureSeries: Subtest = {
     answer: 2,
     render: { kind: "series", figures: ["arw:1:none:0", "arw:1:none:45", "arw:1:none:135", "arw:1:none:270"] },
   },
+  {
+    // Ceiling extension (2026-08-22 literature pass). The old bank
+    // decomposed into independent per-attribute ladders (attribute-scan
+    // coaching solved it; fs-014 was the only second-order item) and
+    // topped out at b 2.3. fs-015..019 are CONDITIONAL/INTERACTING-rule
+    // items — one attribute's behavior depends on another attribute's
+    // value — which attribute scanning cannot solve piecemeal. Each chief
+    // distractor is the output of the simpler unconditional rule (the
+    // alternative-rule distractor; MaRs-IB minimal-difference strategy).
+    id: "fs-015", subtest: "figureSeries", broad: "Gf", narrow: "I",
+    a: 1.6, b: 2.5, c: 0.2,
+    // rule: fill alternates none/solid; the rotation step is CONDITIONAL on
+    //       the current fill: +45 out of none, +135 out of solid. The four
+    //       shown terms demonstrate both step values twice each.
+    prompt: "Which figure comes next in the series?",
+    options: ["arw:1:none:45", "arw:1:solid:0", "arw:1:none:0", "arw:1:none:315", "arw:1:solid:315"],
+    answer: 2,
+    render: { kind: "series", figures: ["arw:1:none:0", "arw:1:solid:45", "arw:1:none:180", "arw:1:solid:225"] },
+  },
+  {
+    id: "fs-016", subtest: "figureSeries", broad: "Gf", narrow: "I",
+    a: 1.65, b: 2.7, c: 0.2,
+    // rule: rotation advances +135 each step; whenever the advance wraps
+    //       past 360, the fill flips (none <-> solid). The single wrap in
+    //       the demonstration (270 -> 405) carries the only fill change —
+    //       the conditional is shown exactly where it fires.
+    prompt: "Which figure comes next in the series?",
+    options: ["star:1:none:180", "star:1:solid:180", "star:1:solid:315", "star:1:solid:45", "star:1:none:45"],
+    answer: 1,
+    render: { kind: "series", figures: ["star:1:none:0", "star:1:none:135", "star:1:none:270", "star:1:solid:45"] },
+  },
+  {
+    id: "fs-017", subtest: "figureSeries", broad: "Gf", narrow: "I",
+    a: 1.7, b: 2.8, c: 0.2,
+    // rule: fill walks the 4-cycle none, half, solid, hatch; the rotation
+    //       step is +90 normally but only +45 on the step where the fill
+    //       WRAPS back to none. The wrap step (hatch -> none) is the last
+    //       shown transition; the constant-step reading would land on rot 0
+    //       and is offered as the chief distractor.
+    prompt: "Which figure comes next in the series?",
+    options: ["tri:1:none:315", "tri:1:none:0", "tri:1:hatch:315", "tri:1:none:270", "tri:1:half:315"],
+    answer: 0,
+    render: { kind: "series", figures: ["tri:1:none:0", "tri:1:half:90", "tri:1:solid:180", "tri:1:hatch:270"] },
+  },
+  {
+    id: "fs-018", subtest: "figureSeries", broad: "Gf", narrow: "I",
+    a: 1.75, b: 2.9, c: 0.2,
+    // rule: the count doubles 1, 2, 4, 8 and the rotation step is COUPLED to
+    //       it: step = -45 x current count (-45, -90, -180). Neither
+    //       attribute can be extrapolated alone — the ladders interact.
+    prompt: "Which figure comes next in the series?",
+    options: ["star:8:none:315", "star:8:none:225", "star:4:none:45", "star:8:none:45", "star:8:half:45"],
+    answer: 3,
+    render: { kind: "series", figures: ["star:1:none:0", "star:2:none:315", "star:4:none:225"] },
+  },
+  {
+    id: "fs-019", subtest: "figureSeries", broad: "Gf", narrow: "I",
+    a: 1.8, b: 3.1, c: 0.2,
+    // rule: MUTUAL coupling. The fill cycles none, half, solid and the
+    //       rotation step is ENCODED BY the current fill: +45 out of none,
+    //       +135 out of half, +225 out of solid. Each shown transition
+    //       demonstrates one step value; the key requires reading the fill
+    //       cycle AND applying the fill's step in the right order.
+    prompt: "Which figure comes next in the series?",
+    options: ["tri:1:none:90", "tri:1:half:180", "tri:1:half:90", "tri:1:half:135", "tri:1:solid:90"],
+    answer: 2,
+    render: { kind: "series", figures: ["tri:1:none:0", "tri:1:half:45", "tri:1:solid:180", "tri:1:none:45"] },
+  },
   ],
 };
