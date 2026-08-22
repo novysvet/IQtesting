@@ -121,6 +121,14 @@ button:disabled { cursor: not-allowed; opacity: .38; }
 .puzzle-target line { stroke: var(--rule); }
 .puzzle-piece rect { fill: var(--paper-sunk); }
 
+/* Gq/Gf: figure weights + graph mapping (2026-08-22 wave) */
+.weights-fig { width: max-content; margin: 0 auto; display: grid; gap: 4px; padding: 14px 18px 10px; border: 1px solid var(--ink); }
+.weights-fig .weights-scale { display: block; }
+.weights-option { display: block; margin: 0 auto; }
+.graph-fig { width: max-content; margin: 0 auto; display: flex; gap: 18px; padding: 14px; border: 1px solid var(--ink); }
+.graph-panel { display: grid; justify-items: center; gap: 6px; }
+.graph-svg { display: block; }
+
 /* whole-page matching subtest */
 .match-page { min-height: calc(100vh - 270px); display: flex; flex-direction: column; animation: item-in 280ms var(--ease) both; }
 .match-work { width: min(1080px, 100%); margin: 0 auto; padding: 26px 0 34px; display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, .9fr); gap: clamp(28px, 5vw, 72px); align-items: start; }

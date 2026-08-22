@@ -1,9 +1,12 @@
 # Design Review — Every Subtest, Against "Optimal"
 
-**Date:** 2026-08-22 · **Scope:** all 21 administered subtests plus the shared
+**Date:** 2026-08-22 · **Scope:** all 23 administered subtests plus the shared
 engine they run on · **Method:** full-source read of every bank, its renderer,
 its pinned test suite, and the routing/scoring/validity machinery; Gs audited
-in depth in-house, the remaining domains by independent read-throughs.
+in depth in-house, the remaining domains by independent read-throughs. A
+second same-day wave (§0 items 15–16) added the two literature-flagged
+fluid/quantitative formats the review found missing: Figure Weights and Graph
+Mapping.
 
 **Ground rule used throughout:** "optimal" means *the format measures its
 CHC target with minimal contamination, minimal exploit surface, and a bank
@@ -109,11 +112,63 @@ session transcript.
     Cross-cutting 3; secure administration and telemetry covariates remain
     open.
 
+**Second wave (2026-08-22, later still) — the missing fluid/quantitative
+formats, added as new subtests (items 15–16). Suite now 309 tests:**
+
+15. **Figure Weights added** (20 items, fw-001..020, Gq/RQ with a Gf
+    cross-loading; budget 15 min). The research pass found the battery's Gf
+    domain sampled only rule induction plus deduction, while both current
+    Wechsler editions anchor their Fluid Reasoning Index on Matrix Reasoning
+    + Figure Weights — the one format simultaneously figural and
+    quantitative, and among the highest g-loading WAIS-IV subtests (g ≈ .78;
+    Weiss et al. 2013 five-factor CHC validation, where Arithmetic +
+    Figure Weights form the RQ factor under Gf). Ours is the Wechsler
+    balance-scale format: balanced demonstration scales state hidden
+    equivalence relations among colored shapes; the examinee picks the group
+    that fills the queried pan. Design choices against the literature's
+    documented failure modes: **untimed** (the WISC-V times FW and the
+    gifted-identification literature faults exactly that — Silverman &
+    Gilman 2020), **color redundant with geometry** (fixed shape→color map;
+    Pearson's own color-vision caveat designed out), **three-scale chains at
+    the ceiling** (Wechsler FW tops out for high-ability examinees), and
+    **exact-rational uniqueness verification** — test/weights.test.ts proves
+    by Gaussian elimination over BigInt fractions that the demo scales
+    determine every weight up to one global scale factor and that exactly
+    one option balances under every consistent assignment (AIG precedent:
+    Arendasy & Sommer's generated quantitative-reasoning items).
+    Anti-exploit: option-value ranks spread (no "pick the middle"), key
+    positions cycle-free, no duplicate-weight options.
+16. **Graph Mapping added** (18 items, gm-001..018, Gf/I; budget 12 min).
+    Jastrzębski, Ociepka & Chuderski 2022 (*Behavior Research Methods*,
+    DOI 10.3758/s13428-022-01846-z) validated this computerized
+    structure-mapping task at RAPM-equivalent validity (α = .86, test-retest
+    .76, CFA Gf loading .75, correlations with RAPM/analogies/CFT-3 ≈ .60)
+    with no response options to eliminate (the Arendasy & Sommer 2013
+    critique of matrix formats cannot apply) and experimentally validated
+    difficulty dials: edge count, direct-vs-indirect targets, crossed
+    drawings — all three authored into the ladder (b −2.2 direct basals →
+    +2.2 chorded/dense/crossed ceilings). Format: a colored model graph with
+    two ringed nodes beside its rearranged numbered copy; the examinee types
+    the two numbers occupying the ringed roles (constructed response, c = 0,
+    chance ≈ 1/C(N,2)). The non-obvious shipping condition is
+    **automorphism-rigidity**: test/graphmap.test.ts brute-force enumerates
+    EVERY isomorphism (N! with edge pruning) and asserts the ringed pair
+    maps to the same numbered pair under all of them — no defensible
+    alternative answer exists (three hand-authored items died in that check
+    during authoring; those graphs were redesigned). Reference node colors
+    encode degree classes (machine-checked), so color is structure, not
+    decoration. WM overlap is expected (Gf–WM r = .87 in the source); the
+    battery's separate Gwm measurement is the control. The battery budget
+    rose 259 → 286 minutes for both subtests; the wall-clock simulation
+    still fits at every ability level.
+
 **Residual risks after this pass** (honest): the Gs throughput inference and
 General Information search-engine vulnerability are unchanged (§1.2, §3);
 authored ceilings outside matrix/series/analogies remain thin (folding 1.4,
 rotation 1.3–1.4, blocks 1.9); randomesque cannot fix banks where
-administered ≈ bank size — those need content growth, not routing.
+administered ≈ bank size — those need content growth, not routing; Glr
+remains a single-indicator factor (paired associates only) — the cheapest
+second indicator is a delayed-recall probe.
 
 ---
 
@@ -131,7 +186,7 @@ administered ≈ bank size — those need content growth, not routing.
 | Antonyms | Gc | minor improvements possible |
 | Sentence Completion | Gc | minor improvements possible (bank too small) |
 | Definitions (matching page) | Gc | minor improvements possible |
-| Artificial Language | Gc | minor improvements possible (mislabeled construct) |
+| Artificial Language | Gf | relabelled Gc→Gf this pass (§0.12); format otherwise sound |
 | Paper Folding | Gv | minor improvements possible |
 | Mental Rotation | Gv | minor improvements possible |
 | Visual Puzzles | Gv | minor improvements possible (c mis-specified) |
@@ -140,6 +195,8 @@ administered ≈ bank size — those need content growth, not routing.
 | Letter–Number Sequencing | Gwm | minor improvements possible |
 | Paired Associates | Glr | closest to needing redesign in the battery |
 | Number Series / Quant Comparison / Arithmetic | Gq | minor improvements possible |
+| Figure Weights (added 2026-08-22 wave 2) | Gq/RQ | added this pass — see §0.15 |
+| Graph Mapping (added 2026-08-22 wave 2) | Gf | added this pass — see §0.16 |
 
 No subtest besides the two addressed this pass requires a wholesale rebuild;
 the systemic weaknesses are shared, not local (see §Cross-cutting).

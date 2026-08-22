@@ -110,6 +110,9 @@ export interface CellSpecV2 {
 /** Legacy homogeneous spec string or a structured cell. */
 export type FigureSpec = string | CellSpecV2;
 
+/** Shape kinds used by Figure Weights (color is fixed per kind in the renderer). */
+export type WeightShapeId = "tri" | "sq" | "cir" | "dia" | "hex" | "star";
+
 /** Structured payloads for visually-rendered items. */
 export type ItemRender =
   | { kind: "text" }
@@ -165,7 +168,37 @@ export type ItemRender =
    * translate but never rotate or mirror). Exactly three pieces tile the
    * target; `answer` is their option indices ascending, comma-joined.
    */
-  | { kind: "vpuzzle"; cols: number; rows: number; target: number[]; pieces: number[][] };
+  | { kind: "vpuzzle"; cols: number; rows: number; target: number[]; pieces: number[][] }
+  /**
+   * Figure Weights (Gq/RQ with a Gf cross-loading): balance-scale
+   * quantitative equivalence, the WAIS-IV/WISC-V core FRI format. `weights`
+   * is the hidden ground-truth unit weight of every shape kind (integer
+   * >= 1). `demo` holds balanced demonstration scales ([left pan, right
+   * pan]); `query` is the final scale whose right pan carries some shapes
+   * (possibly none) plus the implicit "?" gap the chosen option must fill.
+   * The demo system must determine every shape weight up to one global
+   * scale factor (rank = nShapes - 1), so the balancing option is provably
+   * unique — test/weights.test.ts re-derives this by exact rational
+   * elimination. Options are groups encoded as comma-joined shape ids
+   * ("tri,sq"); the answer is the option index. Shape colors are FIXED
+   * globally per shape id (see ReasoningFigures.tsx) and always redundant
+   * with geometry, so color vision is never required.
+   */
+  | { kind: "fweights"; weights: [WeightShapeId, number][]; demo: [WeightShapeId[], WeightShapeId[]][]; query: { left: WeightShapeId[]; right: WeightShapeId[] } }
+  /**
+   * Graph Mapping (Gf/I): structure-mapping after Jastrzębski, Ociepka &
+   * Chuderski (2022). `ref` is the model graph (authored positions, edges,
+   * and the two ringed target nodes); `scrambled` is an isomorphic copy in
+   * a different layout whose nodes display the numbers index+1. The
+   * examinee types the two numbers whose nodes occupy the target nodes'
+   * structural roles — ascending, comma-joined ("3,7"), constructed
+   * response (c = 0). The key is only shippable because the image of the
+   * target pair is identical under EVERY isomorphism (verified by
+   * brute-force enumeration in test/graphmap.test.ts). Reference nodes are
+   * colored by degree class (renderer-derived, machine-checkable), the
+   * scrambled copy stays uncolored.
+   */
+  | { kind: "graphmap"; ref: { positions: [number, number][]; edges: [number, number][]; targets: [number, number] }; scrambled: { positions: [number, number][]; edges: [number, number][] } };
 
 export interface Subtest {
   id: string;

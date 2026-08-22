@@ -6,10 +6,11 @@ import type { Item } from "../src/core/types.ts";
 const items = BATTERY.flatMap((s) => s.items);
 
 test("battery contains the complete authored pool", () => {
-  assert.equal(BATTERY.length, 21);
+  assert.equal(BATTERY.length, 23);
   // 2026-08-22 literature pass: +4 matrix, +5 figure series, +8 analogies,
-  // +12 sentence completion over the previous 458.
-  assert.equal(items.length, 487);
+  // +12 sentence completion over the previous 458; the second 2026-08-22
+  // wave added Figure Weights (+20) and Graph Mapping (+18) -> 525.
+  assert.equal(items.length, 525);
 });
 
 test("all item and subtest identifiers are unique", () => {
@@ -113,6 +114,12 @@ const HONEST_SPANS: Record<string, { floor: number; ceiling: number }> = {
   // 2026-08-22 multi-probe redesign: two-cue all-or-none recall re-anchored
   // every b up 0.6 over the single-probe audit anchors.
   pairedAssociates: { floor: -1.0, ceiling: 1.4 },
+  // 2026-08-22 fluid wave: Wechsler Figure Weights adaptation (balance-scale
+  // quantitative equivalence; three-scale chains cap below matrix reasoning)
+  // and Graph Mapping after Jastrzębski et al. 2022 (chorded/dense graphs,
+  // indirect targets, crossed drawings).
+  figureWeights: { floor: -2.6, ceiling: 2.4 },
+  graphMapping: { floor: -2.2, ceiling: 2.2 },
 };
 
 test("every subtest reaches its audit-honest basal and ceiling", () => {

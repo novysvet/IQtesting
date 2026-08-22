@@ -512,6 +512,56 @@ test("practice keys re-derive per format", () => {
       if (subtest.id === "verbalAnalogies") {
         assert.ok(/\bis to\b.*\bas\b.*\bis to/.test(item.prompt), item.id + " prompt is not an A:B::C:D analogy stem");
       }
+    } else if (r?.kind === "fweights") {
+      // Same arithmetic as the scored twins (weights.test.ts level 1; the
+      // full subspace-uniqueness proof stays with the scored bank): demos
+      // balance, the key weighs the query gap, no distractor ties it.
+      mark("fweights");
+      const w = new Map(r.weights);
+      for (const [l, rr] of r.demo) {
+        assert.equal(
+          l.reduce((s, x) => s + w.get(x)!, 0),
+          rr.reduce((s, x) => s + w.get(x)!, 0),
+          item.id + " demonstration scale does not balance",
+        );
+      }
+      const gap = r.query.left.reduce((s, x) => s + w.get(x)!, 0) - r.query.right.reduce((s, x) => s + w.get(x)!, 0);
+      const groupWeight = (o: string) => o.split(",").reduce((s, x) => s + w.get(x as "tri")!, 0);
+      const weights = item.options!.map(groupWeight);
+      assert.equal(weights[item.answer as number], gap, item.id + " keyed option is not the query gap");
+      assert.equal(new Set(weights).size, weights.length, item.id + " two options share a weight");
+    } else if (r?.kind === "graphmap") {
+      // Same enumeration as the scored twins (graphmap.test.ts): every
+      // isomorphism must carry the ringed pair to the SAME numbered pair,
+      // and that pair is the shipped key.
+      mark("graphmap");
+      const n = r.ref.positions.length;
+      const ekey = (a: number, b: number) => (a < b ? a + "-" + b : b + "-" + a);
+      const scr = new Set(r.scrambled.edges.map(([a, b]) => ekey(a, b)));
+      const images = new Set<string>();
+      const perm: number[] = [];
+      const used = new Array<boolean>(n).fill(false);
+      const walk = () => {
+        if (perm.length === n) {
+          if (r.ref.edges.every(([a, b]) => scr.has(ekey(perm[a]!, perm[b]!)))) {
+            images.add([perm[r.ref.targets[0]]!, perm[r.ref.targets[1]]!].sort((x, y) => x - y).join(","));
+          }
+          return;
+        }
+        for (let i = 0; i < n; i++) {
+          if (used[i]) continue;
+          used[i] = true;
+          perm.push(i);
+          walk();
+          perm.pop();
+          used[i] = false;
+        }
+      };
+      walk();
+      assert.ok(images.size >= 1, item.id + " graphs are not isomorphic");
+      assert.equal(images.size, 1, item.id + " ringed pair is ambiguous across isomorphisms");
+      const expected = images.values().next().value!.split(",").map(Number).map((v) => v + 1).sort((a, b) => a - b).join(",");
+      assert.equal(item.answer, expected, item.id + " key is not the unique isomorphic image");
     } else {
       unhandled.push(item.id);
     }
@@ -523,7 +573,7 @@ test("practice keys re-derive per format", () => {
   const expectedClasses = [
     "numberSeries", "quantComparison", "arithmetic", "figureSeries", "pairedAssociates",
     "analyticalReasoning", "artificialLanguage", "symsearch", "symqueue", "blocks", "fold",
-    "rotation", "span", "vpuzzle", "matrix",
+    "rotation", "span", "vpuzzle", "matrix", "fweights", "graphmap",
     "semantic-text-mc:verbalAnalogies", "semantic-text-mc:sentenceCompletion",
     "semantic-text-mc:antonyms", "semantic-text-mc:generalInformation",
   ];

@@ -1,8 +1,8 @@
 # CHC Cognitive Battery (IQtesting)
 
 A browser-administered adaptive cognitive battery built around the
-Cattell–Horn–Carroll model: 21 subtests sampling seven broad abilities
-(Gf, Gc, Gv, Gwm, Gq, Gs, Glr) over a 487-item pool (inventory in
+Cattell–Horn–Carroll model: 23 subtests sampling seven broad abilities
+(Gf, Gc, Gv, Gwm, Gq, Gs, Glr) over a 525-item pool (inventory in
 `src/battery.ts`), scored with 3PL IRT, EAP estimation, and
 maximum-information routing with randomesque exposure control (k = 6).
 
@@ -14,7 +14,11 @@ Gf; `symbolSelection` samples Gs through choice reaction (P + R9); and
 the glyph that matches one of two targets, or NO SYMBOL when neither
 appears — no Yes/No shortcut, so locating the match IS the response. Both
 Gs subtests carry an explicit guess penalty: errors subtract, are counted
-against the estimate (c = 0), and the instructions say so plainly. A
+against the estimate (c = 0), and the instructions say so plainly. The
+2026-08-22 fluid wave added `figureWeights` (the Wechsler FRI balance-scale
+format, Gq/RQ with Gf cross-loading, keys proven unique by exact rational
+elimination) and `graphMapping` (structure mapping after Jastrzębski et al.
+2022, Gf/I, keys proven unique by brute-force isomorphism enumeration). A
 corpus-calibrated 50-item `precisionLexicon` bank also exists in
 `src/items/gc.ts` as a calibrated reserve - it is not part of the
 administered battery.
@@ -45,7 +49,7 @@ pnpm build        # production bundle in dist/ (Pages base /IQtesting/)
 
 The battery is built to be taken test by test. The battery budget
 (`BATTERY_BUDGET_MIN` in `src/core/session.ts`, the sum of the per-subtest
-budgets in `src/battery.ts` — 259 minutes at authoring) is
+budgets in `src/battery.ts` — 286 minutes at authoring) is
 ACTIVE scored time only: it accrues while a section is open and freezes
 during instructions, practice samples, checkpoints, and any pause between
 sittings. Every completed section lands on a **checkpoint** showing that
@@ -117,9 +121,9 @@ screening judges active time, not wall-clock time.
 
 - `docs/DIFFICULTY_AUDIT.md` — the full audit history: per-item findings,
   fixes applied, honest spans, scale-floor revision (§9), Symbol Scan
-  replacement (§11).
+  replacement (§11), fluid wave additions (§12).
 - `docs/DESIGN_REVIEW.md` — the per-subtest design review: construct fit,
-  exploits, and verdicts for all 21 tests.
+  exploits, and verdicts for all 23 tests.
 - `docs/ITEM_SCHEMA.md` — the item authoring contract and format conventions.
 - `docs/NORMING.md` — the operating procedure for replacing authored priors
   with collected data.

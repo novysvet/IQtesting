@@ -16,6 +16,8 @@ import { arithmetic } from "./items/gq-arithmetic.ts";
 import { symbolSearch } from "./items/gs-symsearch.ts";
 import { symbolSelection } from "./items/gs-symqueue.ts";
 import { analyticalReasoning } from "./items/gf-analytical.ts";
+import { figureWeights } from "./items/gq-weights.ts";
+import { graphMapping } from "./items/gf-graphmap.ts";
 
 /**
  * Fixed administration order alternates modalities to reduce method fatigue;
@@ -29,7 +31,11 @@ import { analyticalReasoning } from "./items/gf-analytical.ts";
  * both Gs tests carry an explicit guess penalty). Also 2026-08-22:
  * artificialLanguage moved Gc -> Gf (grammar induction from exemplars, the
  * WJ-IV Analysis-Synthesis construct family) with per-language routing
- * blocks; adjacency stays modality-alternating (Gq - Gf - Gv here).
+ * blocks; the second 2026-08-22 wave added the two literature-flagged
+ * fluid/quantitative formats — Figure Weights (Wechsler core FRI balance
+ * scales, Gq/RQ with Gf cross-loading) and Graph Mapping (Jastrzębski et
+ * al. 2022 structure mapping, Gf/I) — placed to keep adjacency
+ * modality-alternating (Gq - Gf - Gv - Gf - Gs at the tail).
  */
 export const BATTERY: Subtest[] = [
   matrixReasoning,
@@ -50,7 +56,9 @@ export const BATTERY: Subtest[] = [
   visualPuzzles,
   quantComparison,
   artificialLanguage,
+  figureWeights,
   blockCounting,
+  graphMapping,
   symbolSelection,
   pairedAssociates,
 ];

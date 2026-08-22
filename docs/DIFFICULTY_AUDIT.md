@@ -574,3 +574,50 @@ bank's calibration status exactly as any new bank would. The retired
 binary bank's responses are not comparable to Symbol Scan responses (new
 bankVersion hash), so mixed-form norming data must be filtered by hash as
 the pipeline already requires.
+
+## §12 2026-08-22 fluid-reasoning wave (Figure Weights + Graph Mapping)
+
+Second same-day wave, from the deep-research pass behind DESIGN_REVIEW
+§0.15–16: the two literature-flagged missing fluid/quantitative formats,
+added as new subtests. Both banks ship with machine-verified keys of a
+strictness the battery has not used before — the Figure Weights key is
+proven the unique option consistent with the displayed evidence (exact
+rational elimination), and the Graph Mapping key is proven the unique
+isomorphic image of the ringed pair (brute force over every isomorphism).
+The battery budget rose 259 → 286 minutes; wall-clock simulations still
+fit at every ability level.
+
+### 12.1 Figure Weights (Gq/RQ, 20 items fw-001..020, span −2.6..+2.4)
+
+WAIS-IV/WISC-V/WAIS-5 core FRI format (highest g-loading tier, Weiss et
+al. 2013). Difficulty is authored from content on five dials: related
+shape-kind count (2 → 4), chained demonstration scales (1 → 3),
+substitution depth, unit size (1 → 8), and partial right pans (remainder
+reasoning) — never from item position. Discrimination 0.9–1.35,
+hand-varied. Authoring errors the verification wave caught before ship:
+one item under-anchored its shape weights (rank ≠ nShapes − 1 — the
+examinee could not solve it at all), one mis-tallied its right pan by one
+unit; both fixed by redesign. Anti-exploit guards: no two options share a
+weight (a tie would make a distractor also balance), no offered non-key
+group belongs to the gap's weight class, key value-rank ≤ 6/20 per rank,
+key positions 4/4/4/4/4 across the five slots with no cycle, and the demo
+system determines all weights up to one global scale so the key is
+DERIVABLE, not just marked. Colors are fixed per shape kind and redundant
+with geometry (color-blind examinees lose an anchor, never a discriminant).
+
+### 12.2 Graph Mapping (Gf/I, 18 items gm-001..018, span −2.2..+2.2)
+
+Jastrzębski, Ociepka & Chuderski (2022) structure-mapping format with the
+paper's three validated difficulty dials authored in: edge count (4 → 10),
+direct → indirect targets (basals degree-readable at b ≤ −2.0; from
+b ≥ 0.15 every target shares its degree class with another node), and
+crossed drawings (scrambled layouts cross at b ≥ 1.65; reference layouts
+stay planar by test). Constructed response (typed ascending pair), c = 0,
+chance ≈ 1/C(N,2). N 5..8. The shipping condition — the ringed pair maps
+to the SAME numbered pair under EVERY isomorphism — killed three
+hand-authored graphs during the wave (an unnoticed tail-swap symmetry, a
+chord's endpoint-swapping reflection, and a square-swap the author
+mis-analyzed): those graphs were redesigned until the brute-force check
+passed. Key pairs are all 18 distinct; no node number appears in more
+than 33% of keys. Answers re-derive from the two graph structures alone
+(the builder's permutation never ships in the payload).

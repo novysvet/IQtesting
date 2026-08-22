@@ -85,10 +85,11 @@ export interface SessionState {
  * test/budget-simulation.test.ts); adaptive stopping means typical
  * administrations finish well inside it, and the checkpoint clock-freeze
  * means multi-sitting administrations never burn budget between sections.
- * Symbol Scan's block runs on its own 2-minute section clock, which prices
- * the battery at 259 minutes at authoring.
+ * Symbol Scan's block runs on its own 2-minute section clock; the
+ * 2026-08-22 fluid-reasoning wave (Figure Weights + Graph Mapping) raised
+ * the battery from 259 to 286 minutes at authoring.
  */
-export const BATTERY_BUDGET_MIN = 259;
+export const BATTERY_BUDGET_MIN = 286;
 
 export interface SessionIdentity {
   sessionId?: string;

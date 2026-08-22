@@ -190,6 +190,47 @@ Ambiguous items are worse than easy items. Cut anything you cannot defend.
   `c = 1/20`, `answer` is the chosen option indices ascending,
   comma-joined (`"i,j,k"`). Rendered by `PuzzleTargetFigure` /
   `PuzzlePieceFigure` (`src/components/SpatialFigures.tsx`).
+- FIGURE WEIGHTS (Gq/RQ, Gf cross-loading): `render: { kind: "fweights",
+  weights, demo, query }` — `weights` is the hidden ground-truth integer
+  unit weight of each shape kind; `demo` holds balanced demonstration
+  scales ([left pan, right pan], pans 1..5 shapes); `query` is the final
+  scale whose right pan carries its partial load plus the implicit "?"
+  gap. Options are shape groups encoded as comma-joined shape ids
+  (`"tri,sq"`, groups of 1..4), 4 or 5 per item, c = 1/nOptions; `answer`
+  is the option index. Shape colors are FIXED per kind
+  (`ReasoningFigures.tsx`) and always redundant with geometry — color
+  vision is never required. SHIPPING CONTRACT (test/weights.test.ts, all
+  exact rational arithmetic over BigInt fractions): every demo balances
+  under the authored weights; the demo system has rank exactly
+  nShapes − 1 (weights determined up to ONE global scale factor); the key
+  weighs the query gap; every distractor's weight-gap functional lies
+  OUTSIDE the demo row space — exactly one option is consistent with the
+  displayed evidence; no two options share a weight; the key's value rank
+  among the options appears in ≤ 6/20 items (no "pick the middle");
+  key positions occupy all slots without cycling. Difficulty is authored
+  from content: shape-kind count, chained-scale count, substitution depth,
+  unit size, partial right pans; span −2.6..+2.4 (three-scale chains cap
+  below matrix reasoning — do not pad).
+- GRAPH MAPPING (Gf/I): `render: { kind: "graphmap", ref, scrambled }` —
+  `ref` is the model graph (authored planar layout, edges, and the two
+  ringed target nodes); `scrambled` is an isomorphic copy in a different
+  authored layout whose node index i displays the number i+1. The
+  examinee types the two numbers occupying the ringed roles: `answer` is
+  the ascending comma pair (`"3,7"`), constructed response, c = 0. The
+  bank's builder derives the scrambled edges and answer from an authored
+  permutation, but the render payload carries ONLY the two structures —
+  the key never ships. SHIPPING CONTRACT (test/graphmap.test.ts, brute
+  force over every N! isomorphism): the graphs are isomorphic; the image
+  of the ringed pair is the SAME pair under EVERY isomorphism
+  (automorphism-rigidity — no defensible alternative answer) and equals
+  the shipped key; reference node colors (renderer-derived from degree)
+  stay within the 1..5 degree colour map; reference drawings are planar;
+  the scrambled layout differs and crosses at b ≥ 1.65; targets sit in
+  crowded degree classes for b ≥ 0.15 (indirect) and are degree-readable
+  at b ≤ −2.0 (direct); no answer repeats and no node number appears in
+  > 40% of keys. Difficulty dials are the source paper's (Jastrzębski et
+  al. 2022): edge count, direct-vs-indirect targets, crossed drawings;
+  N 5..8, E 3..11; span −2.2..+2.2.
 
 ## Whole-page matching subtests (`Subtest.matching`)
 
@@ -318,28 +359,30 @@ definable pool's honest range), and the bank's test re-derives every `b`
 from the stored zipfs. The register-band and attestation rules above apply
 to the word bank (`matching.bank`) in place of `options`.
 
-## Subtest inventory (21 subtests, 260 active minutes)
+## Subtest inventory (23 subtests, 286 active minutes)
 
-Per-subtest budgets sum to exactly `BATTERY_BUDGET_MIN = 260`
+Per-subtest budgets sum to exactly `BATTERY_BUDGET_MIN = 286`
 (`src/core/session.ts`; asserted in `test/budget-simulation.test.ts`).
 Administration order lives in `src/battery.ts` (fixed, alternates
 modalities — no two adjacent sections share a broad factor); the table
 groups by broad factor — all seven broad abilities declared in
 `src/core/types.ts` are sampled, including RG via analyticalReasoning.
 NEW marks 2026-08-20 expansion rows; NEWER marks the 2026-08-21 redesign
-wave. `definitions` replaces `precisionLexicon` (Gc/VL, retired).
+wave; WAVE2 marks the 2026-08-22 fluid-reasoning additions.
+`definitions` replaces `precisionLexicon` (Gc/VL, retired).
 
 | id | name | broad | narrow | budget (min) | status |
 |---|---|---|---|---|---|
 | matrixReasoning | Matrix Reasoning | Gf | I | 21 | — |
 | figureSeries | Figure Series | Gf | I | 16 | — |
 | analyticalReasoning | Analytical Reasoning | Gf | RG | 14 | NEWER |
+| graphMapping | Graph Mapping | Gf | I | 12 | WAVE2 (Jastrzębski et al. 2022) |
 | verbalAnalogies | Verbal Analogies | Gc | LD | 11 | — |
 | generalInformation | General Information | Gc | K0 | 11 | — |
 | definitions | Definitions | Gc | VL | 8 | (replaces precisionLexicon) |
 | antonyms | Antonyms | Gc | VL | 10 | NEWER |
 | sentenceCompletion | Sentence Completion | Gc | LD | 10 | NEWER |
-| artificialLanguage | Artificial Language | Gc | LD | 12 | NEW |
+| artificialLanguage | Artificial Language | Gf | I | 12 | NEW; Gf since 2026-08-22 |
 | paperFolding | Paper Folding | Gv | Vz | 20 | — |
 | mentalRotation | Mental Rotation | Gv | SR | 14 | — |
 | visualPuzzles | Visual Puzzles | Gv | Vz | 9 | NEW |
@@ -349,6 +392,7 @@ wave. `definitions` replaces `precisionLexicon` (Gc/VL, retired).
 | numberSeries | Number Series | Gq | RQ | 16 | — |
 | quantComparison | Quantitative Comparison | Gq | RQ | 19 | — |
 | arithmetic | Mental Arithmetic | Gq | RQ | 14 | NEW |
+| figureWeights | Figure Weights | Gq | RQ | 15 | WAVE2 (Wechsler FRI format) |
 | symbolSearch | Symbol Scan | Gs | P | 2 | REBUILT 2026-08-22 (locate-and-click; replaces Yes/No Symbol Search) |
 | symbolSelection | Symbol Selection | Gs | P | 3 | NEWER (replaces charPairing) |
 | pairedAssociates | Paired Associates | Glr | MA | 15 | — |

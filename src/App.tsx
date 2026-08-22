@@ -15,6 +15,7 @@ import { Figure, FoldDiagram, HoleGrid, MatrixFigure, RotationFigure, SeriesFigu
 import { SymScanRun } from "./components/SpeedFigures.tsx";
 import { SymQueueRun } from "./components/SymQueue.tsx";
 import { BlocksFigure, PuzzleTargetFigure, PuzzlePieceFigure } from "./components/SpatialFigures.tsx";
+import { WeightsFigure, WeightGroupFigure, GraphFigure } from "./components/ReasoningFigures.tsx";
 import { MatchingScreen } from "./components/Matching.tsx";
 import { pairsDurationMs, spanDurationMs, spanFrame } from "./core/memoryTiming.ts";
 
@@ -120,6 +121,8 @@ function ItemVisual({ item, onMemoryReady, onMemoryInvalid }: { item: Item; onMe
   if (r.kind === "rotation") return <div className="rotation-target"><span className="label">Target</span><RotationFigure spec={r.target} size={112} /></div>;
   if (r.kind === "blocks") return <BlocksFigure cols={r.cols} rows={r.rows} heights={r.heights} />;
   if (r.kind === "vpuzzle") return <div className="puzzle-wrap"><span className="label">Target</span><PuzzleTargetFigure cols={r.cols} rows={r.rows} cells={r.target} /></div>;
+  if (r.kind === "fweights") return <WeightsFigure demo={r.demo} query={r.query} />;
+  if (r.kind === "graphmap") return <GraphFigure ref={r.ref} scrambled={r.scrambled} />;
   if (r.kind === "span" || r.kind === "pairs") return <MemoryPresentation render={r} onReady={onMemoryReady} onInvalid={onMemoryInvalid} />;
   return null;
 }
@@ -137,6 +140,9 @@ function OptionContent({ item, option, index }: { item: Item; option: string; in
   // the original option index always addresses a candidate directly.
   if (r?.kind === "rotation") return <RotationFigure spec={r.candidates[index]!} size={72} />;
   if (r?.kind === "vpuzzle") return <PuzzlePieceFigure cells={r.pieces[index] ?? []} cols={r.cols} />;
+  // Figure Weights options are shape groups encoded as "tri,sq" — the option
+  // string itself (already the ORIGINAL index's string) is the payload.
+  if (r?.kind === "fweights") return <WeightGroupFigure group={option} />;
   return <span>{option}</span>;
 }
 

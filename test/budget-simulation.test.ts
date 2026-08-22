@@ -15,6 +15,8 @@ function itemSeconds(kind: string | undefined, subtestId: string): number {
     case "symqueue": return 7;    // speeded key selection per queue
     case "blocks": return 35;    // isometric counting
     case "vpuzzle": return 40;   // assembly under exact-3 selection
+    case "fweights": return 55;  // balance-scale equivalence chains (untimed power)
+    case "graphmap": return 65;  // structure tracing + typed pair response
     default: return 48;
   }
 }
