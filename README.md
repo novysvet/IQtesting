@@ -2,9 +2,17 @@
 
 A browser-administered adaptive cognitive battery built around the
 Cattell–Horn–Carroll model: 21 subtests sampling seven broad abilities
-(Gf, Gc, Gv, Gwm, Gq, Gs, Glr) over a 438-item pool (inventory in
+(Gf, Gc, Gv, Gwm, Gq, Gs, Glr) over a 440-item pool (inventory in
 `src/battery.ts`), scored with 3PL IRT, EAP estimation, and
 maximum-information routing.
+
+Construct notes: `artificialLanguage` follows the 1926-SAT verbal lineage
+but its worked-example grammar task is best interpreted as mixed Gf x Glr
+(novel-rule application) rather than pure crystallized knowledge; and
+`symbolSelection` samples Gs through choice reaction (P + R9). A
+corpus-calibrated 50-item `precisionLexicon` bank also exists in
+`src/items/gc.ts` as a calibrated reserve - it is not part of the
+administered battery.
 
 ## Contents
 

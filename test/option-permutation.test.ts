@@ -65,7 +65,7 @@ test("positions are balanced across many sessions (no systematic bias)", () => {
   const expected = trials / n;
   for (const count of counts) {
     assert.ok(
-      Math.abs(count - expected) < expected * 0.25,
+      Math.abs(count - expected) < expected * 0.12,
       `slot imbalance: ${counts.join(",")} vs expected ~${expected}`,
     );
   }

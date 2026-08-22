@@ -233,3 +233,29 @@ test("keys do not alternate with item parity or track difficulty position", () =
   const rate = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
   assert.ok(Math.abs(rate(hi) - rate(lo)) < 0.4, "Yes-rate splits by difficulty (" + rate(lo).toFixed(2) + " low vs " + rate(hi).toFixed(2) + " high)");
 });
+
+test("authored a is not lockstepped to difficulty", () => {
+  // Guard for the parameters-by-position anti-pattern (DIFFICULTY_AUDIT.md
+  // section 1): before the 2026-08-21 hand-decoupling, a climbed with b at
+  // corr(a,b) = 0.97, so routing priors could not separate discrimination
+  // from difficulty in this bank. ssr-002/006/008 now carry high a at easy b
+  // and ssr-021/024/027 low a at hard b; this keeps future edits from
+  // silently re-collapsing the two parameters. Refit from response data
+  // remains mandatory before treating either parameter as calibrated.
+  const n = items.length;
+  const ma = items.reduce((s, i) => s + i.a, 0) / n;
+  const mb = items.reduce((s, i) => s + i.b, 0) / n;
+  let sxy = 0, sxx = 0, syy = 0;
+  for (const i of items) {
+    const da = i.a - ma;
+    const db = i.b - mb;
+    sxy += da * db;
+    sxx += da * da;
+    syy += db * db;
+  }
+  const r = sxy / Math.sqrt(sxx * syy);
+  assert.ok(
+    Math.abs(r) < 0.9,
+    "corr(a,b) = " + r.toFixed(3) + " - discrimination has re-lockstepped to difficulty",
+  );
+});

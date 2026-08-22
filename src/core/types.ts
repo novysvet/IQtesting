@@ -26,7 +26,7 @@ export type NarrowAbility =
   | "RQ" // Quantitative reasoning
   // Gc
   | "VL" // Lexical knowledge
-  | "K0" // General verbal information
+  | "KO" // General verbal information (General Knowledge)
   | "LD" // Language development
   // Gv
   | "Vz" // Visualization
@@ -39,6 +39,7 @@ export type NarrowAbility =
   | "A3" // Mathematical achievement
   // Gs
   | "P" // Perceptual speed (scanning; symbol/digit pairing under time pressure)
+  | "R9" // Reaction speed (simple/choice reaction; psychomotor speed)
   // Glr
   | "MA" // Associative memory
   | "M6"; // Free recall memory

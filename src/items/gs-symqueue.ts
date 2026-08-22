@@ -2,8 +2,9 @@ import type { Subtest } from "../core/types.ts";
 import { areTwins } from "../components/glyphCatalog.ts";
 
 /**
- * Gs - Symbol Selection (syq-001..020), narrow ability P (perceptual-motor
- * speed: symbol-key lookup under time pressure).
+ * Gs - Symbol Selection (syq-001..020), narrow abilities P + R9
+ * (perceptual-motor speed: visible symbol-key lookup = P-flavored scanning;
+ * keyed choice reaction under a per-item cap = R9 reaction speed).
  *
  * REDESIGN NOTE (replaces the retired WAIS-style Character Pairing bank,
  * cpm-001..020): transcription coding was retired because typing a digit
@@ -68,13 +69,13 @@ function queueItem(
   queue: string[],
   untimed = false,
 ): {
-  id: string; subtest: "symbolSelection"; broad: "Gs"; narrow: "P";
+  id: string; subtest: "symbolSelection"; broad: "Gs"; narrow: "R9";
   a: number; b: number; c: 0;
   prompt: string; answer: string; timeLimitSec: number | undefined;
   render: { kind: "symqueue"; legend: [string, string][]; queue: string[] };
 } {
   return {
-    id, subtest: "symbolSelection", broad: "Gs", narrow: "P",
+    id, subtest: "symbolSelection", broad: "Gs", narrow: "R9",
     a, b, c: 0,
     prompt: "Press the key matching the highlighted symbol.",
     answer: queue.map((g) => KEY_FOR.get(g)!).join(""),
@@ -87,7 +88,7 @@ export const symbolSelection: Subtest = {
   id: "symbolSelection",
   name: "Symbol Selection",
   broad: "Gs",
-  narrow: ["P"],
+  narrow: ["P", "R9"],
   instructions:
     "Eight symbols map to the eight home-row keys, shown in the legend above every item. Symbols appear in a queue; the current symbol is enlarged. Press its key to advance - a wrong press records an error and the queue waits for the right key. Complete each queue as fast as you can without errors.",
   budgetMin: 3,

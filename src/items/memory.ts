@@ -360,6 +360,10 @@ export const letterNumberSeq: Subtest = {
  * MARSH, MEADOW, WHEEL, WINDOW, DOORPOST/DOOR — proactive-interference noise
  * not represented in any parameter) were replaced with fresh concrete nouns,
  * and the multi-word target in pas-011 ("RED ORE") became a single word.
+ *
+ * Ceiling extension (2026-08-21 design review): pas-015/016 add 10- and
+ * 11-pair lists at b +1.2/+1.4 with fresh unique nouns, so Glr evidence now
+ * exists above +1 sigma instead of topping out at the single-probe floor.
  */
 export const pairedAssociates: Subtest = {
   id: "pairedAssociates",
@@ -485,6 +489,20 @@ export const pairedAssociates: Subtest = {
       prompt: "Which word was paired with CROSSBAR?",
       answer: "MARSH",
       render: { kind: "pairs", pairs: [["WEDGE", "MOUNTAIN LAKE"], ["ARCH", "BORAX"], ["DRUM", "GANNET"], ["DIVIDER", "GNEISS"], ["CROSSBAR", "MARSH"], ["BALCONY", "CHERT"], ["CEILING", "PLOVER"], ["CORNER", "SILT"], ["LINTEL", "SLOUGH"]] },
+    },
+    {
+      id: "pas-015", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
+      a: 1.0, b: 1.2, c: 0,
+      prompt: "Which word was paired with ANVIL?",
+      answer: "EMBER",
+      render: { kind: "pairs", pairs: [["ANVIL", "EMBER"], ["BEACON", "FALCON"], ["CELLAR", "CHISEL"], ["DAMPER", "GABLE"], ["HAMMOCK", "INLET"], ["JUG", "KEG"], ["LOOM", "MORTAR"], ["NOZZLE", "OAR"], ["PADDLE", "RAMPART"], ["TROUGH", "URN"]] },
+    },
+    {
+      id: "pas-016", subtest: "pairedAssociates", broad: "Glr", narrow: "MA",
+      a: 1.0, b: 1.4, c: 0,
+      prompt: "Which word was paired with TILLER?",
+      answer: "SCYTHE",
+      render: { kind: "pairs", pairs: [["VANE", "YOKE"], ["ABACUS", "DUNE"], ["FLUKE", "GORGE"], ["HUSK", "IGLOO"], ["KITE", "MOSS"], ["PLOW", "REEF"], ["SIEVE", "THORN"], ["VAULT", "WHARF"], ["SPROCKET", "CRUCIBLE"], ["LEDGE", "GAVEL"], ["TILLER", "SCYTHE"]] },
     },
   ],
 };

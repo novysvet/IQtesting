@@ -51,11 +51,14 @@ const SS_OPTIONS = ["No", "Yes"];
 //   tier H  ssr-021..030  8-glyph rows, dense confusable families, 3
 //                          near-misses, rot twins ADJACENT to the embedded
 //                          target                     b +0.45 .. +1.2
-// a spans 1.1-1.5 but climbs in near-lockstep with b (corr(a,b) = 0.97
-// over the 30 items; tier mean a steps 1.15 -> 1.29 -> 1.44 E/M/H) - the
-// "parameters-by-position" pattern DIFFICULTY_AUDIT.md section 1 flags as
-// an anti-pattern. Authored estimate only: refit a from response data
-// before treating discrimination as independent of difficulty here.
+// a spans the same 1.1-1.5 band but is now HAND-DECOUPLED from b
+// (2026-08-21, design-review follow-up): six items sit deliberately off the
+// difficulty trend - ssr-002/006/008 carry high discrimination at easy b,
+// ssr-021/024/027 low discrimination at hard b - breaking the former
+// corr(a,b) = 0.97 lockstep (the "parameters-by-position" pattern
+// DIFFICULTY_AUDIT.md section 1 flags). test/symsearch.test.ts guards
+// |r| < 0.90 so future edits cannot silently re-collapse it. Authored
+// estimates only: still refit a from response data before norming.
 // ---------------------------------------------------------------------------
 
 /** Authored ladder: 30 items in difficulty order, Yes/No content intact. */
@@ -77,7 +80,7 @@ const SEARCH_BANK: Item[] = [
     },
     {
       id: "ssr-002", subtest: "symbolSearch", broad: "Gs", narrow: "P",
-      a: 1.1, b: -1.9, c: 0.5, timeLimitSec: 15,
+      a: 1.45, b: -1.9, c: 0.5, timeLimitSec: 15, // high-a/low-b (decoupled)
       // No: tri:solid near-misses tri:none, sq:none near-misses sq:solid
       //   (both fill changes at maximum salience); 3 disjoint fillers.
       prompt: "Is either target symbol present in the search group?",
@@ -133,7 +136,7 @@ const SEARCH_BANK: Item[] = [
     },
     {
       id: "ssr-006", subtest: "symbolSearch", broad: "Gs", narrow: "P",
-      a: 1.15, b: -1.3, c: 0.5, timeLimitSec: 15,
+      a: 1.35, b: -1.3, c: 0.5, timeLimitSec: 15, // high-a/low-b (decoupled)
       // No: arw:none near-misses arw:solid, hex:solid near-misses hex:none;
       //   sq/cross/cir fillers disjoint.
       prompt: "Is either target symbol present in the search group?",
@@ -161,7 +164,7 @@ const SEARCH_BANK: Item[] = [
     },
     {
       id: "ssr-008", subtest: "symbolSearch", broad: "Gs", narrow: "P",
-      a: 1.2, b: -1.1, c: 0.5, timeLimitSec: 15,
+      a: 1.5, b: -1.1, c: 0.5, timeLimitSec: 15, // high-a/low-b (decoupled)
       // No: cross:none near-misses cross:solid, dia:solid near-misses
       //   dia:none; tri/star/hex fillers disjoint.
       prompt: "Is either target symbol present in the search group?",
@@ -352,7 +355,7 @@ const SEARCH_BANK: Item[] = [
     },
     {
       id: "ssr-021", subtest: "symbolSearch", broad: "Gs", narrow: "P",
-      a: 1.4, b: 0.45, c: 0.5, timeLimitSec: 25,
+      a: 1.1, b: 0.45, c: 0.5, timeLimitSec: 25, // low-a/high-b (decoupled)
       // Yes: first 8-glyph row. arw:solid embedded at index 4; tri:solid
       //   near-misses the absent tri:none at the row end; arw:none:45 is a
       //   fill near-miss of the PRESENT target - two arrows in the row.
@@ -396,7 +399,7 @@ const SEARCH_BANK: Item[] = [
     },
     {
       id: "ssr-024", subtest: "symbolSearch", broad: "Gs", narrow: "P",
-      a: 1.4, b: 0.75, c: 0.5, timeLimitSec: 25,
+      a: 1.18, b: 0.75, c: 0.5, timeLimitSec: 25, // low-a/high-b (decoupled)
       // No: 8 glyphs, 3 near-misses across both families: cir:solid (fill),
       //   star:hatch (fill) and star:solid:45 (rot) vs the star:solid target.
       prompt: "Is either target symbol present in the search group?",
@@ -439,7 +442,7 @@ const SEARCH_BANK: Item[] = [
     },
     {
       id: "ssr-027", subtest: "symbolSearch", broad: "Gs", narrow: "P",
-      a: 1.5, b: 1.0, c: 0.5, timeLimitSec: 25,
+      a: 1.12, b: 1.0, c: 0.5, timeLimitSec: 25, // low-a/high-b (decoupled)
       // Yes: 8 glyphs. hex:half:45 embedded at index 4 with its rot twin
       //   hex:half:0 ADJACENT at index 3 (half-fill rotates with the hex);
       //   arw:none:45 near-misses the absent arw:none at the row end.

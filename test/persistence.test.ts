@@ -134,3 +134,13 @@ test("correlated-error floor keeps pooled SEs honest", () => {
   assert.ok(pooled.se >= 0.30 - 1e-9, "pooled SE undercut the best component");
   assert.ok(pooled.se <= 0.32, "floor should equal the min component SE here");
 });
+
+test("a save from another bank version is refused on load", () => {
+  const storage = memoryStorage();
+  const state = driveSomeItems(BATTERY, 3, 5_000_000);
+  saveSession(state, storage, 5_001_000);
+  // Same-bank restore works; any other bank version must be rejected so a
+  // stale save can never mix responses across edited parameters.
+  assert.ok(loadSession(storage, state.bankVersion), "same-version restore refused");
+  assert.equal(loadSession(storage, "cafebabe"), null, "stale version was accepted");
+});

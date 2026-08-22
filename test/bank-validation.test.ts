@@ -7,7 +7,7 @@ const items = BATTERY.flatMap((s) => s.items);
 
 test("battery contains the complete authored pool", () => {
   assert.equal(BATTERY.length, 21);
-  assert.equal(items.length, 438);
+  assert.equal(items.length, 440);
 });
 
 test("all item and subtest identifiers are unique", () => {
@@ -84,7 +84,7 @@ const HONEST_SPANS: Record<string, { floor: number; ceiling: number }> = {
   analyticalReasoning: { floor: -1.5, ceiling: 2.5 },
   antonyms: { floor: -1.44, ceiling: 2.28 },
   sentenceCompletion: { floor: -2.0, ceiling: 2.4 },
-  pairedAssociates: { floor: -1.5, ceiling: 0.9 },
+  pairedAssociates: { floor: -1.5, ceiling: 1.4 },
 };
 
 test("every subtest reaches its audit-honest basal and ceiling", () => {

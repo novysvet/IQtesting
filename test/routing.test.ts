@@ -132,3 +132,47 @@ test("exhausted pool stops cleanly", () => {
   assert.equal(second.item, null);
   assert.equal(second.stopReason, "exhausted");
 });
+
+test("precision stop fires once SE reaches target past minItems", () => {
+  // Mid-pool alternating responder keeps theta near entry, where information
+  // is maximal, so SE falls steadily as items accumulate. The other stop
+  // rules are disarmed (huge miss allowance, generous maxItems) so ONLY the
+  // SE<=targetSe rule can end the route.
+  const pool = Array.from({ length: 12 }, (_, k) =>
+    mk(`pin-${k}`, -1.4 + k * 0.25),
+  ).map((it) => ({ ...it, a: 1.7 }));
+  const cfgP: RoutingConfig = {
+    maxItems: 20, minItems: 4, ceilingMisses: 99, targetSe: 0.65, entryTheta: 0,
+  };
+  let st = initRouting(cfgP);
+  let guard = 0;
+  let served = 0;
+  for (;;) {
+    const step = nextItem(pool, st, cfgP);
+    if (!step.item) {
+      assert.equal(step.stopReason, "precision", "expected a precision stop");
+      break;
+    }
+    served++;
+    st = applyResponse(st, step.item!, resp(step.item!.id, served % 2 === 1));
+    if (guard++ > 50) throw new Error("precision-stop simulation did not terminate");
+  }
+  assert.ok(served >= cfgP.minItems, "precision fired before minItems");
+  assert.ok(served < cfgP.maxItems, "SE never reached target within maxItems");
+});
+
+test("interrupted responses do not feed the discontinue miss streak", () => {
+  // Mirrors session-level censoring at the routing layer directly: an ability-
+  // uncorrelated interruption must leave consecutiveMisses untouched, while a
+  // real miss increments and a hit resets.
+  const it0 = mk("rz-1", 0);
+  const cfgX: RoutingConfig = { ...cfg, minItems: 1, maxItems: 10 };
+  let st = initRouting(cfgX);
+  const offer = nextItem([it0], st, cfgX).item!;
+  st = applyResponse(st, offer, resp(offer.id, false));
+  assert.equal(st.consecutiveMisses, 1, "plain miss must increment the streak");
+  st = applyResponse(st, offer, { ...resp(offer.id, false), interrupted: true });
+  assert.equal(st.consecutiveMisses, 1, "interruption must NOT feed the streak");
+  st = applyResponse(st, offer, resp(offer.id, true));
+  assert.equal(st.consecutiveMisses, 0, "a hit must reset the streak");
+});

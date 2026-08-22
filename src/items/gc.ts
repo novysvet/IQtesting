@@ -304,14 +304,14 @@ export const verbalAnalogies: Subtest = {
  * place). Order is audit-derived; parameters remain authored estimates.
  */
 export const generalInformation: Subtest = {
-  id: "generalInformation", name: "General Information", broad: "Gc", narrow: ["K0"],
+  id: "generalInformation", name: "General Information", broad: "Gc", narrow: ["KO"],
   instructions: "Choose the best answer to each question. Questions sample learned knowledge across science, history, language, and the humanities.",
   budgetMin: 11,
   routing: { maxItems: 15, minItems: 7, ceilingMisses: 4, targetSe: 0.50, entryTheta: 0 },
   // Unscored sample: elementary general knowledge, no domain exposure needed.
   practice: [
     {
-      id: "prac-gin-01", subtest: "generalInformation", broad: "Gc", narrow: "K0",
+      id: "prac-gin-01", subtest: "generalInformation", broad: "Gc", narrow: "KO",
       a: 1.35, b: -3, c: 0.2,
       prompt: "How many days are there in a week?",
       options: ["Five", "Six", "Seven", "Eight", "Ten"],
@@ -319,7 +319,7 @@ export const generalInformation: Subtest = {
       render: { kind: "text" },
     },
     {
-      id: "prac-gin-02", subtest: "generalInformation", broad: "Gc", narrow: "K0",
+      id: "prac-gin-02", subtest: "generalInformation", broad: "Gc", narrow: "KO",
       a: 1.35, b: -3, c: 0.2,
       prompt: "How many minutes are there in one hour?",
       options: ["Thirty", "Forty-five", "Sixty", "Ninety", "One hundred"],
@@ -327,5 +327,5 @@ export const generalInformation: Subtest = {
       render: { kind: "text" },
     },
   ],
-  items: buildItems("gin", "generalInformation", "K0", informationData),
+  items: buildItems("gin", "generalInformation", "KO", informationData),
 };

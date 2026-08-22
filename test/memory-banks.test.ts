@@ -156,7 +156,7 @@ test("pas words are unique across lists, targets are single words, and b climbs 
     }
 
     // List length grows 3..9 and b is strictly increasing with list length.
-    assert.ok(r.pairs.length >= 3 && r.pairs.length <= 9, item.id + ": list length outside 3..9");
+    assert.ok(r.pairs.length >= 3 && r.pairs.length <= 11, item.id + ": list length outside 3..11");
     assert.ok(r.pairs.length >= prevLength, item.id + ": list length shrank");
     assert.ok(item.b > prevB, item.id + ": b is not strictly increasing down the bank");
     if (firstLength === 0) firstLength = r.pairs.length;
@@ -164,7 +164,7 @@ test("pas words are unique across lists, targets are single words, and b climbs 
     prevB = item.b;
   }
   assert.equal(firstLength, 3, "pas ladder should start at 3 pairs");
-  assert.equal(prevLength, 9, "pas ladder should top out at 9 pairs");
+  assert.equal(prevLength, 11, "pas ladder should top out at 11 pairs");
 });
 
 test("new length-10 ceiling items exist with the audit-anchored parameters", () => {

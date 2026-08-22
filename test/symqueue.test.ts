@@ -52,7 +52,7 @@ test("subtest metadata and routing match the frozen spec", () => {
   assert.equal(symbolSelection.id, "symbolSelection");
   assert.equal(symbolSelection.name, "Symbol Selection");
   assert.equal(symbolSelection.broad, "Gs");
-  assert.deepEqual(symbolSelection.narrow, ["P"]);
+  assert.deepEqual(symbolSelection.narrow, ["P", "R9"]);
   assert.equal(symbolSelection.budgetMin, 3);
   assert.deepEqual(symbolSelection.routing, {
     maxItems: 18, minItems: 8, ceilingMisses: 6, targetSe: 0.50, entryTheta: 0,
@@ -197,7 +197,7 @@ test("ids unique, c = 0 exact-match scoring, constant prompt, no duplicate queue
     assert.equal(item.c, 0, item.id + " c must be 0 (exact-match constructed response)");
     assert.equal(item.subtest, "symbolSelection", item.id + " subtest tag");
     assert.equal(item.broad, "Gs", item.id + " broad tag");
-    assert.equal(item.narrow, "P", item.id + " narrow tag");
+    assert.equal(item.narrow, "R9", item.id + " narrow tag");
     assert.equal(
       item.prompt,
       "Press the key matching the highlighted symbol.",

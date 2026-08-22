@@ -131,3 +131,18 @@ test("the g-weight map is pinned and covers every factor in the battery", () => 
     assert.ok(w > 0 && w <= 1, "g-weight " + w + " outside the (0, 1] band");
   }
 });
+
+test("G_WEIGHTS matches the literature-informed table exactly", () => {
+  // The map is relative loading (sums to 5.6; scoreComposite normalises by
+  // sumW), so freezing the LITERAL values - not a unit sum - is what pins
+  // FSIQ composition. A silent reweight shifts every reported g score.
+  assert.deepEqual(G_WEIGHTS, {
+    Gf: 1.0,
+    Gc: 0.95,
+    Gq: 0.9,
+    Gwm: 0.75,
+    Gv: 0.7,
+    Gs: 0.7,
+    Glr: 0.6,
+  });
+});

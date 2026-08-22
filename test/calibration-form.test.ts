@@ -85,3 +85,17 @@ test("the form variant is stamped into bankVersion", () => {
   assert.equal(bankVersion(BATTERY, CALIBRATION_FORM_TAG), calibration, "variant hash must be deterministic");
   assert.equal(bankVersion(BATTERY), adaptive);
 });
+
+test("calibration sessions still open with the practice walk", () => {
+  // Determinism applies to SCORED pages: instruction-comprehension samples
+  // must precede the form exactly as in adaptive mode, or calibration data
+  // would measure format learning instead of ability.
+  const subtest = BATTERY.find((s) => s.id === "numberSeries")!;
+  let s = beginBattery(initSession([subtest], { sessionId: "cal-2", form: "calibration" }), 0);
+  s = startSubtest(s, 0, 1000);
+  assert.equal(s.phase.kind, "practice", "fixed forms must not skip practice samples");
+  s = answerPractice(s, 2000);
+  assert.equal(s.phase.kind, "practice");
+  s = answerPractice(s, 3000);
+  assert.equal(s.phase.kind, "item");
+});
